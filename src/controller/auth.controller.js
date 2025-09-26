@@ -4,7 +4,7 @@ import {
 } from "../validations/auth.validations.js";
 
 import { AuthService } from "../services/auth.services.js";
-export { handleControllerError } from "../utils/validation.utils.js";
+import { handleControllerError } from "../utils/validation.utils.js";
 
 export class AuthController {
   static async register(req, res) {

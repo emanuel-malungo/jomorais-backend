@@ -7,7 +7,7 @@ export const seedAdminUser = async () => {
     username: "emalungo",
     email: "emanuelmalungo856@gmail.com",
     password: "Emalungo@123",
-    tipo: "admin"
+    tipo: 0
   };
 
   try {
