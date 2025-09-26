@@ -1,0 +1,179 @@
+// prisma/schema.prisma
+datasource db {
+  provider = "sqlite" // ou "postgresql" no futuro
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =====================
+// ENUMS
+// =====================
+enum EstadoFinanceiro {
+  EM_DIA
+  EM_ATRASO
+  SUSPENSO
+}
+
+enum Turno {
+  MANHA
+  TARDE
+  NOITE
+}
+
+enum StatusMatricula {
+  ATIVO
+  CONCLUIDO
+  SUSPENSO
+}
+
+enum CargoFuncionario {
+  PROFESSOR
+  ADMINISTRATIVO
+  GESTOR
+}
+
+enum NivelAcesso {
+  LEITURA
+  ESCRITA
+  ADMIN
+}
+
+// =====================
+// MODELOS
+// =====================
+
+model Aluno {
+  id_aluno           Int         @id @default(autoincrement())
+  nome              String
+  data_nascimento   DateTime
+  genero            String
+  nome_encarregado  String
+  contato_encarregado String
+  numero_matricula  String       @unique
+  estado_financeiro EstadoFinanceiro
+
+  // Relacionamentos
+  matriculas        Matricula[]
+  documentos        Documento[]
+}
+
+model Sala {
+  id_sala   Int     @id @default(autoincrement())
+  nome_sala String
+  capacidade Int
+
+  turmas    Turma[]
+}
+
+model Turma {
+  id_turma   Int     @id @default(autoincrement())
+  nome_turma String
+  turno      Turno
+  id_sala    Int
+
+  // Relacionamentos
+  sala       Sala     @relation(fields: [id_sala], references: [id_sala])
+  matriculas Matricula[]
+}
+
+model Classe {
+  id_classe   Int     @id @default(autoincrement())
+  nome_classe String
+  ciclo       String // pode ser enum se quiser restringir (ex.: INICIACAO, PRIMEIRO_CICLO...)
+
+  // Relacionamentos
+  matriculas  Matricula[]
+}
+
+model Curso {
+  id_curso   Int     @id @default(autoincrement())
+  nome_curso String
+  descricao  String
+
+  // Relacionamentos
+  matriculas Matricula[]
+  disciplinas Disciplina[]
+}
+
+model Matricula {
+  id_matricula   Int     @id @default(autoincrement())
+  id_aluno       Int
+  id_turma       Int
+  id_classe      Int
+  id_curso       Int?
+  ano_letivo     String
+  data_matricula DateTime
+  status         StatusMatricula
+
+  // Relacionamentos
+  aluno       Aluno      @relation(fields: [id_aluno], references: [id_aluno])
+  turma       Turma      @relation(fields: [id_turma], references: [id_turma])
+  classe      Classe     @relation(fields: [id_classe], references: [id_classe])
+  curso       Curso?     @relation(fields: [id_curso], references: [id_curso])
+
+  pagamentos  Pagamento[]
+  notas       Nota[]
+}
+
+model Pagamento {
+  id_pagamento     Int     @id @default(autoincrement())
+  id_matricula     Int
+  mes_referente    String
+  valor            Float
+  data_pagamento   DateTime
+  id_funcionario   Int
+  comprovativo_fatura String
+
+  // Relacionamentos
+  matricula   Matricula   @relation(fields: [id_matricula], references: [id_matricula])
+  funcionario Funcionario @relation(fields: [id_funcionario], references: [id_funcionario])
+}
+
+model Funcionario {
+  id_funcionario Int    @id @default(autoincrement())
+  nome          String
+  cargo         CargoFuncionario
+  username      String  @unique
+  senha         String
+  nivel_acesso  NivelAcesso
+
+  // Relacionamentos
+  pagamentos    Pagamento[]
+  notas         Nota[]
+}
+
+model Disciplina {
+  id_disciplina   Int    @id @default(autoincrement())
+  nome_disciplina String
+  id_curso        Int?
+
+  curso Curso? @relation(fields: [id_curso], references: [id_curso])
+  notas Nota[]
+}
+
+model Nota {
+  id_nota        Int    @id @default(autoincrement())
+  id_matricula   Int
+  id_disciplina  Int
+  id_funcionario Int
+  periodo        String
+  valor_nota     Float
+
+  // Relacionamentos
+  matricula   Matricula   @relation(fields: [id_matricula], references: [id_matricula])
+  disciplina  Disciplina  @relation(fields: [id_disciplina], references: [id_disciplina])
+  funcionario Funcionario @relation(fields: [id_funcionario], references: [id_funcionario])
+}
+
+model Documento {
+  id_documento  Int    @id @default(autoincrement())
+  id_aluno      Int
+  tipo_documento String
+  arquivo       String
+  data_upload   DateTime
+
+  aluno Aluno @relation(fields: [id_aluno], references: [id_aluno])
+}
