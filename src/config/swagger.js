@@ -2,8 +2,6 @@
 import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -11,12 +9,26 @@ const swaggerOptions = {
       title: "Jomorais Backend API",
       version: "1.0.0",
       description: "📚 Documentação do Sistema de Gestão Escolar Jomorais",
+      contact: {
+        name: "Jomorais Team",
+        email: "dev@jomorais.com"
+      }
     },
     servers: [
       {
-        url: `${BASE_URL}`,
+        url: process.env.BASE_URL || "http://localhost:8000",
+        description: "Servidor de desenvolvimento"
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT"
+        }
+      }
+    }
   },
   apis: ["./src/routes/*.js"],
 };
@@ -24,6 +36,21 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
 
 export const swaggerDocs = (app) => {
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  console.log(`🚀 Swagger rodando em: ${BASE_URL}/docs`);
+  // Rota para documentação Swagger
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "Jomorais API Documentation"
+  }));
+  
+
+  
+  // Rota para obter o JSON da especificação
+  app.get("/docs.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+  });
+
+  console.log(`📚 Swagger UI disponível em: ${process.env.BASE_URL || "http://localhost:8000"}/docs`);
+  console.log(`📄 Swagger JSON em: ${process.env.BASE_URL || "http://localhost:8000"}/docs.json`);
 };
