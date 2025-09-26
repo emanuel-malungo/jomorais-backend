@@ -76,13 +76,14 @@ model tb_item_permissao_utilizador {
   codigo_Utilizador Int      @map("Codigo_Utilizador")
   data_Permissao    DateTime @db.Date @map("Data_Permissao")
   status            String   @db.VarChar(45) @default("desactivo") @map("status")
-  data_Inicio       DateTime @db.Date @default("1970-01-01T00:00:00.000Z") @map("Data_Inicio")
-  data_fin         DateTime  @db.Date @default("1970-01-01T00:00:00.000Z") @map("Data_fin")
+  data_Inicio       DateTime @db.Date @map("Data_Inicio")
+  data_fin         DateTime  @db.Date @map("Data_fin")
 
   // Relacionamentos
-  tb_permissao    tb_permissao    @relation(fields: [codigo_Permissao], references: [codigo])
+  tb_permissao    tb_permissao?    @relation(fields: [codigo_Permissao], references: [codigo])
   tb_utilizadores tb_utilizadores @relation(fields: [codigo_Utilizador], references: [codigo])
 
+  @@index([codigo_Permissao], name: "FK_tb_item_permissao_utilizador_1")
   @@index([codigo_Utilizador], name: "FK_tb_item_permissao_utilizador_2")
 }
 
@@ -108,7 +109,7 @@ model tb_nacionalidades {
 }
 
 model tb_estado_civil {
-  codigo     Int      @id @default(autoincrement())
+  codigo     Int      @id @default(autoincrement()) @map("Codigo")
   designacao String   @db.VarChar(45) @map("Designacao")
 }
 
@@ -155,6 +156,8 @@ model tb_tipo_documento {
   
   // Relacionamentos
   tb_alunos  tb_alunos[]
+  
+  @@map("tb_tipo_docuemnto")
 }
 
 // ===============================================================
@@ -237,9 +240,8 @@ model tb_ano_lectivo {
 
 model tb_cursos {
   codigo        Int      @id @default(autoincrement()) @map("Codigo")
-  designacao    String?  @db.VarChar(200) @map("Designacao")
+  designacao    String?  @db.VarChar(45) @map("Designacao")
   codigo_Status Int?     @default(1) @map("codigo_Status")
-  user_id       BigInt?  @default(1) @map("user_id")
   
   // Relacionamentos
   tb_matriculas        tb_matriculas[]
@@ -382,6 +384,7 @@ model tb_docente {
   tb_docente_turma       tb_docente_turma[]
 
   @@index([status], name: "FK_tb_docente_1")
+  @@index([codigo_disciplina], name: "FK_tb_docente_2")
   @@index([user_id], name: "FK_tb_docente_3")
 }
 
@@ -428,7 +431,7 @@ model tb_docente_turma {
   @@id([codigo_Docente, codigo_turma], name: "PRIMARY")
   @@index([codigo_Docente], name: "FK_docente_turma_1")
   @@index([codigo_turma], name: "FK_docente_turma_2")
-  @@map("tb_docente_turma")
+  @@map("tb_docente_tuma")
 }
 
 // ===============================================================
@@ -656,8 +659,8 @@ model tb_motivo_isencao {
 model tb_tipo_taxa_iva {
   codigo       Int      @id @default(autoincrement()) @map("Codigo")
   taxa         Int      @default(0) @map("Taxa")
-  designacao   String   @db.VarChar(45) @default("") @map("Designacao")
-  codigo_Isencao Int    @default(0) @map("Codigo_Isencao")
+  designacao   String?  @db.VarChar(45) @default("") @map("Designacao")
+  codigo_Isencao Int?   @default(0) @map("Codigo_Isencao")
   status       String   @db.VarChar(45) @default("Activo") @map("Status")
   
   // Relacionamentos
