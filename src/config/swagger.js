@@ -42,15 +42,6 @@ export const swaggerDocs = (app) => {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: "Jomorais API Documentation"
   }));
-  
-
-  
-  // Rota para obter o JSON da especificação
-  app.get("/docs.json", (req, res) => {
-    res.setHeader("Content-Type", "application/json");
-    res.send(swaggerSpec);
-  });
 
   console.log(`📚 Swagger UI disponível em: ${process.env.BASE_URL || "http://localhost:8000"}/docs`);
-  console.log(`📄 Swagger JSON em: ${process.env.BASE_URL || "http://localhost:8000"}/docs.json`);
 };
