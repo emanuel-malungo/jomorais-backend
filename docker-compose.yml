@@ -1,0 +1,66 @@
+services:
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: jomorais_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: gestao_escolar
+      MYSQL_USER: jomorais_user
+      MYSQL_PASSWORD: jomorais_password
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      MYSQL_RANDOM_ROOT_PASSWORD: "no"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./prisma/database/jomorais_database.sql:/docker-entrypoint-initdb.d/jomorais_database.sql:ro
+    networks:
+      - jomorais_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Application Service
+  app:
+    build: .
+    container_name: jomorais_api
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DATABASE_URL: "mysql://jomorais_user:jomorais_password@mysql:3306/gestao_escolar"
+      NODE_ENV: development
+      JWT_SECRET: your_jwt_secret_here
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - jomorais_network
+    command: sh -c "sleep 30 && npx prisma db push && npm run dev"
+
+  # phpMyAdmin (optional - for database management)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: jomorais_phpmyadmin
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: jomorais_user
+      PMA_PASSWORD: jomorais_password
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
+    networks:
+      - jomorais_network
+
+volumes:
+  mysql_data:
+
+networks:
+  jomorais_network:
+    driver: bridge

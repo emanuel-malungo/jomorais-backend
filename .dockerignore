@@ -1,0 +1,18 @@
+node_modules/
+.env
+.env.local
+.env.production
+.env.staging
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Prisma
+prisma/migrations/
