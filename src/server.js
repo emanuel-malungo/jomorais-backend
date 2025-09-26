@@ -3,22 +3,79 @@ import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 
+// Importar rotas
+import authRoutes from './routes/auth.routes.js';
+
+// Importar Swagger
+import { swaggerDocs } from './config/swagger.js';
+
 dotenv.config();
 
 const app = express();
 
+// Middlewares globais
 app.use(morgan('dev'));
-
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.get('/', (req, res) => {
-  res.send('Hello, World!');
+// Middleware de tratamento de erros globais
+app.use((err, req, res, next) => {
+  console.error('Erro global:', err);
+  
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      success: false,
+      message: 'JSON inválido'
+    });
+  }
+  
+  res.status(500).json({
+    success: false,
+    message: 'Erro interno do servidor'
+  });
 });
 
+// Rota raiz
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API Jomorais Backend',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      docs: '/api/docs'
+    }
+  });
+});
+
+// Rota de saúde
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Servidor funcionando',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Rotas da API
+app.use('/api/auth', authRoutes);
+
+// Middleware para rotas não encontradas
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Rota ${req.originalUrl} não encontrada`
+  });
+});
+
+// Documentação Swagger
+swaggerDocs(app);
+
 const PORT = process.env.PORT || 8000;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 app.listen(PORT, () => {
-  console.log(`Server is running on ${process.env.BASE_URL} 🚀`);
+  console.log(`🚀 Servidor rodando em ${BASE_URL}`);
 });
