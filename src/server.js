@@ -62,14 +62,6 @@ app.get('/health', (req, res) => {
 // Rotas da API
 app.use('/api/auth', authRoutes);
 
-// Middleware para rotas não encontradas
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Rota ${req.originalUrl} não encontrada`
-  });
-});
-
 // Documentação Swagger
 swaggerDocs(app);
 
