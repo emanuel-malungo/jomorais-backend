@@ -1,5 +1,6 @@
 import { getPagination, getPagingData } from "../utils/pagination.utils.js";
 import { AppError } from "../utils/validation.utils.js";
+import { convertBigIntToString } from "../utils/bigint.utils.js";
 import prisma from "../config/database.js";
 
 export class UsersServices {
@@ -23,11 +24,14 @@ export class UsersServices {
         orderBy: { codigo: "desc" }, // ordena por mais recente
       });
 
+      // Converter BigInt para string antes da serialização JSON
+      const convertedUsers = convertBigIntToString(users);
+
       res.json({
         success: true,
         message: "Lista de usuários legados obtida com sucesso",
         meta: getPagingData(totalItems, page, take),
-        data: users,
+        data: convertedUsers,
       });
     } catch (error) {
       console.error("Erro ao obter usuários legados:", error);
@@ -46,18 +50,17 @@ export class UsersServices {
       const users = await prisma.users.findMany({
         skip,
         take,
-        include: {
-          profile: true,
-          posts: true,
-        },
         orderBy: { created_at: "desc" },
       });
+
+      // Converter BigInt para string antes da serialização JSON
+      const convertedUsers = convertBigIntToString(users);
 
       res.json({
         success: true,
         message: "Lista de usuários obtida com sucesso",
         meta: getPagingData(totalItems, page, take),
-        data: users,
+        data: convertedUsers,
       });
     } catch (error) {
       console.error("Erro ao obter usuários:", error);

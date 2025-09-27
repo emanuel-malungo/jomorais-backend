@@ -1,23 +1,9 @@
 // services/auth.service.js
+import bcrypt from 'bcryptjs';
 import prisma from '../config/database.js';
-import { hashPassword, comparePasswords } from '../utils/encryption.utils.js';
 import { generateToken } from '../utils/token.utils.js';
 import { AppError } from '../utils/validation.utils.js';
-
-// Função para converter BigInt para string
-const convertBigIntToString = (obj) => {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj === 'bigint') return obj.toString();
-  if (Array.isArray(obj)) return obj.map(convertBigIntToString);
-  if (typeof obj === 'object') {
-    const converted = {};
-    for (const [key, value] of Object.entries(obj)) {
-      converted[key] = convertBigIntToString(value);
-    }
-    return converted;
-  }
-  return obj;
-};
+import { convertBigIntToString } from '../utils/bigint.utils.js';
 
 // Seleção padrão de campos para evitar repetição
 const userSelect = {
