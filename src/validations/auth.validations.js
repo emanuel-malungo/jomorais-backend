@@ -4,7 +4,6 @@ import { MAX_STRING,
          PASSWORD_REGEX 
 } from "../utils/validation.utils.js";
 
-
 // ===== Registro de Usuário =====
 export const registerSchema = z.object({
   name: z.string()
@@ -80,69 +79,4 @@ export const legacyLoginSchema = z.object({
     .min(1, "Senha é obrigatória")
 });
 
-// ===== Atualização de Perfil =====
-export const updateProfileSchema = z.object({
-  name: z.string()
-    .trim()
-    .min(2, "Nome deve ter pelo menos 2 caracteres")
-    .max(MAX_STRING, `Nome deve ter no máximo ${MAX_STRING} caracteres`)
-    .regex(NAME_REGEX, "Nome deve conter apenas letras e espaços")
-    .optional(),
-  
-  email: z.email("Email inválido")
-    .trim()
-    .max(MAX_STRING, `Email deve ter no máximo ${MAX_STRING} caracteres`)
-    .optional(),
-  
-  foto: z.string()
-    .trim()
-    .max(MAX_STRING, `Nome da foto deve ter no máximo ${MAX_STRING} caracteres`)
-    .optional()
-});
 
-// ===== Mudança de Senha =====
-export const changePasswordSchema = z.object({
-  currentPassword: z.string()
-    .min(1, "Senha atual é obrigatória"),
-  
-  newPassword: z.string()
-    .min(8, "Nova senha deve ter pelo menos 8 caracteres")
-    .max(MAX_STRING, `Nova senha deve ter no máximo ${MAX_STRING} caracteres`)
-    .regex(PASSWORD_REGEX, "Nova senha deve conter pelo menos 1 letra maiúscula, 1 minúscula e 1 número"),
-  
-  confirmPassword: z.string()
-    .min(1, "Confirmação de senha é obrigatória")
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Senhas não coincidem",
-  path: ["confirmPassword"]
-});
-
-// ===== Atualização de Perfil Legado =====
-export const updateLegacyProfileSchema = z.object({
-  nome: z.string()
-    .trim()
-    .min(2, "Nome deve ter pelo menos 2 caracteres")
-    .max(45, "Nome deve ter no máximo 45 caracteres")
-    .optional(),
-  
-  estadoActual: z.string()
-    .trim()
-    .max(10, "Estado deve ter no máximo 10 caracteres")
-    .optional()
-});
-
-// ===== Mudança de Senha Legado =====
-export const changeLegacyPasswordSchema = z.object({
-  currentPassword: z.string()
-    .min(1, "Senha atual é obrigatória"),
-  
-  newPassword: z.string()
-    .min(6, "Nova senha deve ter pelo menos 6 caracteres")
-    .max(191, "Nova senha deve ter no máximo 191 caracteres"),
-  
-  confirmPassword: z.string()
-    .min(1, "Confirmação de senha é obrigatória")
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Senhas não coincidem",
-  path: ["confirmPassword"]
-});
