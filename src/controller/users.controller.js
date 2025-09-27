@@ -27,4 +27,30 @@ export class UsersController {
       );
     }
   }
+
+  static async getUserById(req, res) {
+    try {
+      const user = await UsersServices.getUserById(req.params.id);
+      res.json({
+        success: true,
+        message: "Usuário obtido com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter utilizador por ID", 500);
+    }
+  }
+
+  static async getUserLegacyById(req, res) {
+    try {
+      const user = await UsersServices.getUserLegacyById(req.params.id);
+      res.json({
+        success: true,
+        message: "Utilizador legado obtido com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter utilizador legado", 500);
+    }
+  }
 }

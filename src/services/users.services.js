@@ -4,7 +4,6 @@ import { convertBigIntToString } from "../utils/bigint.utils.js";
 import prisma from "../config/database.js";
 
 export class UsersServices {
-
   static async getAllLegacyUsers(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
@@ -68,5 +67,28 @@ export class UsersServices {
     }
   }
 
-}
+  static async getUserById(userId) {
+    const user = await prisma.users.findUnique({
+      where: { id: BigInt(userId) },
+    });
 
+    if (!user) {
+      throw new AppError("Usuário não encontrado", 404);
+    }
+
+    return convertBigIntToString(user);
+  }
+
+  static async getUserLegacyById(userId) {
+    const user = await prisma.tb_utilizadores.findUnique({
+      where: { codigo: parseInt(userId) },
+      include: { tb_tipos_utilizador: true },
+    });
+
+    if (!user) {
+      throw new AppError("Utilizador não encontrado", 404);
+    }
+
+    return convertBigIntToString(user);
+  }
+}

@@ -154,4 +154,138 @@ router.get("/", UsersController.getAllUsers);
  */
 router.get("/legacy", UsersController.getAllLegacyUsers);
 
+/**
+ * @swagger
+ * /api/users/legacy/{id}:
+ *   get:
+ *     summary: Buscar usuário legado por ID
+ *     description: Retorna os dados de um usuário do sistema legado (tabela `tb_utilizadores`) com base no ID fornecido.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Código do utilizador no sistema legado
+ *     responses:
+ *       200:
+ *         description: Utilizador encontrado com sucesso.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Utilizador legado obtido com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                       example: 12
+ *                     nome:
+ *                       type: string
+ *                       example: "João Manuel"
+ *                     user:
+ *                       type: string
+ *                       example: "jmanuel"
+ *                     codigo_Tipo_Utilizador:
+ *                       type: integer
+ *                       example: 1
+ *                     estadoActual:
+ *                       type: string
+ *                       example: "ATIVO"
+ *                     dataCadastro:
+ *                       type: string
+ *                       format: date
+ *                       example: "2024-03-15"
+ *                     tb_tipos_utilizador:
+ *                       type: object
+ *                       properties:
+ *                         codigo:
+ *                           type: integer
+ *                           example: 1
+ *                         designacao:
+ *                           type: string
+ *                           example: "Administrador"
+ *       404:
+ *         description: Utilizador não encontrado.
+ *       500:
+ *         description: Erro interno do servidor.
+ */
+router.get('/legacy/:id', UsersController.getUserLegacyById);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Buscar usuário moderno por ID
+ *     description: Retorna os dados de um usuário do sistema moderno (tabela `users`) com base no ID fornecido.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do usuário (BigInt convertido para string)
+ *     responses:
+ *       200:
+ *         description: Usuário encontrado com sucesso.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Usuário obtido com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "1"
+ *                     name:
+ *                       type: string
+ *                       example: "Emanuel Malungo"
+ *                     username:
+ *                       type: string
+ *                       example: "emanuel_malungo"
+ *                     email:
+ *                       type: string
+ *                       example: "emanuelmalungo@example.com"
+ *                     tipo:
+ *                       type: integer
+ *                       example: 2
+ *                     foto:
+ *                       type: string
+ *                       example: "img_avatar1.png"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-01-20T10:30:00.000Z"
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-01-20T10:30:00.000Z"
+ *       404:
+ *         description: Usuário não encontrado.
+ *       500:
+ *         description: Erro interno do servidor.
+ */
+router.get('/:id', UsersController.getUserById);
+
 export default router;
