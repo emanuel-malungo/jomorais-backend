@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { MAX_STRING, 
          NAME_REGEX, 
-         USERNAME_REGEX, 
          PASSWORD_REGEX 
 } from "../utils/validation.utils.js";
 
@@ -9,20 +8,11 @@ import { MAX_STRING,
 // ===== Registro de Usuário =====
 export const registerSchema = z.object({
   name: z.string()
-    .trim()
     .min(2, "Nome deve ter pelo menos 2 caracteres")
     .max(MAX_STRING, `Nome deve ter no máximo ${MAX_STRING} caracteres`)
     .regex(NAME_REGEX, "Nome deve conter apenas letras e espaços"),
-  
-  username: z.string()
-    .trim()
-    .toLowerCase()
-    .min(3, "Username deve ter pelo menos 3 caracteres")
-    .max(MAX_STRING, `Username deve ter no máximo ${MAX_STRING} caracteres`)
-    .regex(USERNAME_REGEX, "Username deve conter apenas letras, números e underscore"),
 
   email: z.email("Email inválido")
-    .trim()
     .toLowerCase()
     .max(MAX_STRING, `Email deve ter no máximo ${MAX_STRING} caracteres`),
   

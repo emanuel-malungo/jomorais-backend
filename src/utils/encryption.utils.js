@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 
-const BCRYPT_SALT_ROUNDS = process.env.BCRYPT_SALT_ROUNDS || 12;
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
 
 export const hashPassword = async (password) => {
   const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);

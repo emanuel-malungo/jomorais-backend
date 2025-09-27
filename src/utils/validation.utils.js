@@ -1,8 +1,7 @@
 // ===== Utilitários para Validação =====
 
-export const MAX_STRING = 191; // Limite seguro para índices em MySQL/MariaDB
+export const MAX_STRING = 30; // Tamanho máximo padrão para strings
 export const NAME_REGEX = /^[A-Za-zÀ-ÿ\s]+$/; // Permite acentos e espaços, evita números e símbolos
-export const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/; // Letras, números e underscore
 export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/; // Pelo menos 1 letra maiúscula, 1 minúscula e 1 número
 
 

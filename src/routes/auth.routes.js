@@ -67,25 +67,25 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - nome
+ *               - name
  *               - email
- *               - senha
+ *               - password
  *               - tipo
  *             properties:
- *               nome:
+ *               name:
  *                 type: string
  *                 description: Nome completo do usuário
  *               email:
  *                 type: string
  *                 format: email
  *                 description: Email único do usuário
- *               senha:
+ *               password:
  *                 type: string
  *                 minLength: 6
  *                 description: Senha do usuário
  *               tipo:
  *                 type: integer
- *                 description: Tipo de usuário (1-Admin, 2-Professor, 3-Aluno)
+ *                 description: Tipo de usuário (6-Admin, 2-Operador, 4-Chefe de Secretaria, 3 -Pedagogico)
  *     responses:
  *       201:
  *         description: Usuário criado com sucesso

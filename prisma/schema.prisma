@@ -15,15 +15,17 @@ generator client {
 model users {
   id               BigInt     @id @default(autoincrement())
   name             String     @db.VarChar(191)
-  username         String     @db.VarChar(191) @default("root") @unique
+  username         String     @db.VarChar(191) @unique @default("root")
   email            String     @db.VarChar(191) @unique
-  email_verified_at DateTime? 
+  email_verified_at DateTime?
   password         String     @db.VarChar(191)
   tipo             Int        @default(1)
   remember_token   String?    @db.VarChar(100)
-  created_at       DateTime? 
+  created_at       DateTime   @default(now()) 
   updated_at       DateTime? 
-  foto             String     @db.VarChar(191) @default("https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg")
+  foto             String     @db.VarChar(191) @default("img_avatar1.png")
+
+  @@map("users")
 }
 
 model tb_tipos_utilizador {

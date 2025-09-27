@@ -4,6 +4,21 @@ import { hashPassword, comparePasswords } from '../utils/encryption.utils.js';
 import { generateToken } from '../utils/token.utils.js';
 import { AppError } from '../utils/validation.utils.js';
 
+// Função para converter BigInt para string
+const convertBigIntToString = (obj) => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return obj.toString();
+  if (Array.isArray(obj)) return obj.map(convertBigIntToString);
+  if (typeof obj === 'object') {
+    const converted = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToString(value);
+    }
+    return converted;
+  }
+  return obj;
+};
+
 // Seleção padrão de campos para evitar repetição
 const userSelect = {
   id: true,
@@ -23,17 +38,37 @@ export class AuthService {
 
   // Registro de novo usuário
   static async registerUser(userData) {
-    let { name, username, email, password, tipo } = userData;
+    let { name, email, password, tipo, username } = userData;
 
     // Sanitização
     name = name.trim();
-    username = username.trim();
     email = email.trim().toLowerCase();
+    password = password.trim();
+    tipo = tipo || 2;
 
-    // Verificar se email OU username já existem (em uma única query)
+    // Gerar username se não fornecido
+    if (!username) {
+      // Criar username baseado no email (parte antes do @)
+      username = email.split('@')[0].toLowerCase();
+      
+      // Verificar se username já existe e adicionar número se necessário
+      let baseUsername = username;
+      let counter = 1;
+      while (await prisma.users.findFirst({ where: { username } })) {
+        username = `${baseUsername}${counter}`;
+        counter++;
+      }
+    } else {
+      username = username.trim().toLowerCase();
+    }
+
+    // Verificar se email ou username já existem (em uma única query)
     const existingUser = await prisma.users.findFirst({
       where: {
-        OR: [{ email }, { username }]
+        OR: [
+          { email },
+          { username }
+        ]
       }
     });
 
@@ -57,13 +92,12 @@ export class AuthService {
         email,
         password: hashedPassword,
         tipo,
-        created_at: new Date(),
-        updated_at: new Date()
       },
       select: userSelect
     });
 
-    return user;
+    // Converter BigInt para string para serialização JSON
+    return convertBigIntToString(user);
   }
 
   // Login de usuário
@@ -75,7 +109,7 @@ export class AuthService {
       where: {
         OR: [
           { email: login.trim().toLowerCase() },
-          { username: login.trim() }
+          { username: login.trim().toLowerCase() },
         ]
       }
     });
@@ -95,14 +129,14 @@ export class AuthService {
     });
 
     return {
-      user: {
+      user: convertBigIntToString({
         id: user.id,
         name: user.name,
         username: user.username,
         email: user.email,
         tipo: user.tipo,
         foto: user.foto
-      },
+      }),
       token
     };
   }
@@ -180,7 +214,7 @@ export class AuthService {
     });
 
     if (!user) throw new AppError('Usuário não encontrado', 404);
-    return user;
+    return convertBigIntToString(user);
   }
 
   static async getLegacyUserById(userId) {
@@ -205,20 +239,33 @@ export class AuthService {
   }
 
   static async updateUserProfile(userId, updateData) {
-    const { name, email, foto } = updateData;
+    const { name, email, username, foto } = updateData;
     const id = BigInt(userId);
 
-    if (email) {
+    // Verificar se email ou username já existem
+    if (email || username) {
+      const conditions = [];
+      if (email) conditions.push({ email: email.trim().toLowerCase() });
+      if (username) conditions.push({ username: username.trim().toLowerCase() });
+      
       const existingUser = await prisma.users.findFirst({
-        where: { email, NOT: { id } }
+        where: { 
+          OR: conditions,
+          NOT: { id } 
+        }
       });
-      if (existingUser) throw new AppError('Email já está em uso', 409);
+      
+      if (existingUser) {
+        if (existingUser.email === email) throw new AppError('Email já está em uso', 409);
+        if (existingUser.username === username) throw new AppError('Username já está em uso', 409);
+      }
     }
 
     const user = await prisma.users.update({
       where: { id },
       data: {
         ...(name && { name: name.trim() }),
+        ...(username && { username: username.trim().toLowerCase() }),
         ...(email && { email: email.trim().toLowerCase() }),
         ...(foto && { foto: foto.trim() }),
         updated_at: new Date()
@@ -226,7 +273,10 @@ export class AuthService {
       select: userSelect
     });
 
-    return user;
+    return {
+      ...user,
+      id: user.id.toString()
+    };
   }
 
   static async changePassword(userId, passwordData) {

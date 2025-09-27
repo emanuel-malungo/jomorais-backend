@@ -1,21 +1,27 @@
-import { 
-    registerSchema, loginSchema, legacyLoginSchema,
-    updateProfileSchema, changePasswordSchema 
+import {
+  registerSchema,
+  loginSchema,
+  legacyLoginSchema,
+  updateProfileSchema,
+  changePasswordSchema,
 } from "../validations/auth.validations.js";
 
 import { AuthService } from "../services/auth.services.js";
 import { handleControllerError } from "../utils/validation.utils.js";
 
 export class AuthController {
+
   static async register(req, res) {
     try {
+      console.log("Dados recebidos no controller:", req.body);
       const validatedData = registerSchema.parse(req.body);
+      console.log("Dados validados no controller:", validatedData);
       const user = await AuthService.registerUser(validatedData);
 
       res.status(201).json({
         success: true,
         message: "Usuário registrado com sucesso",
-        data: user
+        data: user,
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao registrar usuário", 400);
@@ -30,7 +36,7 @@ export class AuthController {
       res.json({
         success: true,
         message: "Login realizado com sucesso",
-        data: result
+        data: result,
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao fazer login", 401);
@@ -45,10 +51,14 @@ export class AuthController {
       res.json({
         success: true,
         message: "Login realizado com sucesso",
-        data: result
+        data: result,
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao fazer login legado", 401);
+      console.error("Erro no controller de registro:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro interno do servidor",
+      });
     }
   }
 
@@ -60,7 +70,7 @@ export class AuthController {
 
       res.json({
         success: true,
-        message: "Logout realizado com sucesso"
+        message: "Logout realizado com sucesso",
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao fazer logout", 500);
@@ -70,7 +80,9 @@ export class AuthController {
   static async getProfile(req, res) {
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, message: "Usuário não autenticado" });
+        return res
+          .status(401)
+          .json({ success: false, message: "Usuário não autenticado" });
       }
 
       const user = req.user.legacy
@@ -90,16 +102,19 @@ export class AuthController {
       if (req.user?.legacy) {
         return res.status(403).json({
           success: false,
-          message: "Usuários do sistema legado não podem atualizar perfil"
+          message: "Usuários do sistema legado não podem atualizar perfil",
         });
       }
 
-      const user = await AuthService.updateUserProfile(req.user.id, validatedData);
+      const user = await AuthService.updateUserProfile(
+        req.user.id,
+        validatedData
+      );
 
       res.json({
         success: true,
         message: "Perfil atualizado com sucesso",
-        data: user
+        data: user,
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao atualizar perfil", 400);
@@ -113,15 +128,18 @@ export class AuthController {
       if (req.user?.legacy) {
         return res.status(403).json({
           success: false,
-          message: "Usuários do sistema legado não podem alterar senha"
+          message: "Usuários do sistema legado não podem alterar senha",
         });
       }
 
-      const result = await AuthService.changePassword(req.user.id, validatedData);
+      const result = await AuthService.changePassword(
+        req.user.id,
+        validatedData
+      );
 
       res.json({
         success: true,
-        message: result.message
+        message: result.message,
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao alterar senha", 400);
@@ -131,13 +149,15 @@ export class AuthController {
   static async verifyToken(req, res) {
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, message: "Token inválido" });
+        return res
+          .status(401)
+          .json({ success: false, message: "Token inválido" });
       }
 
       res.json({
         success: true,
         message: "Token válido",
-        data: { user: req.user }
+        data: { user: req.user },
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao verificar token", 401);
@@ -149,7 +169,12 @@ export class AuthController {
       const types = await AuthService.getUserTypes();
       res.json({ success: true, data: types });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao obter tipos de utilizador", 500);
+      handleControllerError(
+        res,
+        error,
+        "Erro ao obter tipos de utilizador",
+        500
+      );
     }
   }
 
@@ -159,7 +184,7 @@ export class AuthController {
       if (!req.user?.legacy) {
         return res.status(400).json({
           success: false,
-          message: "Esta rota é apenas para usuários do sistema legado"
+          message: "Esta rota é apenas para usuários do sistema legado",
         });
       }
 
@@ -167,7 +192,7 @@ export class AuthController {
 
       res.json({
         success: true,
-        message: "Logout realizado com sucesso"
+        message: "Logout realizado com sucesso",
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao fazer logout", 500);
@@ -181,11 +206,16 @@ export class AuthController {
         message: "Acesso administrativo concedido",
         data: {
           user: req.user,
-          message: "Esta é uma rota administrativa para listar usuários"
-        }
+          message: "Esta é uma rota administrativa para listar usuários",
+        },
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao acessar área administrativa", 500);
+      handleControllerError(
+        res,
+        error,
+        "Erro ao acessar área administrativa",
+        500
+      );
     }
   }
 
@@ -196,11 +226,16 @@ export class AuthController {
         message: "Dashboard do professor",
         data: {
           user: req.user,
-          features: ["turmas", "alunos", "notas", "frequencia"]
-        }
+          features: ["turmas", "alunos", "notas", "frequencia"],
+        },
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao acessar dashboard do professor", 500);
+      handleControllerError(
+        res,
+        error,
+        "Erro ao acessar dashboard do professor",
+        500
+      );
     }
   }
 
@@ -212,11 +247,16 @@ export class AuthController {
         data: {
           user: req.user,
           userProfile: req.userProfile,
-          features: ["gestao_utilizadores", "relatorios", "configuracoes"]
-        }
+          features: ["gestao_utilizadores", "relatorios", "configuracoes"],
+        },
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao acessar dashboard administrativo", 500);
+      handleControllerError(
+        res,
+        error,
+        "Erro ao acessar dashboard administrativo",
+        500
+      );
     }
   }
 }
