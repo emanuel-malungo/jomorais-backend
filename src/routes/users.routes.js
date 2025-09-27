@@ -122,7 +122,20 @@ router.get("/", UsersController.getAllUsers);
  *                   type: string
  *                   example: Lista de usuários legados obtida com sucesso
  *                 meta:
- *                   $ref: '#/components/schemas/PaginationMeta'
+ *                   type: object
+ *                   properties:
+ *                     totalItems:
+ *                       type: integer
+ *                       example: 42
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     itemsPerPage:
+ *                       type: integer
+ *                       example: 10
  *                 data:
  *                   type: array
  *                   items:
