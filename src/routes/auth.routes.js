@@ -110,14 +110,13 @@ router.post('/register', AuthController.register);
  *           schema:
  *             type: object
  *             required:
- *               - email
- *               - senha
+ *               - login
+ *               - password
  *             properties:
- *               email:
+ *               login:
  *                 type: string
- *                 format: email
- *                 description: Email do usuário
- *               senha:
+ *                 description: Email ou Username do usuário
+ *               password:
  *                 type: string
  *                 description: Senha do usuário
  *     responses:
