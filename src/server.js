@@ -5,6 +5,7 @@ import morgan from 'morgan';
 
 // Importar rotas
 import authRoutes from './routes/auth.routes.js';
+import userssRoutes from './routes/users.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -61,6 +62,7 @@ app.get('/health', (req, res) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userssRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
