@@ -271,6 +271,28 @@
  *         error:
  *           type: string
  *
+ *     Pagination:
+ *       type: object
+ *       properties:
+ *         currentPage:
+ *           type: integer
+ *           example: 1
+ *         totalPages:
+ *           type: integer
+ *           example: 5
+ *         totalItems:
+ *           type: integer
+ *           example: 50
+ *         itemsPerPage:
+ *           type: integer
+ *           example: 10
+ *         hasNextPage:
+ *           type: boolean
+ *           example: true
+ *         hasPreviousPage:
+ *           type: boolean
+ *           example: false
+ *
  *   tags:
  *     - name: Academic Management
  *       description: Gestão da estrutura curricular acadêmica
@@ -353,6 +375,95 @@ const router = express.Router();
  *               $ref: '#/components/schemas/ApiError'
  */
 router.post('/anos-lectivos', AcademicManagementController.createAnoLectivo);
+
+/**
+ * @swagger
+ * /api/academic-management/anos-lectivos:
+ *   get:
+ *     summary: Listar anos letivos com paginação
+ *     tags: [Anos Letivos]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de anos letivos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Anos letivos encontrados"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/AnoLectivo'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalItems:
+ *                       type: integer
+ *                     itemsPerPage:
+ *                       type: integer
+ *                     hasNextPage:
+ *                       type: boolean
+ *                     hasPreviousPage:
+ *                       type: boolean
+ */
+router.get('/anos-lectivos', AcademicManagementController.getAnosLectivos);
+
+/**
+ * @swagger
+ * /api/academic-management/anos-lectivos/{id}:
+ *   get:
+ *     summary: Obter ano letivo por ID
+ *     tags: [Anos Letivos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do ano letivo
+ *     responses:
+ *       200:
+ *         description: Ano letivo encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Ano letivo não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/anos-lectivos/:id', AcademicManagementController.getAnoLectivoById);
 
 /**
  * @swagger
@@ -479,6 +590,82 @@ router.post('/cursos', AcademicManagementController.createCurso);
 
 /**
  * @swagger
+ * /api/academic-management/cursos:
+ *   get:
+ *     summary: Listar cursos com paginação
+ *     tags: [Cursos]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de cursos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Cursos encontrados"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Curso'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/cursos', AcademicManagementController.getCursos);
+
+/**
+ * @swagger
+ * /api/academic-management/cursos/{id}:
+ *   get:
+ *     summary: Obter curso por ID
+ *     tags: [Cursos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do curso
+ *     responses:
+ *       200:
+ *         description: Curso encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Curso não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/cursos/:id', AcademicManagementController.getCursoById);
+
+/**
+ * @swagger
  * /api/academic-management/cursos/{id}:
  *   put:
  *     summary: Atualizar curso
@@ -597,6 +784,82 @@ router.delete('/cursos/:id', AcademicManagementController.deleteCurso);
  *               $ref: '#/components/schemas/ApiError'
  */
 router.post('/classes', AcademicManagementController.createClasse);
+
+/**
+ * @swagger
+ * /api/academic-management/classes:
+ *   get:
+ *     summary: Listar classes com paginação
+ *     tags: [Classes]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de classes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Classes encontradas"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Classe'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/classes', AcademicManagementController.getClasses);
+
+/**
+ * @swagger
+ * /api/academic-management/classes/{id}:
+ *   get:
+ *     summary: Obter classe por ID
+ *     tags: [Classes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da classe
+ *     responses:
+ *       200:
+ *         description: Classe encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Classe não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/classes/:id', AcademicManagementController.getClasseById);
 
 /**
  * @swagger
@@ -723,6 +986,82 @@ router.post('/disciplinas', AcademicManagementController.createDisciplina);
 
 /**
  * @swagger
+ * /api/academic-management/disciplinas:
+ *   get:
+ *     summary: Listar disciplinas com paginação
+ *     tags: [Disciplinas]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de disciplinas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Disciplinas encontradas"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Disciplina'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/disciplinas', AcademicManagementController.getDisciplinas);
+
+/**
+ * @swagger
+ * /api/academic-management/disciplinas/{id}:
+ *   get:
+ *     summary: Obter disciplina por ID
+ *     tags: [Disciplinas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da disciplina
+ *     responses:
+ *       200:
+ *         description: Disciplina encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Disciplina não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/disciplinas/:id', AcademicManagementController.getDisciplinaById);
+
+/**
+ * @swagger
  * /api/academic-management/disciplinas/{id}:
  *   put:
  *     summary: Atualizar disciplina
@@ -846,6 +1185,82 @@ router.post('/salas', AcademicManagementController.createSala);
 
 /**
  * @swagger
+ * /api/academic-management/salas:
+ *   get:
+ *     summary: Listar salas com paginação
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de salas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Salas encontradas"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Sala'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/salas', AcademicManagementController.getSalas);
+
+/**
+ * @swagger
+ * /api/academic-management/salas/{id}:
+ *   get:
+ *     summary: Obter sala por ID
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da sala
+ *     responses:
+ *       200:
+ *         description: Sala encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Sala não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/salas/:id', AcademicManagementController.getSalaById);
+
+/**
+ * @swagger
  * /api/academic-management/salas/{id}:
  *   put:
  *     summary: Atualizar sala
@@ -964,6 +1379,82 @@ router.delete('/salas/:id', AcademicManagementController.deleteSala);
  *               $ref: '#/components/schemas/ApiError'
  */
 router.post('/periodos', AcademicManagementController.createPeriodo);
+
+/**
+ * @swagger
+ * /api/academic-management/periodos:
+ *   get:
+ *     summary: Listar períodos com paginação
+ *     tags: [Períodos]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de períodos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Períodos encontrados"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Periodo'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/periodos', AcademicManagementController.getPeriodos);
+
+/**
+ * @swagger
+ * /api/academic-management/periodos/{id}:
+ *   get:
+ *     summary: Obter período por ID
+ *     tags: [Períodos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do período
+ *     responses:
+ *       200:
+ *         description: Período encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Período não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/periodos/:id', AcademicManagementController.getPeriodoById);
 
 /**
  * @swagger
@@ -1098,6 +1589,82 @@ router.post('/turmas', AcademicManagementController.createTurma);
 
 /**
  * @swagger
+ * /api/academic-management/turmas:
+ *   get:
+ *     summary: Listar turmas com paginação
+ *     tags: [Turmas]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de turmas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Turmas encontradas"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Turma'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/turmas', AcademicManagementController.getTurmas);
+
+/**
+ * @swagger
+ * /api/academic-management/turmas/{id}:
+ *   get:
+ *     summary: Obter turma por ID
+ *     tags: [Turmas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da turma
+ *     responses:
+ *       200:
+ *         description: Turma encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Turma não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/turmas/:id', AcademicManagementController.getTurmaById);
+
+/**
+ * @swagger
  * /api/academic-management/turmas/{id}:
  *   put:
  *     summary: Atualizar turma
@@ -1222,6 +1789,82 @@ router.delete('/turmas/:id', AcademicManagementController.deleteTurma);
  *               $ref: '#/components/schemas/ApiError'
  */
 router.post('/grade-curricular', AcademicManagementController.createGradeCurricular);
+
+/**
+ * @swagger
+ * /api/academic-management/grade-curricular:
+ *   get:
+ *     summary: Listar grade curricular com paginação
+ *     tags: [Grade Curricular]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista de grade curricular
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Grade curricular encontrada"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/GradeCurricular'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ */
+router.get('/grade-curricular', AcademicManagementController.getGradeCurricular);
+
+/**
+ * @swagger
+ * /api/academic-management/grade-curricular/{id}:
+ *   get:
+ *     summary: Obter grade curricular por ID
+ *     tags: [Grade Curricular]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da grade curricular
+ *     responses:
+ *       200:
+ *         description: Grade curricular encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Grade curricular não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.get('/grade-curricular/:id', AcademicManagementController.getGradeCurricularById);
 
 /**
  * @swagger

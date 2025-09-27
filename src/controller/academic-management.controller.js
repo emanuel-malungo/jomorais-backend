@@ -74,6 +74,40 @@ export class AcademicManagementController {
     }
   }
 
+  static async getAnosLectivos(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getAnosLectivos(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Anos letivos encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar anos letivos", 400);
+    }
+  }
+
+  static async getAnoLectivoById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const anoLectivo = await AcademicManagementService.getAnoLectivoById(id);
+      
+      res.json({
+        success: true,
+        message: "Ano letivo encontrado",
+        data: anoLectivo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar ano letivo", 400);
+    }
+  }
+
   static async deleteAnoLectivo(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
@@ -132,6 +166,40 @@ export class AcademicManagementController {
     }
   }
 
+  static async getCursos(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getCursos(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Cursos encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar cursos", 400);
+    }
+  }
+
+  static async getCursoById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const curso = await AcademicManagementService.getCursoById(id);
+      
+      res.json({
+        success: true,
+        message: "Curso encontrado",
+        data: curso,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar curso", 400);
+    }
+  }
+
   static async deleteCurso(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
@@ -181,6 +249,40 @@ export class AcademicManagementController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao atualizar classe", 400);
+    }
+  }
+
+  static async getClasses(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getClasses(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Classes encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar classes", 400);
+    }
+  }
+
+  static async getClasseById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const classe = await AcademicManagementService.getClasseById(id);
+      
+      res.json({
+        success: true,
+        message: "Classe encontrada",
+        data: classe,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar classe", 400);
     }
   }
 
@@ -242,6 +344,40 @@ export class AcademicManagementController {
     }
   }
 
+  static async getDisciplinas(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getDisciplinas(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Disciplinas encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar disciplinas", 400);
+    }
+  }
+
+  static async getDisciplinaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const disciplina = await AcademicManagementService.getDisciplinaById(id);
+      
+      res.json({
+        success: true,
+        message: "Disciplina encontrada",
+        data: disciplina,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar disciplina", 400);
+    }
+  }
+
   static async deleteDisciplina(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
@@ -294,6 +430,40 @@ export class AcademicManagementController {
     }
   }
 
+  static async getSalas(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getSalas(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Salas encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar salas", 400);
+    }
+  }
+
+  static async getSalaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const sala = await AcademicManagementService.getSalaById(id);
+      
+      res.json({
+        success: true,
+        message: "Sala encontrada",
+        data: sala,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar sala", 400);
+    }
+  }
+
   static async deleteSala(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
@@ -343,6 +513,40 @@ export class AcademicManagementController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao atualizar período", 400);
+    }
+  }
+
+  static async getPeriodos(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getPeriodos(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Períodos encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar períodos", 400);
+    }
+  }
+
+  static async getPeriodoById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const periodo = await AcademicManagementService.getPeriodoById(id);
+      
+      res.json({
+        success: true,
+        message: "Período encontrado",
+        data: periodo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar período", 400);
     }
   }
 
@@ -401,6 +605,40 @@ export class AcademicManagementController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao atualizar turma", 400);
+    }
+  }
+
+  static async getTurmas(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getTurmas(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Turmas encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar turmas", 400);
+    }
+  }
+
+  static async getTurmaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const turma = await AcademicManagementService.getTurmaById(id);
+      
+      res.json({
+        success: true,
+        message: "Turma encontrada",
+        data: turma,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar turma", 400);
     }
   }
 
@@ -468,6 +706,40 @@ export class AcademicManagementController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir grade curricular", 400);
+    }
+  }
+
+  static async getGradeCurricular(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicManagementService.getGradeCurricular(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Grade curricular encontrada",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar grade curricular", 400);
+    }
+  }
+
+  static async getGradeCurricularById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const gradeCurricular = await AcademicManagementService.getGradeCurricularById(id);
+      
+      res.json({
+        success: true,
+        message: "Grade curricular encontrada",
+        data: gradeCurricular,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar grade curricular", 400);
     }
   }
 

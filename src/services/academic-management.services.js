@@ -80,6 +80,62 @@ export class AcademicManagementService {
     }
   }
 
+  static async getAnosLectivos(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [anosLectivos, total] = await Promise.all([
+        prisma.tb_ano_lectivo.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_ano_lectivo.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: anosLectivos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar anos letivos', 500);
+    }
+  }
+
+  static async getAnoLectivoById(id) {
+    try {
+      const anoLectivo = await prisma.tb_ano_lectivo.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!anoLectivo) {
+        throw new AppError('Ano letivo não encontrado', 404);
+      }
+
+      return anoLectivo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar ano letivo', 500);
+    }
+  }
+
   static async deleteAnoLectivo(id) {
     try {
       const existingAno = await prisma.tb_ano_lectivo.findUnique({
@@ -179,6 +235,62 @@ export class AcademicManagementService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar curso', 500);
+    }
+  }
+
+  static async getCursos(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [cursos, total] = await Promise.all([
+        prisma.tb_cursos.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_cursos.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: cursos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar cursos', 500);
+    }
+  }
+
+  static async getCursoById(id) {
+    try {
+      const curso = await prisma.tb_cursos.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!curso) {
+        throw new AppError('Curso não encontrado', 404);
+      }
+
+      return curso;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar curso', 500);
     }
   }
 
@@ -282,6 +394,62 @@ export class AcademicManagementService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar classe', 500);
+    }
+  }
+
+  static async getClasses(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [classes, total] = await Promise.all([
+        prisma.tb_classes.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_classes.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: classes,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar classes', 500);
+    }
+  }
+
+  static async getClasseById(id) {
+    try {
+      const classe = await prisma.tb_classes.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!classe) {
+        throw new AppError('Classe não encontrada', 404);
+      }
+
+      return classe;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar classe', 500);
     }
   }
 
@@ -417,6 +585,68 @@ export class AcademicManagementService {
     }
   }
 
+  static async getDisciplinas(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [disciplinas, total] = await Promise.all([
+        prisma.tb_disciplinas.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_cursos: { select: { codigo: true, designacao: true } }
+          },
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_disciplinas.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: disciplinas,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar disciplinas', 500);
+    }
+  }
+
+  static async getDisciplinaById(id) {
+    try {
+      const disciplina = await prisma.tb_disciplinas.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_cursos: { select: { codigo: true, designacao: true } }
+        }
+      });
+
+      if (!disciplina) {
+        throw new AppError('Disciplina não encontrada', 404);
+      }
+
+      return disciplina;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar disciplina', 500);
+    }
+  }
+
   // ===============================
   // SALAS - CRUD COMPLETO
   // ===============================
@@ -490,6 +720,62 @@ export class AcademicManagementService {
     }
   }
 
+  static async getSalas(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [salas, total] = await Promise.all([
+        prisma.tb_salas.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_salas.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: salas,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar salas', 500);
+    }
+  }
+
+  static async getSalaById(id) {
+    try {
+      const sala = await prisma.tb_salas.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!sala) {
+        throw new AppError('Sala não encontrada', 404);
+      }
+
+      return sala;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar sala', 500);
+    }
+  }
+
   // ===============================
   // PERÍODOS - CRUD COMPLETO
   // ===============================
@@ -560,6 +846,62 @@ export class AcademicManagementService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao excluir período', 500);
+    }
+  }
+
+  static async getPeriodos(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [periodos, total] = await Promise.all([
+        prisma.tb_periodos.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_periodos.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: periodos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar períodos', 500);
+    }
+  }
+
+  static async getPeriodoById(id) {
+    try {
+      const periodo = await prisma.tb_periodos.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!periodo) {
+        throw new AppError('Período não encontrado', 404);
+      }
+
+      return periodo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar período', 500);
     }
   }
 
@@ -679,6 +1021,74 @@ export class AcademicManagementService {
     }
   }
 
+  static async getTurmas(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [turmas, total] = await Promise.all([
+        prisma.tb_turmas.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_classes: { select: { codigo: true, designacao: true } },
+            tb_cursos: { select: { codigo: true, designacao: true } },
+            tb_salas: { select: { codigo: true, designacao: true } },
+            tb_periodos: { select: { codigo: true, designacao: true } }
+          },
+          orderBy: { designacao: 'asc' }
+        }),
+        prisma.tb_turmas.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: turmas,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar turmas', 500);
+    }
+  }
+
+  static async getTurmaById(id) {
+    try {
+      const turma = await prisma.tb_turmas.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_classes: { select: { codigo: true, designacao: true } },
+          tb_cursos: { select: { codigo: true, designacao: true } },
+          tb_salas: { select: { codigo: true, designacao: true } },
+          tb_periodos: { select: { codigo: true, designacao: true } }
+        }
+      });
+
+      if (!turma) {
+        throw new AppError('Turma não encontrada', 404);
+      }
+
+      return turma;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar turma', 500);
+    }
+  }
+
   // ===============================
   // GRADE CURRICULAR - CRUD COMPLETO
   // ===============================
@@ -786,6 +1196,94 @@ export class AcademicManagementService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao excluir grade curricular', 500);
+    }
+  }
+
+  static async getGradeCurricular(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        OR: [
+          {
+            tb_disciplinas: {
+              designacao: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            }
+          },
+          {
+            tb_classes: {
+              designacao: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            }
+          },
+          {
+            tb_cursos: {
+              designacao: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            }
+          }
+        ]
+      } : {};
+
+      const [gradeCurricular, total] = await Promise.all([
+        prisma.tb_grade_curricular.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_disciplinas: { select: { codigo: true, designacao: true } },
+            tb_classes: { select: { codigo: true, designacao: true } },
+            tb_cursos: { select: { codigo: true, designacao: true } }
+          },
+          orderBy: { codigo: 'asc' }
+        }),
+        prisma.tb_grade_curricular.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: gradeCurricular,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar grade curricular', 500);
+    }
+  }
+
+  static async getGradeCurricularById(id) {
+    try {
+      const gradeCurricular = await prisma.tb_grade_curricular.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_disciplinas: { select: { codigo: true, designacao: true } },
+          tb_classes: { select: { codigo: true, designacao: true } },
+          tb_cursos: { select: { codigo: true, designacao: true } }
+        }
+      });
+
+      if (!gradeCurricular) {
+        throw new AppError('Grade curricular não encontrada', 404);
+      }
+
+      return gradeCurricular;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar grade curricular', 500);
     }
   }
 
