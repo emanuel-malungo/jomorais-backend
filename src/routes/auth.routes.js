@@ -142,6 +142,57 @@ router.post('/login', AuthController.login);
 
 /**
  * @swagger
+ * /api/auth/legacy/register:
+ *   post:
+ *     summary: Registrar novo usuário legado
+ *     description: Cria uma nova conta de usuário no sistema legado
+ *     tags: [Autenticação - Sistema Legado]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome
+ *               - user
+ *               - passe
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 description: Nome completo do utilizador
+ *                 maxLength: 45
+ *               user:
+ *                 type: string
+ *                 description: Username único do utilizador
+ *                 maxLength: 45
+ *               passe:
+ *                 type: string
+ *                 description: Senha do utilizador
+ *                 minLength: 6
+ *               codigo_Tipo_Utilizador:
+ *                 type: integer
+ *                 description: Tipo de utilizador (1-Admin, 2-Operador, etc.)
+ *                 default: 2
+ *               estadoActual:
+ *                 type: string
+ *                 description: Estado atual do utilizador
+ *                 maxLength: 10
+ *                 default: "Activo"
+ *     responses:
+ *       201:
+ *         description: Utilizador criado com sucesso
+ *       400:
+ *         description: Dados inválidos
+ *       409:
+ *         description: Username já existe
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/legacy/register', AuthController.legacyRegister);
+
+/**
+ * @swagger
  * /api/auth/legacy/login:
  *   post:
  *     summary: Login do usuário legado
@@ -154,19 +205,48 @@ router.post('/login', AuthController.login);
  *           schema:
  *             type: object
  *             required:
- *               - email
- *               - senha
+ *               - user
+ *               - passe
  *             properties:
- *               email:
+ *               user:
  *                 type: string
- *                 format: email
- *                 description: Email do usuário legado
- *               senha:
+ *                 description: Username do utilizador
+ *                 maxLength: 45
+ *               passe:
  *                 type: string
- *                 description: Senha do usuário legado
+ *                 description: Senha do utilizador
  *     responses:
  *       200:
  *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nome:
+ *                           type: string
+ *                         username:
+ *                           type: string
+ *                         tipo:
+ *                           type: integer
+ *                         tipoDesignacao:
+ *                           type: string
+ *                         legacy:
+ *                           type: boolean
+ *                     token:
+ *                       type: string
  *       401:
  *         description: Credenciais inválidas
  *       500:
@@ -405,6 +485,88 @@ router.put('/profile', requireModernUser, verifyUserExists, AuthController.updat
 router.put('/change-password', requireModernUser, verifyUserExists, AuthController.changePassword);
 
 // ========== SISTEMA LEGADO ==========
+
+/**
+ * @swagger
+ * /api/auth/legacy/profile:
+ *   put:
+ *     summary: Atualizar perfil do usuário legado
+ *     description: Atualiza os dados do perfil do usuário do sistema legado
+ *     tags: [Sistema Legado]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 description: Nome completo do utilizador
+ *                 maxLength: 45
+ *               estadoActual:
+ *                 type: string
+ *                 description: Estado atual do utilizador
+ *                 maxLength: 10
+ *     responses:
+ *       200:
+ *         description: Perfil atualizado com sucesso
+ *       400:
+ *         description: Dados inválidos
+ *       401:
+ *         description: Token não fornecido
+ *       403:
+ *         description: Acesso negado - apenas usuários legados
+ *       404:
+ *         description: Usuário não encontrado
+ */
+router.put('/legacy/profile', requireLegacyUser, verifyUserExists, AuthController.updateLegacyProfile);
+
+/**
+ * @swagger
+ * /api/auth/legacy/change-password:
+ *   put:
+ *     summary: Alterar senha do usuário legado
+ *     description: Altera a senha do usuário do sistema legado
+ *     tags: [Sistema Legado]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Senha atual do utilizador
+ *               newPassword:
+ *                 type: string
+ *                 description: Nova senha do utilizador
+ *                 minLength: 6
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirmação da nova senha
+ *     responses:
+ *       200:
+ *         description: Senha alterada com sucesso
+ *       400:
+ *         description: Dados inválidos ou senhas não coincidem
+ *       401:
+ *         description: Senha atual incorreta ou token não fornecido
+ *       403:
+ *         description: Acesso negado - apenas usuários legados
+ *       404:
+ *         description: Usuário não encontrado
+ */
+router.put('/legacy/change-password', requireLegacyUser, verifyUserExists, AuthController.changeLegacyPassword);
 
 /**
  * @swagger

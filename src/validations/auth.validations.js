@@ -39,6 +39,36 @@ export const loginSchema = z.object({
     .min(1, "Senha é obrigatória")
 });
 
+// ===== Registro no Sistema Legado =====
+export const legacyRegisterSchema = z.object({
+  nome: z.string()
+    .trim()
+    .min(2, "Nome deve ter pelo menos 2 caracteres")
+    .max(45, "Nome deve ter no máximo 45 caracteres"),
+
+  user: z.string()
+    .trim()
+    .min(3, "Usuário deve ter pelo menos 3 caracteres")
+    .max(45, "Usuário deve ter no máximo 45 caracteres")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Usuário deve conter apenas letras, números, _ e -"),
+
+  passe: z.string()
+    .min(6, "Senha deve ter pelo menos 6 caracteres")
+    .max(191, "Senha deve ter no máximo 191 caracteres"),
+
+  codigo_Tipo_Utilizador: z.number()
+    .int()
+    .min(1, "Tipo de utilizador inválido")
+    .optional()
+    .default(2),
+
+  estadoActual: z.string()
+    .trim()
+    .max(10, "Estado deve ter no máximo 10 caracteres")
+    .optional()
+    .default("Activo")
+});
+
 // ===== Login no Sistema Legado =====
 export const legacyLoginSchema = z.object({
   user: z.string()
@@ -79,6 +109,36 @@ export const changePasswordSchema = z.object({
     .min(8, "Nova senha deve ter pelo menos 8 caracteres")
     .max(MAX_STRING, `Nova senha deve ter no máximo ${MAX_STRING} caracteres`)
     .regex(PASSWORD_REGEX, "Nova senha deve conter pelo menos 1 letra maiúscula, 1 minúscula e 1 número"),
+  
+  confirmPassword: z.string()
+    .min(1, "Confirmação de senha é obrigatória")
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Senhas não coincidem",
+  path: ["confirmPassword"]
+});
+
+// ===== Atualização de Perfil Legado =====
+export const updateLegacyProfileSchema = z.object({
+  nome: z.string()
+    .trim()
+    .min(2, "Nome deve ter pelo menos 2 caracteres")
+    .max(45, "Nome deve ter no máximo 45 caracteres")
+    .optional(),
+  
+  estadoActual: z.string()
+    .trim()
+    .max(10, "Estado deve ter no máximo 10 caracteres")
+    .optional()
+});
+
+// ===== Mudança de Senha Legado =====
+export const changeLegacyPasswordSchema = z.object({
+  currentPassword: z.string()
+    .min(1, "Senha atual é obrigatória"),
+  
+  newPassword: z.string()
+    .min(6, "Nova senha deve ter pelo menos 6 caracteres")
+    .max(191, "Nova senha deve ter no máximo 191 caracteres"),
   
   confirmPassword: z.string()
     .min(1, "Confirmação de senha é obrigatória")

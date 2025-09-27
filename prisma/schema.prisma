@@ -40,7 +40,7 @@ model tb_utilizadores {
   codigo               Int       @id @default(autoincrement()) @map("Codigo")
   nome                 String    @db.VarChar(45) @map("Nome")
   user                 String    @db.VarChar(45) @map("User")
-  passe                String    @db.VarChar(191) @map("Passe")
+  passe                String    @db.VarChar(255) @map("Passe")
   codigo_Tipo_Utilizador Int     @map("Codigo_Tipo_Utilizador")
   estadoActual        String     @db.VarChar(10) @map("EstadoActual")
   dataCadastro        DateTime   @db.Date @map("DataCadastro")

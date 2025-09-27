@@ -145,6 +145,69 @@ export class AuthService {
   // SISTEMA LEGADO (tb_utilizadores)
   // ===============================
 
+  // Registro de usuário legado
+  static async registerLegacyUser(userData) {
+    let { nome, user: username, passe, codigo_Tipo_Utilizador, estadoActual } = userData;
+
+    // Sanitização com verificação de existência
+    nome = nome?.trim() || '';
+    username = username?.trim()?.toLowerCase() || '';
+    passe = passe?.trim() || '';
+    codigo_Tipo_Utilizador = codigo_Tipo_Utilizador || 2;
+    estadoActual = estadoActual?.trim() || "Activo";
+
+    // Validações básicas
+    if (!nome) throw new AppError('Nome é obrigatório', 400);
+    if (!username) throw new AppError('Username é obrigatório', 400);
+    if (!passe) throw new AppError('Senha é obrigatória', 400);
+
+    // Verificar se username já existe
+    const existingUser = await prisma.tb_utilizadores.findFirst({
+      where: { user: username }
+    });
+
+    if (existingUser) {
+      throw new AppError('Username já está em uso', 409);
+    }
+
+    // Verificar se o tipo de utilizador existe
+    const tipoUtilizador = await prisma.tb_tipos_utilizador.findUnique({
+      where: { codigo: codigo_Tipo_Utilizador }
+    });
+
+    if (!tipoUtilizador) {
+      throw new AppError('Tipo de utilizador inválido', 400);
+    }
+
+    // Hash da senha
+    const hashedPassword = await hashPassword(passe);
+
+    // Criar usuário legado
+    const user = await prisma.tb_utilizadores.create({
+      data: {
+        nome,
+        user: username,
+        passe: hashedPassword,
+        codigo_Tipo_Utilizador,
+        estadoActual,
+        dataCadastro: new Date(),
+        loginStatus: 'OFF'
+      },
+      include: { tb_tipos_utilizador: true }
+    });
+
+    return {
+      id: user.codigo,
+      nome: user.nome,
+      username: user.user,
+      tipo: user.codigo_Tipo_Utilizador,
+      tipoDesignacao: user.tb_tipos_utilizador.designacao,
+      estadoActual: user.estadoActual,
+      dataCadastro: user.dataCadastro,
+      legacy: true
+    };
+  }
+
   static async loginLegacyUser(loginData) {
     const { user: username, passe } = loginData;
 
@@ -297,6 +360,59 @@ export class AuthService {
         password: hashedNewPassword,
         updated_at: new Date()
       }
+    });
+
+    return { message: 'Senha alterada com sucesso' };
+  }
+
+  static async updateLegacyUserProfile(userId, updateData) {
+    const { nome, estadoActual } = updateData;
+    const codigo = parseInt(userId);
+
+    const user = await prisma.tb_utilizadores.update({
+      where: { codigo },
+      data: {
+        ...(nome && { nome: nome.trim() }),
+        ...(estadoActual && { estadoActual: estadoActual.trim() })
+      },
+      include: { tb_tipos_utilizador: true }
+    });
+
+    return {
+      id: user.codigo,
+      nome: user.nome,
+      username: user.user,
+      tipo: user.codigo_Tipo_Utilizador,
+      tipoDesignacao: user.tb_tipos_utilizador.designacao,
+      estadoActual: user.estadoActual,
+      dataCadastro: user.dataCadastro,
+      loginStatus: user.loginStatus,
+      legacy: true
+    };
+  }
+
+  static async changeLegacyPassword(userId, passwordData) {
+    const { currentPassword, newPassword } = passwordData;
+    const codigo = parseInt(userId);
+
+    const user = await prisma.tb_utilizadores.findUnique({ where: { codigo } });
+    if (!user) throw new AppError('Usuário não encontrado', 404);
+
+    // Verificar senha atual
+    let isCurrentPasswordValid = false;
+    try {
+      isCurrentPasswordValid = await comparePasswords(currentPassword, user.passe);
+    } catch {
+      isCurrentPasswordValid = currentPassword === user.passe;
+    }
+
+    if (!isCurrentPasswordValid) throw new AppError('Senha atual incorreta', 401);
+
+    const hashedNewPassword = await hashPassword(newPassword);
+
+    await prisma.tb_utilizadores.update({
+      where: { codigo },
+      data: { passe: hashedNewPassword }
     });
 
     return { message: 'Senha alterada com sucesso' };

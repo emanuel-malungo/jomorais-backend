@@ -1,9 +1,12 @@
 import {
   registerSchema,
   loginSchema,
+  legacyRegisterSchema,
   legacyLoginSchema,
   updateProfileSchema,
   changePasswordSchema,
+  updateLegacyProfileSchema,
+  changeLegacyPasswordSchema,
 } from "../validations/auth.validations.js";
 
 import { AuthService } from "../services/auth.services.js";
@@ -43,6 +46,23 @@ export class AuthController {
     }
   }
 
+  static async legacyRegister(req, res) {
+    try {
+      console.log("Dados recebidos no controller legado:", req.body);
+      const validatedData = legacyRegisterSchema.parse(req.body);
+      console.log("Dados validados no controller legado:", validatedData);
+      const user = await AuthService.registerLegacyUser(validatedData);
+
+      res.status(201).json({
+        success: true,
+        message: "Utilizador registrado com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao registrar utilizador", 400);
+    }
+  }
+
   static async legacyLogin(req, res) {
     try {
       const validatedData = legacyLoginSchema.parse(req.body);
@@ -54,11 +74,7 @@ export class AuthController {
         data: result,
       });
     } catch (error) {
-      console.error("Erro no controller de registro:", error);
-      res.status(500).json({
-        success: false,
-        message: "Erro interno do servidor",
-      });
+      handleControllerError(res, error, "Erro ao fazer login", 401);
     }
   }
 
@@ -236,6 +252,57 @@ export class AuthController {
         "Erro ao acessar dashboard do professor",
         500
       );
+    }
+  }
+
+  static async updateLegacyProfile(req, res) {
+    try {
+      const validatedData = updateLegacyProfileSchema.parse(req.body);
+
+      if (!req.user?.legacy) {
+        return res.status(403).json({
+          success: false,
+          message: "Apenas para usuários do sistema legado",
+        });
+      }
+
+      const user = await AuthService.updateLegacyUserProfile(
+        req.user.id,
+        validatedData
+      );
+
+      res.json({
+        success: true,
+        message: "Perfil atualizado com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar perfil", 400);
+    }
+  }
+
+  static async changeLegacyPassword(req, res) {
+    try {
+      const validatedData = changeLegacyPasswordSchema.parse(req.body);
+
+      if (!req.user?.legacy) {
+        return res.status(403).json({
+          success: false,
+          message: "Apenas para usuários do sistema legado",
+        });
+      }
+
+      const result = await AuthService.changeLegacyPassword(
+        req.user.id,
+        validatedData
+      );
+
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao alterar senha", 400);
     }
   }
 
