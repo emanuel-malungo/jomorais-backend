@@ -288,4 +288,317 @@ router.get('/legacy/:id', UsersController.getUserLegacyById);
  */
 router.get('/:id', UsersController.getUserById);
 
+// ===============================
+// ROTAS DE ATUALIZAÇÃO
+// ===============================
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Atualizar usuário moderno
+ *     description: Atualiza os dados de um usuário do sistema moderno (tabela `users`).
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Emanuel Malungo Silva"
+ *               username:
+ *                 type: string
+ *                 example: "emanuel_silva"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "emanuel.silva@example.com"
+ *               tipo:
+ *                 type: integer
+ *                 example: 2
+ *               foto:
+ *                 type: string
+ *                 example: "img_avatar2.png"
+ *     responses:
+ *       200:
+ *         description: Usuário atualizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Usuário atualizado com sucesso"
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Email ou username já em uso
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/:id', UsersController.updateUser);
+
+/**
+ * @swagger
+ * /api/users/legacy/{id}:
+ *   put:
+ *     summary: Atualizar usuário legado
+ *     description: Atualiza os dados de um usuário do sistema legado (tabela `tb_utilizadores`).
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Código do utilizador
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 example: "João Manuel Silva"
+ *               user:
+ *                 type: string
+ *                 example: "jmanuel_silva"
+ *               codigo_Tipo_Utilizador:
+ *                 type: integer
+ *                 example: 2
+ *               estadoActual:
+ *                 type: string
+ *                 example: "ATIVO"
+ *     responses:
+ *       200:
+ *         description: Utilizador atualizado com sucesso
+ *       400:
+ *         description: Username já em uso
+ *       404:
+ *         description: Utilizador não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/legacy/:id', UsersController.updateUserLegacy);
+
+// ===============================
+// ROTAS DE MUDANÇA DE SENHA
+// ===============================
+
+/**
+ * @swagger
+ * /api/users/{id}/change-password:
+ *   patch:
+ *     summary: Alterar senha do usuário moderno
+ *     description: Permite alterar a senha de um usuário do sistema moderno.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Senha atual do usuário
+ *                 example: "senhaAtual123"
+ *               newPassword:
+ *                 type: string
+ *                 description: Nova senha (mínimo 8 caracteres)
+ *                 example: "NovaSenha@456"
+ *     responses:
+ *       200:
+ *         description: Senha alterada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Senha alterada com sucesso"
+ *       400:
+ *         description: Senha atual incorreta
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.patch('/:id/change-password', UsersController.changeUserPassword);
+
+/**
+ * @swagger
+ * /api/users/legacy/{id}/change-password:
+ *   patch:
+ *     summary: Alterar senha do usuário legado
+ *     description: Permite alterar a senha de um usuário do sistema legado.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Código do utilizador
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Senha atual do utilizador
+ *                 example: "senhaAtual123"
+ *               newPassword:
+ *                 type: string
+ *                 description: Nova senha
+ *                 example: "NovaSenha456"
+ *     responses:
+ *       200:
+ *         description: Senha alterada com sucesso
+ *       400:
+ *         description: Senha atual incorreta
+ *       404:
+ *         description: Utilizador não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.patch('/legacy/:id/change-password', UsersController.changeUserLegacyPassword);
+
+// ===============================
+// ROTAS DE EXCLUSÃO
+// ===============================
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Deletar usuário moderno
+ *     description: Remove um usuário do sistema moderno (tabela `users`).
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do usuário
+ *     responses:
+ *       200:
+ *         description: Usuário deletado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Usuário deletado com sucesso"
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.delete('/:id', UsersController.deleteUser);
+
+/**
+ * @swagger
+ * /api/users/legacy/{id}:
+ *   delete:
+ *     summary: Deletar usuário legado
+ *     description: Remove um usuário do sistema legado (tabela `tb_utilizadores`). Verifica relacionamentos antes da exclusão.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Código do utilizador
+ *     responses:
+ *       200:
+ *         description: Utilizador deletado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Utilizador deletado com sucesso"
+ *       400:
+ *         description: Não é possível deletar devido a relacionamentos existentes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Não é possível deletar o utilizador. Existem registros relacionados: 2 aluno(s), 1 matrícula(s)"
+ *       404:
+ *         description: Utilizador não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.delete('/legacy/:id', UsersController.deleteUserLegacy);
+
 export default router;
