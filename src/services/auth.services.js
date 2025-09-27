@@ -4,6 +4,7 @@ import prisma from '../config/database.js';
 import { generateToken } from '../utils/token.utils.js';
 import { AppError } from '../utils/validation.utils.js';
 import { convertBigIntToString } from '../utils/bigint.utils.js';
+import { hashPassword, comparePasswords } from '../utils/encryption.utils.js';
 
 // Seleção padrão de campos para evitar repetição
 const userSelect = {

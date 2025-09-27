@@ -6,6 +6,8 @@ import morgan from 'morgan';
 // Importar rotas
 import authRoutes from './routes/auth.routes.js';
 import userssRoutes from './routes/users.routes.js';
+import geographicRoutes from './routes/geographic.routes.js';
+import institutionalRoutes from './routes/institutional.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -45,6 +47,9 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
+      users: '/api/users',
+      geographic: '/api/geographic',
+      institutional: '/api/institutional',
       docs: '/api/docs'
     }
   });
@@ -63,6 +68,8 @@ app.get('/health', (req, res) => {
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userssRoutes);
+app.use('/api/geographic', geographicRoutes);
+app.use('/api/institutional', institutionalRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
