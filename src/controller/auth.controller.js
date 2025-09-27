@@ -3,10 +3,6 @@ import {
   loginSchema,
   legacyRegisterSchema,
   legacyLoginSchema,
-  updateProfileSchema,
-  changePasswordSchema,
-  updateLegacyProfileSchema,
-  changeLegacyPasswordSchema,
 } from "../validations/auth.validations.js";
 
 import { AuthService } from "../services/auth.services.js";
