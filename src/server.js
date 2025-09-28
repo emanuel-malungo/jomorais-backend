@@ -10,6 +10,7 @@ import geographicRoutes from './routes/geographic.routes.js';
 import institutionalRoutes from './routes/institutional.routes.js';
 import institutionalManagementRoutes from './routes/institutional-management.routes.js';
 import academicManagementRoutes from './routes/academic-management.routes.js';
+import studentManagementRoutes from './routes/student-management.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -54,6 +55,7 @@ app.get('/', (req, res) => {
       institutional: '/api/institutional',
       institutionalManagement: '/api/institutional-management',
       academicManagement: '/api/academic-management',
+      studentManagement: '/api/student-management',
       docs: '/api/docs'
     }
   });
@@ -76,6 +78,7 @@ app.use('/api/geographic', geographicRoutes);
 app.use('/api/institutional', institutionalRoutes);
 app.use('/api/institutional-management', institutionalManagementRoutes);
 app.use('/api/academic-management', academicManagementRoutes);
+app.use('/api/student-management', studentManagementRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
