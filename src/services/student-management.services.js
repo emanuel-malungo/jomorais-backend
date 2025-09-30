@@ -720,50 +720,32 @@ export class StudentManagementService {
         where: { codigo: parseInt(id) },
         include: {
           tb_encarregados: {
-            include: {
-              tb_profissao: true,
-              tb_utilizadores: {
-                select: {
-                  codigo: true,
-                  nome: true,
-                  user: true,
-                  email: true
-                }
-              }
+            select: {
+              codigo: true,
+              nome: true,
+              telefone: true
             }
           },
           tb_utilizadores: {
             select: {
               codigo: true,
               nome: true,
-              user: true,
-              email: true
+              user: true
             }
           },
           tb_tipo_documento: true,
           tb_matriculas: {
-            include: {
-              tb_cursos: true,
-              tb_confirmacoes: {
-                include: {
-                  tb_turmas: {
-                    include: {
-                      tb_classes: true,
-                      tb_salas: true,
-                      tb_periodos: true
-                    }
-                  }
+            select: {
+              codigo: true,
+              data_Matricula: true,
+              codigoStatus: true,
+              tb_cursos: {
+                select: {
+                  codigo: true,
+                  designacao: true
                 }
               }
             }
-          },
-          tb_pagamentos: {
-            take: 5,
-            orderBy: { codigo: 'desc' }
-          },
-          tb_transferencias: {
-            take: 5,
-            orderBy: { codigo: 'desc' }
           }
         }
       });
