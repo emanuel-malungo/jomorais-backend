@@ -53,7 +53,7 @@ export const legacyRegisterSchema = z.object({
 
   passe: z.string()
     .min(6, "Senha deve ter pelo menos 6 caracteres")
-    .max(191, "Senha deve ter no máximo 191 caracteres"),
+    .max(45, "Senha deve ter no máximo 45 caracteres"),
 
   codigo_Tipo_Utilizador: z.number()
     .int()

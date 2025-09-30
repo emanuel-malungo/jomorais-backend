@@ -4,7 +4,7 @@ import prisma from '../config/database.js';
 import { generateToken } from '../utils/token.utils.js';
 import { AppError } from '../utils/validation.utils.js';
 import { convertBigIntToString } from '../utils/bigint.utils.js';
-import { hashPassword, comparePasswords } from '../utils/encryption.utils.js';
+import { hashPassword, comparePasswords, hashLegacyPassword, compareLegacyPasswords } from '../utils/encryption.utils.js';
 
 // Seleção padrão de campos para evitar repetição
 const userSelect = {
@@ -136,7 +136,7 @@ export class AuthService {
   static async registerLegacyUser(userData) {
     let { nome, user: username, passe, codigo_Tipo_Utilizador, estadoActual } = userData;
 
-    // Sanitização com verificação de existência
+    // Sanitizar dados de entrada
     nome = nome?.trim() || '';
     username = username?.trim()?.toLowerCase() || '';
     passe = passe?.trim() || '';
@@ -166,8 +166,8 @@ export class AuthService {
       throw new AppError('Tipo de utilizador inválido', 400);
     }
 
-    // Hash da senha
-    const hashedPassword = await hashPassword(passe);
+    // Hash da senha usando MD5 para compatibilidade com sistema legado
+    const hashedPassword = hashLegacyPassword(passe);
 
     // Criar usuário legado
     const user = await prisma.tb_utilizadores.create({
@@ -205,13 +205,8 @@ export class AuthService {
 
     if (!user) throw new AppError('Credenciais inválidas', 401);
 
-    // Verificar se a senha é hash ou texto plano
-    let isPasswordValid = false;
-    try {
-      isPasswordValid = await comparePasswords(passe, user.passe);
-    } catch {
-      isPasswordValid = passe === user.passe;
-    }
+    // Usar função de comparação legada (MD5 ou texto plano)
+    const isPasswordValid = compareLegacyPasswords(passe, user.passe);
 
     if (!isPasswordValid) throw new AppError('Credenciais inválidas', 401);
 

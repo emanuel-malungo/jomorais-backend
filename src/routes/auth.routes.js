@@ -168,8 +168,9 @@ router.post('/login', AuthController.login);
  *                 maxLength: 45
  *               passe:
  *                 type: string
- *                 description: Senha do utilizador
+ *                 description: Senha do utilizador (será convertida para hash MD5)
  *                 minLength: 6
+ *                 maxLength: 45
  *               codigo_Tipo_Utilizador:
  *                 type: integer
  *                 description: Tipo de utilizador (1-Admin, 2-Operador, etc.)
