@@ -10,8 +10,9 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose não está instalado. Por favor, instale o Docker Compose primeiro."
+# Verificar se Docker Compose (V2) está disponível
+if ! docker compose version &> /dev/null; then
+    echo "❌ Docker Compose (V2) não está disponível. Por favor, instale/atualize o Docker."
     exit 1
 fi
 
@@ -24,18 +25,18 @@ fi
 
 # Parar containers existentes
 echo "🛑 Parando containers existentes..."
-docker-compose down
+docker compose down
 
 # Remover volumes antigos (opcional - descomente se quiser resetar o banco)
 # echo "🗑️  Removendo volumes antigos..."
-# docker-compose down -v
+# docker compose down -v
 
 # Construir e iniciar os containers
 echo "🏗️  Construindo containers..."
-docker-compose build
+docker compose build
 
 echo "🚀 Iniciando serviços..."
-docker-compose up -d
+docker compose up -d
 
 # Aguardar o MySQL estar pronto
 echo "⏳ Aguardando MySQL estar pronto..."
@@ -43,7 +44,7 @@ sleep 30
 
 # Verificar status dos containers
 echo "📊 Status dos containers:"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "✅ Configuração concluída!"
@@ -59,7 +60,7 @@ echo "   - Senha: jomorais_password"
 echo "   - Base de dados: gestao_escolar"
 echo ""
 echo "🛠️  Comandos úteis:"
-echo "   - Ver logs: docker-compose logs -f"
-echo "   - Parar: docker-compose down"
-echo "   - Reiniciar: docker-compose restart"
+echo "   - Ver logs: docker compose logs -f"
+echo "   - Parar: docker compose down"
+echo "   - Reiniciar: docker compose restart"
 echo ""

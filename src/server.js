@@ -3,6 +3,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 
+// Importar utilitários BigInt
+import { bigIntMiddleware } from './utils/bigint.utils.js';
+
 // Importar rotas
 import authRoutes from './routes/auth.routes.js';
 import userssRoutes from './routes/users.routes.js';
@@ -24,6 +27,9 @@ app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Middleware para lidar com BigInt automaticamente
+app.use(bigIntMiddleware);
 
 // Middleware de tratamento de erros globais
 app.use((err, req, res, next) => {

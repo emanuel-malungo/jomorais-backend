@@ -1,6 +1,7 @@
 // controller/student-management.controller.js
 import { StudentManagementService } from "../services/student-management.services.js";
 import { handleControllerError } from "../utils/validation.utils.js";
+import { convertBigIntToString } from "../utils/bigint.utils.js";
 import {
   encarregadoCreateSchema,
   encarregadoUpdateSchema,
@@ -48,7 +49,7 @@ export class StudentManagementController {
       res.status(201).json({
         success: true,
         message: "Encarregado criado com sucesso",
-        data: encarregado,
+        data: convertBigIntToString(encarregado),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao criar encarregado", 400);
@@ -83,7 +84,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Encarregados encontrados",
-        ...result
+        ...convertBigIntToString(result)
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao buscar encarregados", 400);
@@ -99,7 +100,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Encarregado encontrado",
-        data: encarregado,
+        data: convertBigIntToString(encarregado),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao buscar encarregado", 400);
@@ -226,7 +227,7 @@ export class StudentManagementController {
       res.status(201).json({
         success: true,
         message: "Aluno criado com sucesso",
-        data: aluno,
+        data: convertBigIntToString(aluno),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao criar aluno", 400);
@@ -243,7 +244,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Aluno atualizado com sucesso",
-        data: aluno,
+        data: convertBigIntToString(aluno),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao atualizar aluno", 400);
@@ -258,10 +259,13 @@ export class StudentManagementController {
 
       const result = await StudentManagementService.getAlunos(page, limit, search);
       
+      // Converter BigInt para string antes de enviar
+      const convertedResult = convertBigIntToString(result);
+      
       res.json({
         success: true,
         message: "Alunos encontrados",
-        ...result
+        ...convertedResult
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao buscar alunos", 400);
@@ -277,7 +281,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Aluno encontrado",
-        data: aluno,
+        data: convertBigIntToString(aluno),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao buscar aluno", 400);
@@ -353,7 +357,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Matrículas encontradas",
-        ...result
+        ...convertBigIntToString(result)
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao buscar matrículas", 400);
@@ -582,7 +586,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Alunos da turma obtidos com sucesso",
-        data: alunos,
+        data: convertBigIntToString(alunos),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao obter alunos da turma", 400);
@@ -598,7 +602,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Matrículas do ano letivo obtidas com sucesso",
-        data: matriculas,
+        data: convertBigIntToString(matriculas),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao obter matrículas do ano letivo", 400);
@@ -628,7 +632,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Alunos sem matrícula obtidos com sucesso",
-        data: alunos,
+        data: convertBigIntToString(alunos),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao obter alunos sem matrícula", 400);
@@ -642,7 +646,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: "Matrículas sem confirmação obtidas com sucesso",
-        data: matriculas,
+        data: convertBigIntToString(matriculas),
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao obter matrículas sem confirmação", 400);
