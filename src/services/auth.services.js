@@ -251,6 +251,38 @@ export class AuthService {
     });
   }
 
+  static async getCurrentLegacyUser(userId) {
+    const user = await prisma.tb_utilizadores.findUnique({
+      where: { codigo: parseInt(userId) },
+      include: { tb_tipos_utilizador: true }
+    });
+
+    if (!user) throw new AppError('Usuário não encontrado', 404);
+
+    return {
+      id: user.codigo,
+      nome: user.nome,
+      username: user.user,
+      tipo: user.codigo_Tipo_Utilizador,
+      tipoDesignacao: user.tb_tipos_utilizador.designacao,
+      estadoActual: user.estadoActual,
+      dataCadastro: user.dataCadastro,
+      loginStatus: user.loginStatus,
+      legacy: true
+    };
+  }
+
+  static async getCurrentUser(userId) {
+    const user = await prisma.users.findUnique({
+      where: { id: BigInt(userId) },
+      select: userSelect
+    });
+
+    if (!user) throw new AppError('Usuário não encontrado', 404);
+
+    return convertBigIntToString(user);
+  }
+
   // ===============================
   // OPERAÇÕES GERAIS
   // ===============================

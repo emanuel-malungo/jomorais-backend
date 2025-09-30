@@ -100,6 +100,44 @@ export class AuthController {
     }
   }
 
+  static async legacyLogout(req, res) {
+    try {
+      await AuthService.logoutLegacyUser(req.user.id);
+      res.json({
+        success: true,
+        message: "Logout realizado com sucesso",
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao fazer logout", 500);
+    }
+  }
+
+  static async legacyMe(req, res) {
+    try {
+      const user = await AuthService.getCurrentLegacyUser(req.user.id);
+      res.json({
+        success: true,
+        message: "Usuário atual obtido com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter usuário atual", 500);
+    }
+  }
+
+  static async me(req, res) {
+    try {
+      const user = await AuthService.getCurrentUser(req.user.id);
+      res.json({
+        success: true,
+        message: "Usuário atual obtido com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter usuário atual", 500);
+    }
+  }
+
   static async getUserTypes(req, res) {
     try {
       const types = await AuthService.getUserTypes();

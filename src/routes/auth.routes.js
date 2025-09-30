@@ -254,6 +254,127 @@ router.post('/legacy/register', AuthController.legacyRegister);
  */
 router.post('/legacy/login', AuthController.legacyLogin);
 
+// ========== ROTAS PROTEGIDAS ==========
+
+/**
+ * @swagger
+ * /api/auth/legacy/logout:
+ *   post:
+ *     summary: Logout do usuário legado
+ *     description: Realiza logout do usuário do sistema legado
+ *     tags: [Autenticação - Sistema Legado]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Logout realizado com sucesso"
+ *       401:
+ *         description: Token inválido ou ausente
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/legacy/logout', authenticateToken, requireLegacyUser, AuthController.legacyLogout);
+
+/**
+ * @swagger
+ * /api/auth/legacy/me:
+ *   get:
+ *     summary: Obter usuário legado atual
+ *     description: Retorna informações do usuário legado autenticado atualmente
+ *     tags: [Autenticação - Sistema Legado]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usuário atual obtido com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Usuário atual obtido com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     nome:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     tipo:
+ *                       type: integer
+ *                     tipoDesignacao:
+ *                       type: string
+ *                     estadoActual:
+ *                       type: string
+ *                     dataCadastro:
+ *                       type: string
+ *                       format: date-time
+ *                     loginStatus:
+ *                       type: string
+ *                     legacy:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Token inválido ou ausente
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/legacy/me', authenticateToken, requireLegacyUser, AuthController.legacyMe);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Obter usuário atual
+ *     description: Retorna informações do usuário moderno autenticado atualmente
+ *     tags: [Autenticação - Sistema Moderno]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usuário atual obtido com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Usuário atual obtido com sucesso"
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Token inválido ou ausente
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/me', authenticateToken, requireModernUser, AuthController.me);
+
 /**
  * @swagger
  * /api/auth/user-types:
