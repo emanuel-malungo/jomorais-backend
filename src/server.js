@@ -15,6 +15,7 @@ import institutionalManagementRoutes from './routes/institutional-management.rou
 import academicManagementRoutes from './routes/academic-management.routes.js';
 import studentManagementRoutes from './routes/student-management.routes.js';
 import statusControlRoutes from './routes/status-control.routes.js';
+import financialServicesRoutes from './routes/financial-services.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -64,6 +65,7 @@ app.get('/', (req, res) => {
       academicManagement: '/api/academic-management',
       studentManagement: '/api/student-management',
       statusControl: '/api/status-control',
+      financialServices: '/api/financial-services',
       docs: '/api/docs'
     }
   });
@@ -88,6 +90,7 @@ app.use('/api/institutional-management', institutionalManagementRoutes);
 app.use('/api/academic-management', academicManagementRoutes);
 app.use('/api/student-management', studentManagementRoutes);
 app.use('/api/status-control', statusControlRoutes);
+app.use('/api/financial-services', financialServicesRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
