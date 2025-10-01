@@ -664,6 +664,8 @@ export class StudentManagementService {
       let alunos, total;
       
       try {
+        console.log(`[getAlunos] Buscando alunos - página ${page}, limite ${limit}, busca: ${search}`);
+        
         // Tentativa com includes complexos
         [alunos, total] = await Promise.all([
           prisma.tb_alunos.findMany({
@@ -715,6 +717,8 @@ export class StudentManagementService {
           }),
           prisma.tb_alunos.count({ where })
         ]);
+
+        console.log(`[getAlunos] Encontrados ${total} alunos, retornando ${alunos.length} nesta página`);
 
         // Buscar dados relacionados adicionais para cada aluno
         const alunosComDadosCompletos = await Promise.all(
@@ -863,10 +867,23 @@ export class StudentManagementService {
 
   static async getAlunoById(id) {
     try {
+      console.log(`[getAlunoById] Buscando aluno com ID: ${id}`);
+      
       // Implementação robusta baseada na memória - step-by-step query approach
       let aluno;
       
       try {
+        // Primeiro, verificar se o aluno existe
+        const alunoBasico = await prisma.tb_alunos.findUnique({
+          where: { codigo: parseInt(id) }
+        });
+
+        if (!alunoBasico) {
+          throw new AppError('Aluno não encontrado', 404);
+        }
+
+        console.log(`[getAlunoById] Aluno encontrado, buscando dados relacionados...`);
+
         // Tentativa com includes complexos
         aluno = await prisma.tb_alunos.findUnique({
           where: { codigo: parseInt(id) },
