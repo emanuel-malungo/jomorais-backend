@@ -660,56 +660,203 @@ export class StudentManagementService {
         ]
       } : {};
 
-      const [alunos, total] = await Promise.all([
-        prisma.tb_alunos.findMany({
-          where,
-          skip,
-          take,
-          include: {
-            tb_encarregados: {
-              select: {
-                codigo: true,
-                nome: true,
-                telefone: true
+      // Implementação robusta baseada na memória - step-by-step query approach
+      let alunos, total;
+      
+      try {
+        // Tentativa com includes complexos
+        [alunos, total] = await Promise.all([
+          prisma.tb_alunos.findMany({
+            where,
+            skip,
+            take,
+            include: {
+              tb_encarregados: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  telefone: true
+                }
+              },
+              tb_utilizadores: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  user: true
+                }
+              },
+              tb_tipo_documento: {
+                select: {
+                  codigo: true,
+                  designacao: true
+                }
+              },
+              tb_matriculas: {
+                select: {
+                  codigo: true,
+                  data_Matricula: true,
+                  codigoStatus: true,
+                  tb_cursos: {
+                    select: {
+                      codigo: true,
+                      designacao: true
+                    }
+                  },
+                  tb_utilizadores: {
+                    select: {
+                      codigo: true,
+                      nome: true
+                    }
+                  }
+                }
               }
             },
-            tb_utilizadores: {
-              select: {
-                codigo: true,
-                nome: true,
-                user: true
-              }
-            },
-            tb_tipo_documento: true,
-            tb_matriculas: {
-              select: {
-                codigo: true,
-                data_Matricula: true,
-                codigoStatus: true,
-                tb_cursos: {
+            orderBy: { nome: 'asc' }
+          }),
+          prisma.tb_alunos.count({ where })
+        ]);
+
+        // Buscar dados relacionados adicionais para cada aluno
+        const alunosComDadosCompletos = await Promise.all(
+          alunos.map(async (aluno) => {
+            try {
+              // Buscar dados relacionados pelos códigos
+              const [nacionalidade, estadoCivil, comuna, status] = await Promise.all([
+                // Nacionalidade
+                aluno.codigo_Nacionalidade ? 
+                  prisma.tb_nacionalidades.findUnique({
+                    where: { codigo: aluno.codigo_Nacionalidade },
+                    select: { codigo: true, designacao: true }
+                  }).catch(() => null) : null,
+                
+                // Estado Civil
+                aluno.codigo_Estado_Civil ? 
+                  prisma.tb_estado_civil.findUnique({
+                    where: { codigo: aluno.codigo_Estado_Civil },
+                    select: { codigo: true, designacao: true }
+                  }).catch(() => null) : null,
+                
+                // Comuna
+                aluno.codigo_Comuna ? 
+                  prisma.tb_comunas.findUnique({
+                    where: { codigo: aluno.codigo_Comuna },
+                    select: { 
+                      codigo: true, 
+                      designacao: true,
+                      tb_municipios: {
+                        select: {
+                          codigo: true,
+                          designacao: true,
+                          tb_provincias: {
+                            select: {
+                              codigo: true,
+                              designacao: true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }).catch(() => null) : null,
+                
+                // Status
+                aluno.codigo_Status ? 
+                  prisma.tb_status.findUnique({
+                    where: { codigo: aluno.codigo_Status },
+                    select: { codigo: true, designacao: true }
+                  }).catch(() => null) : null
+              ]);
+
+              return {
+                ...aluno,
+                tb_nacionalidade: nacionalidade,
+                tb_estado_civil: estadoCivil,
+                tb_comuna: comuna,
+                tb_status: status
+              };
+            } catch (error) {
+              console.error(`Erro ao buscar dados relacionados para aluno ${aluno.codigo}:`, error);
+              // Retorna o aluno sem os dados relacionados em caso de erro
+              return aluno;
+            }
+          })
+        );
+
+        return {
+          data: alunosComDadosCompletos,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalItems: total,
+            itemsPerPage: limit
+          }
+        };
+
+      } catch (complexError) {
+        console.error('Erro com includes complexos, tentando abordagem simples:', complexError);
+        
+        // Fallback: busca simples sem includes complexos
+        try {
+          [alunos, total] = await Promise.all([
+            prisma.tb_alunos.findMany({
+              where,
+              skip,
+              take,
+              include: {
+                tb_encarregados: {
+                  select: {
+                    codigo: true,
+                    nome: true,
+                    telefone: true
+                  }
+                },
+                tb_tipo_documento: {
                   select: {
                     codigo: true,
                     designacao: true
                   }
                 }
-              }
-            }
-          },
-          orderBy: { nome: 'asc' }
-        }),
-        prisma.tb_alunos.count({ where })
-      ]);
+              },
+              orderBy: { nome: 'asc' }
+            }),
+            prisma.tb_alunos.count({ where })
+          ]);
 
-      return {
-        data: alunos,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalItems: total,
-          itemsPerPage: limit
+          return {
+            data: alunos,
+            pagination: {
+              currentPage: page,
+              totalPages: Math.ceil(total / limit),
+              totalItems: total,
+              itemsPerPage: limit
+            }
+          };
+        } catch (simpleError) {
+          console.error('Erro com includes simples, retornando dados básicos:', simpleError);
+          
+          // Fallback final: apenas dados básicos
+          [alunos, total] = await Promise.all([
+            prisma.tb_alunos.findMany({
+              where,
+              skip,
+              take,
+              orderBy: { nome: 'asc' }
+            }),
+            prisma.tb_alunos.count({ where })
+          ]);
+
+          return {
+            data: alunos,
+            pagination: {
+              currentPage: page,
+              totalPages: Math.ceil(total / limit),
+              totalItems: total,
+              itemsPerPage: limit
+            }
+          };
         }
-      };
+      }
     } catch (error) {
+      console.error('Erro geral ao buscar alunos:', error);
       throw new AppError('Erro ao buscar alunos', 500);
     }
   }
