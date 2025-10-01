@@ -79,4 +79,65 @@ export const legacyLoginSchema = z.object({
     .min(1, "Senha é obrigatória")
 });
 
+// ===== Mudança de Senha - Usuário Legado =====
+export const changePasswordLegacySchema = z.object({
+  currentPassword: z.string()
+    .min(1, "Senha atual é obrigatória")
+    .max(100, "Senha atual muito longa"),
+  
+  newPassword: z.string()
+    .min(6, "Nova senha deve ter pelo menos 6 caracteres")
+    .max(50, "Nova senha deve ter no máximo 50 caracteres")
+    .refine(
+      (password) => password.trim().length >= 6,
+      "Nova senha não pode conter apenas espaços"
+    ),
+  
+  confirmPassword: z.string()
+    .min(1, "Confirmação de senha é obrigatória")
+}).refine(
+  (data) => data.newPassword === data.confirmPassword,
+  {
+    message: "Nova senha e confirmação devem ser iguais",
+    path: ["confirmPassword"]
+  }
+);
+
+// ===== Reset de Senha por Admin - Usuário Legado =====
+export const resetPasswordLegacySchema = z.object({
+  userId: z.union([
+    z.string().regex(/^\d+$/, "ID do usuário deve ser numérico").transform(val => parseInt(val)),
+    z.number().int().positive("ID do usuário deve ser um número positivo")
+  ]),
+  
+  newPassword: z.string()
+    .min(6, "Nova senha deve ter pelo menos 6 caracteres")
+    .max(50, "Nova senha deve ter no máximo 50 caracteres")
+    .refine(
+      (password) => password.trim().length >= 6,
+      "Nova senha não pode conter apenas espaços"
+    ),
+  
+  confirmPassword: z.string()
+    .min(1, "Confirmação de senha é obrigatória"),
+  
+  adminUserId: z.union([
+    z.string().regex(/^\d+$/, "ID do admin deve ser numérico").transform(val => parseInt(val)),
+    z.number().int().positive("ID do admin deve ser um número positivo")
+  ]).optional()
+}).refine(
+  (data) => data.newPassword === data.confirmPassword,
+  {
+    message: "Nova senha e confirmação devem ser iguais",
+    path: ["confirmPassword"]
+  }
+);
+
+// ===== Parâmetros de Rota =====
+export const userIdParamSchema = z.object({
+  userId: z.string()
+    .regex(/^\d+$/, "ID do usuário deve ser numérico")
+    .transform(val => parseInt(val))
+});
+
 

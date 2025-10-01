@@ -407,5 +407,232 @@ router.get('/me', authenticateToken, requireModernUser, AuthController.me);
  */
 router.get('/user-types', AuthController.getUserTypes);
 
+// ===============================
+// ROTAS MUDANÇA DE SENHA - USUÁRIO LEGADO
+// ===============================
+
+/**
+ * @swagger
+ * /api/auth/legacy/change-password/{userId}:
+ *   put:
+ *     summary: Alterar senha do usuário legado
+ *     description: Permite ao usuário alterar sua própria senha no sistema legado
+ *     tags: [Autenticação Legacy]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         description: ID do usuário legado
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Senha atual do usuário
+ *                 minLength: 1
+ *                 maxLength: 100
+ *               newPassword:
+ *                 type: string
+ *                 description: Nova senha (mínimo 6 caracteres)
+ *                 minLength: 6
+ *                 maxLength: 50
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirmação da nova senha
+ *                 minLength: 1
+ *           example:
+ *             currentPassword: "senhaAtual123"
+ *             newPassword: "novaSenha456"
+ *             confirmPassword: "novaSenha456"
+ *     responses:
+ *       200:
+ *         description: Senha alterada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Senha alterada com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                       example: 123
+ *                     nome:
+ *                       type: string
+ *                       example: "João Silva"
+ *                     username:
+ *                       type: string
+ *                       example: "joao.silva"
+ *       400:
+ *         description: Dados inválidos ou senha atual incorreta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Token inválido ou expirado
+ *       403:
+ *         description: Usuário inativo
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/legacy/change-password/:userId', authenticateToken, AuthController.changePasswordLegacy);
+
+/**
+ * @swagger
+ * /api/auth/legacy/reset-password:
+ *   post:
+ *     summary: Resetar senha de usuário legado (Admin)
+ *     description: Permite a administradores resetar a senha de outros usuários no sistema legado
+ *     tags: [Autenticação Legacy]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *                 description: ID do usuário que terá a senha resetada
+ *                 minimum: 1
+ *               newPassword:
+ *                 type: string
+ *                 description: Nova senha (mínimo 6 caracteres)
+ *                 minLength: 6
+ *                 maxLength: 50
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirmação da nova senha
+ *                 minLength: 1
+ *               adminUserId:
+ *                 type: integer
+ *                 description: ID do administrador (opcional, será pego do token)
+ *                 minimum: 1
+ *           example:
+ *             userId: 456
+ *             newPassword: "novaSenha789"
+ *             confirmPassword: "novaSenha789"
+ *             adminUserId: 1
+ *     responses:
+ *       200:
+ *         description: Senha resetada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Senha resetada com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                       example: 456
+ *                     nome:
+ *                       type: string
+ *                       example: "Maria Santos"
+ *                     username:
+ *                       type: string
+ *                       example: "maria.santos"
+ *       400:
+ *         description: Dados inválidos
+ *       401:
+ *         description: Token inválido ou expirado
+ *       403:
+ *         description: Sem permissão de administrador
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/legacy/reset-password', authenticateToken, AuthController.resetPasswordLegacy);
+
+/**
+ * @swagger
+ * /api/auth/legacy/me:
+ *   get:
+ *     summary: Obter dados do usuário legado atual
+ *     description: Retorna os dados do usuário legado autenticado
+ *     tags: [Autenticação Legacy]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dados do usuário obtidos com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Dados do usuário obtidos com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                       example: 123
+ *                     nome:
+ *                       type: string
+ *                       example: "João Silva"
+ *                     username:
+ *                       type: string
+ *                       example: "joao.silva"
+ *                     tipo:
+ *                       type: integer
+ *                       example: 1
+ *                     tipoDesignacao:
+ *                       type: string
+ *                       example: "Administrador"
+ *                     estadoActual:
+ *                       type: integer
+ *                       example: 1
+ *       401:
+ *         description: Token inválido ou usuário não autenticado
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/legacy/me', authenticateToken, AuthController.getCurrentUserLegacy);
+
 
 export default router;
