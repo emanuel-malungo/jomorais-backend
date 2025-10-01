@@ -401,12 +401,24 @@ export class StudentManagementController {
 
   static async createConfirmacao(req, res) {
     try {
+      console.log('Controller: Recebendo dados para criar confirmação:', req.body);
+      
       // Tentar primeiro o schema flexível, depois o padrão
       let validatedData;
       try {
+        console.log('Controller: Tentando validação com schema flexível...');
         validatedData = confirmacaoFlexibleCreateSchema.parse(req.body);
-      } catch {
-        validatedData = confirmacaoCreateSchema.parse(req.body);
+        console.log('Controller: Validação flexível passou:', validatedData);
+      } catch (flexError) {
+        console.log('Controller: Validação flexível falhou:', flexError.errors || flexError.message);
+        console.log('Controller: Tentando validação com schema padrão...');
+        try {
+          validatedData = confirmacaoCreateSchema.parse(req.body);
+          console.log('Controller: Validação padrão passou:', validatedData);
+        } catch (standardError) {
+          console.log('Controller: Validação padrão também falhou:', standardError.errors || standardError.message);
+          throw standardError;
+        }
       }
 
       const confirmacao = await StudentManagementService.createConfirmacao(validatedData);
@@ -417,6 +429,7 @@ export class StudentManagementController {
         data: confirmacao,
       });
     } catch (error) {
+      console.error('Controller: Erro ao criar confirmação:', error);
       handleControllerError(res, error, "Erro ao criar confirmação", 400);
     }
   }
@@ -645,11 +658,11 @@ export class StudentManagementController {
       
       res.json({
         success: true,
-        message: "Matrículas sem confirmação obtidas com sucesso",
+        message: "Matrículas obtidas com sucesso",
         data: convertBigIntToString(matriculas),
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao obter matrículas sem confirmação", 400);
+      handleControllerError(res, error, "Erro ao obter matrículas", 400);
     }
   }
 

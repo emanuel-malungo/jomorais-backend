@@ -1883,12 +1883,17 @@ export class StudentManagementService {
 
   static async getMatriculasWithoutConfirmacao() {
     try {
+      console.log('Service: Buscando matrículas...');
+      
+      // Primeiro, vamos verificar se há dados básicos
+      const totalMatriculas = await prisma.tb_matriculas.count();
+      const totalAlunos = await prisma.tb_alunos.count();
+      console.log(`Service: Total matrículas: ${totalMatriculas}, Total alunos: ${totalAlunos}`);
+      
+      // Retornar TODAS as matrículas ativas para permitir confirmações
       const matriculas = await prisma.tb_matriculas.findMany({
         where: {
-          codigoStatus: 1,
-          tb_confirmacoes: {
-            none: {}
-          }
+          codigoStatus: 1 // Apenas matrículas ativas
         },
         include: {
           tb_alunos: {
@@ -1897,17 +1902,42 @@ export class StudentManagementService {
               nome: true,
               dataNascimento: true,
               sexo: true,
-              url_Foto: true
+              url_Foto: true,
+              email: true,
+              telefone: true
             }
           },
-          tb_cursos: true
+          tb_cursos: {
+            select: {
+              codigo: true,
+              designacao: true,
+              codigo_Status: true
+            }
+          },
+          tb_confirmacoes: {
+            select: {
+              codigo: true,
+              codigo_Ano_lectivo: true,
+              data_Confirmacao: true,
+              classificacao: true
+            },
+            orderBy: { data_Confirmacao: 'desc' }
+          }
         },
         orderBy: { data_Matricula: 'desc' }
       });
 
+      console.log(`Service: Encontradas ${matriculas.length} matrículas ativas`);
+      console.log('Service: Primeira matrícula:', matriculas[0] ? {
+        codigo: matriculas[0].codigo,
+        aluno: matriculas[0].tb_alunos?.nome,
+        curso: matriculas[0].tb_cursos?.designacao
+      } : 'Nenhuma');
+
       return matriculas;
     } catch (error) {
-      throw new AppError('Erro ao buscar matrículas sem confirmação', 500);
+      console.error('Service: Erro ao buscar matrículas:', error);
+      throw new AppError('Erro ao buscar matrículas', 500);
     }
   }
 }

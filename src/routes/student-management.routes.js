@@ -396,6 +396,102 @@ const router = Router();
 // Aplicar middleware de autenticação para todas as rotas
 	// router.use(authenticateToken);
 
+// Rota de teste para verificar dados
+router.get('/test-data', async (req, res) => {
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const matriculas = await prisma.tb_matriculas.count();
+    const alunos = await prisma.tb_alunos.count();
+    const confirmacoes = await prisma.tb_confirmacoes.count();
+    
+    // Buscar algumas matrículas de exemplo
+    const exemploMatriculas = await prisma.tb_matriculas.findMany({
+      take: 3,
+      include: {
+        tb_alunos: {
+          select: {
+            codigo: true,
+            nome: true
+          }
+        },
+        tb_cursos: {
+          select: {
+            codigo: true,
+            designacao: true
+          }
+        }
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        matriculas,
+        alunos,
+        confirmacoes,
+        matriculasAtivas: await prisma.tb_matriculas.count({
+          where: {
+            codigoStatus: 1
+          }
+        }),
+        matriculasSemConfirmacao: await prisma.tb_matriculas.count({
+          where: {
+            codigoStatus: 1,
+            tb_confirmacoes: {
+              none: {}
+            }
+          }
+        }),
+        exemploMatriculas
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Rota simples para buscar alunos matriculados
+router.get('/alunos-matriculados', async (req, res) => {
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    console.log('Buscando alunos matriculados...');
+    
+    const matriculas = await prisma.tb_matriculas.findMany({
+      where: {
+        codigoStatus: 1
+      },
+      include: {
+        tb_alunos: true,
+        tb_cursos: true
+      },
+      orderBy: {
+        data_Matricula: 'desc'
+      }
+    });
+    
+    console.log(`Encontradas ${matriculas.length} matrículas`);
+    
+    res.json({
+      success: true,
+      message: `${matriculas.length} matrículas encontradas`,
+      data: matriculas
+    });
+  } catch (error) {
+    console.error('Erro ao buscar alunos matriculados:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // ===============================
 // ROTAS PARA ENCARREGADOS
 // ===============================
@@ -1231,13 +1327,70 @@ router.post('/matriculas/batch', StudentManagementController.createMultipleMatri
  * @swagger
  * /api/student-management/matriculas/sem-confirmacao:
  *   get:
- *     summary: Listar matrículas sem confirmação
+ *     summary: Listar todas as matrículas ativas (para confirmações)
+ *     description: |
+ *       Retorna todas as matrículas ativas com informações dos alunos, cursos 
+ *       e confirmações existentes. Usado para permitir criar confirmações 
+ *       para qualquer matrícula, independente de já ter confirmações anteriores.
  *     tags: [Gestão de Estudantes - Matrículas]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Lista de matrículas sem confirmação
+ *         description: Lista de matrículas ativas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Matrículas obtidas com sucesso"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       codigo:
+ *                         type: integer
+ *                       data_Matricula:
+ *                         type: string
+ *                         format: date
+ *                       tb_alunos:
+ *                         type: object
+ *                         properties:
+ *                           codigo:
+ *                             type: integer
+ *                           nome:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           telefone:
+ *                             type: string
+ *                       tb_cursos:
+ *                         type: object
+ *                         properties:
+ *                           codigo:
+ *                             type: integer
+ *                           designacao:
+ *                             type: string
+ *                       tb_confirmacoes:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             codigo:
+ *                               type: integer
+ *                             codigo_Ano_lectivo:
+ *                               type: integer
+ *                             data_Confirmacao:
+ *                               type: string
+ *                               format: date
+ *                             classificacao:
+ *                               type: string
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */

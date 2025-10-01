@@ -323,6 +323,97 @@ import { AcademicManagementController } from '../controller/academic-management.
 
 const router = express.Router();
 
+// Rota de teste para verificar dados
+router.get('/test-data', async (req, res) => {
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const anosLetivos = await prisma.tb_anos_lectivos.count();
+    const turmas = await prisma.tb_turmas.count();
+    const cursos = await prisma.tb_cursos.count();
+    
+    // Buscar algumas turmas de exemplo
+    const exemploTurmas = await prisma.tb_turmas.findMany({
+      take: 3,
+      include: {
+        tb_classes: {
+          select: {
+            codigo: true,
+            designacao: true
+          }
+        },
+        tb_cursos: {
+          select: {
+            codigo: true,
+            designacao: true
+          }
+        }
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        anosLetivos,
+        turmas,
+        cursos,
+        turmasAtivas: await prisma.tb_turmas.count({
+          where: {
+            status: 'Ativo'
+          }
+        }),
+        exemploTurmas
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Rota simples para buscar turmas ativas
+router.get('/turmas-ativas', async (req, res) => {
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    console.log('Buscando turmas ativas...');
+    
+    const turmas = await prisma.tb_turmas.findMany({
+      where: {
+        status: 'Ativo'
+      },
+      include: {
+        tb_classes: true,
+        tb_salas: true,
+        tb_periodos: true,
+        tb_cursos: true,
+        tb_anos_lectivos: true
+      },
+      orderBy: {
+        designacao: 'asc'
+      }
+    });
+    
+    console.log(`Encontradas ${turmas.length} turmas ativas`);
+    
+    res.json({
+      success: true,
+      message: `${turmas.length} turmas encontradas`,
+      data: turmas
+    });
+  } catch (error) {
+    console.error('Erro ao buscar turmas:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // ========== ANO LETIVO - CRUD ==========
 
 /**
