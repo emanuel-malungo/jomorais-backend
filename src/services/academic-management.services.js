@@ -13,7 +13,7 @@ export class AcademicManagementService {
 
       const existingAno = await prisma.tb_ano_lectivo.findFirst({
         where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+          designacao: designacao.trim()
         }
       });
 
@@ -53,7 +53,7 @@ export class AcademicManagementService {
       if (data.designacao) {
         const duplicateAno = await prisma.tb_ano_lectivo.findFirst({
           where: {
-            designacao: { equals: data.designacao.trim(), mode: 'insensitive' },
+            designacao: data.designacao.trim(),
             codigo: { not: parseInt(id) }
           }
         });
@@ -86,8 +86,7 @@ export class AcademicManagementService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -244,8 +243,7 @@ export class AcademicManagementService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -336,7 +334,7 @@ export class AcademicManagementService {
 
       const existingClasse = await prisma.tb_classes.findFirst({
         where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+          designacao: designacao.trim()
         }
       });
 
@@ -371,7 +369,7 @@ export class AcademicManagementService {
       if (data.designacao) {
         const duplicateClasse = await prisma.tb_classes.findFirst({
           where: {
-            designacao: { equals: data.designacao.trim(), mode: 'insensitive' },
+            designacao: data.designacao.trim(),
             codigo: { not: parseInt(id) }
           }
         });
@@ -403,8 +401,7 @@ export class AcademicManagementService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -497,7 +494,7 @@ export class AcademicManagementService {
 
       const existingDisciplina = await prisma.tb_disciplinas.findFirst({
         where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' },
+          designacao: designacao.trim(),
           codigo_Curso: parseInt(codigo_Curso)
         }
       });
@@ -519,6 +516,7 @@ export class AcademicManagementService {
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro detalhado ao criar disciplina:', error);
       throw new AppError('Erro ao criar disciplina', 500);
     }
   }
@@ -563,7 +561,14 @@ export class AcademicManagementService {
     try {
       const existingDisciplina = await prisma.tb_disciplinas.findUnique({
         where: { codigo: parseInt(id) },
-        include: { tb_grade_curricular: true }
+        include: { 
+          tb_grade_curricular: {
+            include: {
+              tb_classes: { select: { designacao: true } },
+              tb_cursos: { select: { designacao: true } }
+            }
+          }
+        }
       });
 
       if (!existingDisciplina) {
@@ -571,7 +576,20 @@ export class AcademicManagementService {
       }
 
       if (existingDisciplina.tb_grade_curricular.length > 0) {
-        throw new AppError('Não é possível excluir esta disciplina pois está na grade curricular', 400);
+        const count = existingDisciplina.tb_grade_curricular.length;
+        const gradeInfo = existingDisciplina.tb_grade_curricular.map(gc => ({
+          classe: gc.tb_classes?.designacao || `Classe ${gc.codigo_Classe}`,
+          curso: gc.tb_cursos?.designacao || `Curso ${gc.codigo_Curso}`
+        }));
+        
+        const details = gradeInfo.length > 0 
+          ? ` Está sendo usada nas seguintes grades: ${gradeInfo.map(info => `${info.classe} - ${info.curso}`).join(', ')}.`
+          : '';
+          
+        throw new AppError(
+          `Não é possível excluir esta disciplina pois ela está sendo usada em ${count} item(ns) da grade curricular.${details} Remova-a da grade curricular primeiro.`, 
+          400
+        );
       }
 
       await prisma.tb_disciplinas.delete({
@@ -591,8 +609,7 @@ export class AcademicManagementService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -602,7 +619,8 @@ export class AcademicManagementService {
           skip,
           take: limit,
           include: {
-            tb_cursos: { select: { codigo: true, designacao: true } }
+            tb_cursos: { select: { codigo: true, designacao: true } },
+            tb_grade_curricular: { select: { codigo: true } }
           },
           orderBy: { designacao: 'asc' }
         }),
