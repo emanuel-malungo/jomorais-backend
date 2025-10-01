@@ -15,6 +15,10 @@
  *     description: Gestão de taxas de IVA do sistema
  *   - name: Tipos de Multa
  *     description: Gestão de tipos de multa aplicáveis
+ *   - name: Motivos de Isenção
+ *     description: Gestão de motivos de isenção fiscal
+ *   - name: Tipos de Taxa IVA
+ *     description: Gestão de tipos de taxa IVA com isenções
  *   - name: Consultas Especiais
  *     description: Operações especiais e relatórios
  *   - name: Relatórios Financeiros
@@ -1418,5 +1422,317 @@ router.put('/tipos-multa/:id', FinancialServicesController.updateTipoMulta);
  *         description: Tipo de multa excluído com sucesso
  */
 router.delete('/tipos-multa/:id', FinancialServicesController.deleteTipoMulta);
+
+// ===============================
+// ROTAS MOTIVOS DE ISENÇÃO
+// ===============================
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-isencao:
+ *   post:
+ *     summary: Criar novo motivo de isenção
+ *     description: Cria um novo motivo de isenção no sistema
+ *     tags: [Motivos de Isenção]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigo_Isencao
+ *               - designacao
+ *             properties:
+ *               codigo_Isencao:
+ *                 type: string
+ *                 maxLength: 5
+ *                 description: Código da isenção
+ *                 example: "M01"
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 300
+ *                 description: Designação do motivo
+ *                 example: "Isento por lei específica"
+ *               status:
+ *                 type: string
+ *                 maxLength: 30
+ *                 description: Status do motivo
+ *                 example: "Activo"
+ *                 default: "Activo"
+ *     responses:
+ *       201:
+ *         description: Motivo de isenção criado com sucesso
+ *       409:
+ *         description: Código já existe
+ */
+router.post('/motivos-isencao', FinancialServicesController.createMotivoIsencao);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-isencao:
+ *   get:
+ *     summary: Listar motivos de isenção
+ *     description: Lista todos os motivos de isenção com paginação
+ *     tags: [Motivos de Isenção]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de motivos de isenção
+ */
+router.get('/motivos-isencao', FinancialServicesController.getMotivosIsencao);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-isencao/{id}:
+ *   get:
+ *     summary: Buscar motivo de isenção por ID
+ *     tags: [Motivos de Isenção]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Motivo de isenção encontrado
+ *       404:
+ *         description: Motivo de isenção não encontrado
+ */
+router.get('/motivos-isencao/:id', FinancialServicesController.getMotivoIsencaoById);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-isencao/{id}:
+ *   put:
+ *     summary: Atualizar motivo de isenção
+ *     tags: [Motivos de Isenção]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               codigo_Isencao:
+ *                 type: string
+ *                 maxLength: 5
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 300
+ *               status:
+ *                 type: string
+ *                 maxLength: 30
+ *     responses:
+ *       200:
+ *         description: Motivo de isenção atualizado com sucesso
+ */
+router.put('/motivos-isencao/:id', FinancialServicesController.updateMotivoIsencao);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-isencao/{id}:
+ *   delete:
+ *     summary: Excluir motivo de isenção
+ *     tags: [Motivos de Isenção]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Motivo de isenção excluído com sucesso
+ *       400:
+ *         description: Motivo possui dependências
+ */
+router.delete('/motivos-isencao/:id', FinancialServicesController.deleteMotivoIsencao);
+
+// ===============================
+// ROTAS TIPOS DE TAXA IVA
+// ===============================
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-taxa-iva:
+ *   post:
+ *     summary: Criar novo tipo de taxa IVA
+ *     description: Cria um novo tipo de taxa IVA no sistema
+ *     tags: [Tipos de Taxa IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - taxa
+ *             properties:
+ *               taxa:
+ *                 type: integer
+ *                 minimum: 0
+ *                 description: Percentual da taxa IVA (inteiro)
+ *                 example: 14
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Designação da taxa
+ *                 example: "IVA Normal"
+ *               codigo_Isencao:
+ *                 type: integer
+ *                 description: Código do motivo de isenção
+ *                 example: 1
+ *               status:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Status da taxa
+ *                 example: "Activo"
+ *                 default: "Activo"
+ *     responses:
+ *       201:
+ *         description: Tipo de taxa IVA criado com sucesso
+ */
+router.post('/tipos-taxa-iva', FinancialServicesController.createTipoTaxaIva);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-taxa-iva:
+ *   get:
+ *     summary: Listar tipos de taxa IVA
+ *     tags: [Tipos de Taxa IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de tipos de taxa IVA
+ */
+router.get('/tipos-taxa-iva', FinancialServicesController.getTiposTaxaIva);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-taxa-iva/{id}:
+ *   get:
+ *     summary: Buscar tipo de taxa IVA por ID
+ *     tags: [Tipos de Taxa IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tipo de taxa IVA encontrado
+ */
+router.get('/tipos-taxa-iva/:id', FinancialServicesController.getTipoTaxaIvaById);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-taxa-iva/{id}:
+ *   put:
+ *     summary: Atualizar tipo de taxa IVA
+ *     tags: [Tipos de Taxa IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               taxa:
+ *                 type: integer
+ *                 minimum: 0
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *               codigo_Isencao:
+ *                 type: integer
+ *               status:
+ *                 type: string
+ *                 maxLength: 45
+ *     responses:
+ *       200:
+ *         description: Tipo de taxa IVA atualizado com sucesso
+ */
+router.put('/tipos-taxa-iva/:id', FinancialServicesController.updateTipoTaxaIva);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-taxa-iva/{id}:
+ *   delete:
+ *     summary: Excluir tipo de taxa IVA
+ *     tags: [Tipos de Taxa IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tipo de taxa IVA excluído com sucesso
+ */
+router.delete('/tipos-taxa-iva/:id', FinancialServicesController.deleteTipoTaxaIva);
 
 export default router;

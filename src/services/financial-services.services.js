@@ -1176,4 +1176,340 @@ export class FinancialServicesService {
       throw new AppError('Erro ao excluir tipo de multa', 500);
     }
   }
+
+  // ===============================
+  // MOTIVOS DE ISENÇÃO - CRUD COMPLETO
+  // ===============================
+
+  static async createMotivoIsencao(data) {
+    try {
+      const { codigo_Isencao, designacao, status } = data;
+
+      const existingMotivo = await prisma.tb_motivo_isencao.findFirst({
+        where: {
+          codigo_Isencao: codigo_Isencao.trim()
+        }
+      });
+
+      if (existingMotivo) {
+        throw new AppError('Já existe um motivo de isenção com este código', 409);
+      }
+
+      return await prisma.tb_motivo_isencao.create({
+        data: {
+          codigo_Isencao: codigo_Isencao.trim(),
+          designacao: designacao.trim(),
+          status: status?.trim() || "Activo"
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar motivo de isenção', 500);
+    }
+  }
+
+  static async updateMotivoIsencao(id, data) {
+    try {
+      const existingMotivo = await prisma.tb_motivo_isencao.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingMotivo) {
+        throw new AppError('Motivo de isenção não encontrado', 404);
+      }
+
+      if (data.codigo_Isencao) {
+        const duplicateMotivo = await prisma.tb_motivo_isencao.findFirst({
+          where: {
+            codigo_Isencao: data.codigo_Isencao.trim(),
+            codigo: { not: parseInt(id) }
+          }
+        });
+
+        if (duplicateMotivo) {
+          throw new AppError('Já existe um motivo de isenção com este código', 409);
+        }
+      }
+
+      return await prisma.tb_motivo_isencao.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          codigo_Isencao: data.codigo_Isencao?.trim(),
+          designacao: data.designacao?.trim(),
+          status: data.status?.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar motivo de isenção', 500);
+    }
+  }
+
+  static async getMotivosIsencao(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        OR: [
+          {
+            codigo_Isencao: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          },
+          {
+            designacao: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          }
+        ]
+      } : {};
+
+      const [motivos, total] = await Promise.all([
+        prisma.tb_motivo_isencao.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            _count: {
+              select: { tb_tipo_taxa_iva: true }
+            }
+          },
+          orderBy: { codigo_Isencao: 'asc' }
+        }),
+        prisma.tb_motivo_isencao.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: motivos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar motivos de isenção', 500);
+    }
+  }
+
+  static async getMotivoIsencaoById(id) {
+    try {
+      const motivo = await prisma.tb_motivo_isencao.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_taxa_iva: {
+            select: { codigo: true, designacao: true, taxa: true, status: true },
+            orderBy: { designacao: 'asc' }
+          }
+        }
+      });
+
+      if (!motivo) {
+        throw new AppError('Motivo de isenção não encontrado', 404);
+      }
+
+      return motivo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar motivo de isenção', 500);
+    }
+  }
+
+  static async deleteMotivoIsencao(id) {
+    try {
+      const existingMotivo = await prisma.tb_motivo_isencao.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_taxa_iva: true
+        }
+      });
+
+      if (!existingMotivo) {
+        throw new AppError('Motivo de isenção não encontrado', 404);
+      }
+
+      if (existingMotivo.tb_tipo_taxa_iva.length > 0) {
+        throw new AppError('Não é possível excluir este motivo de isenção pois possui tipos de taxa IVA associados', 400);
+      }
+
+      await prisma.tb_motivo_isencao.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Motivo de isenção excluído com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao excluir motivo de isenção', 500);
+    }
+  }
+
+  // ===============================
+  // TIPOS DE TAXA IVA - CRUD COMPLETO
+  // ===============================
+
+  static async createTipoTaxaIva(data) {
+    try {
+      const { taxa, designacao, codigo_Isencao, status } = data;
+
+      // Verificar se o motivo de isenção existe (se fornecido)
+      if (codigo_Isencao && codigo_Isencao > 0) {
+        const motivoExists = await prisma.tb_motivo_isencao.findUnique({
+          where: { codigo: parseInt(codigo_Isencao) }
+        });
+
+        if (!motivoExists) {
+          throw new AppError('Motivo de isenção não encontrado', 404);
+        }
+      }
+
+      return await prisma.tb_tipo_taxa_iva.create({
+        data: {
+          taxa: parseInt(taxa),
+          designacao: designacao?.trim() || "",
+          codigo_Isencao: codigo_Isencao && codigo_Isencao > 0 ? parseInt(codigo_Isencao) : null,
+          status: status?.trim() || "Activo"
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar tipo de taxa IVA', 500);
+    }
+  }
+
+  static async updateTipoTaxaIva(id, data) {
+    try {
+      const existingTipo = await prisma.tb_tipo_taxa_iva.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingTipo) {
+        throw new AppError('Tipo de taxa IVA não encontrado', 404);
+      }
+
+      // Verificar motivo de isenção se fornecido
+      if (data.codigo_Isencao && data.codigo_Isencao > 0) {
+        const motivoExists = await prisma.tb_motivo_isencao.findUnique({
+          where: { codigo: parseInt(data.codigo_Isencao) }
+        });
+        if (!motivoExists) throw new AppError('Motivo de isenção não encontrado', 404);
+      }
+
+      return await prisma.tb_tipo_taxa_iva.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          taxa: data.taxa ? parseInt(data.taxa) : undefined,
+          designacao: data.designacao?.trim(),
+          codigo_Isencao: data.codigo_Isencao && data.codigo_Isencao > 0 ? parseInt(data.codigo_Isencao) : null,
+          status: data.status?.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar tipo de taxa IVA', 500);
+    }
+  }
+
+  static async getTiposTaxaIva(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        OR: [
+          {
+            designacao: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          },
+          {
+            status: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          }
+        ]
+      } : {};
+
+      const [tipos, total] = await Promise.all([
+        prisma.tb_tipo_taxa_iva.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_motivo_isencao: {
+              select: { codigo: true, codigo_Isencao: true, designacao: true }
+            }
+          },
+          orderBy: { taxa: 'asc' }
+        }),
+        prisma.tb_tipo_taxa_iva.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: tipos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar tipos de taxa IVA', 500);
+    }
+  }
+
+  static async getTipoTaxaIvaById(id) {
+    try {
+      const tipo = await prisma.tb_tipo_taxa_iva.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_motivo_isencao: {
+            select: { codigo: true, codigo_Isencao: true, designacao: true, status: true }
+          }
+        }
+      });
+
+      if (!tipo) {
+        throw new AppError('Tipo de taxa IVA não encontrado', 404);
+      }
+
+      return tipo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar tipo de taxa IVA', 500);
+    }
+  }
+
+  static async deleteTipoTaxaIva(id) {
+    try {
+      const existingTipo = await prisma.tb_tipo_taxa_iva.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingTipo) {
+        throw new AppError('Tipo de taxa IVA não encontrado', 404);
+      }
+
+      await prisma.tb_tipo_taxa_iva.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Tipo de taxa IVA excluído com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao excluir tipo de taxa IVA', 500);
+    }
+  }
 }

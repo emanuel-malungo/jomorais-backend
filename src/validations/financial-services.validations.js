@@ -543,3 +543,116 @@ export const tipoMultaUpdateSchema = z.object({
     .trim()
     .optional()
 }).strict();
+
+// ===============================
+// MOTIVOS DE ISENÇÃO VALIDATIONS
+// ===============================
+
+export const motivoIsencaoCreateSchema = z.object({
+  codigo_Isencao: z
+    .string({
+      required_error: "Código de isenção é obrigatório",
+      invalid_type_error: "Código de isenção deve ser um texto"
+    })
+    .min(1, "Código de isenção não pode estar vazio")
+    .max(5, "Código de isenção deve ter no máximo 5 caracteres")
+    .trim(),
+  designacao: z
+    .string({
+      required_error: "Designação é obrigatória",
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .min(1, "Designação não pode estar vazia")
+    .max(300, "Designação deve ter no máximo 300 caracteres")
+    .trim(),
+  status: z
+    .string()
+    .max(30, "Status deve ter no máximo 30 caracteres")
+    .trim()
+    .optional()
+}).strict();
+
+export const motivoIsencaoUpdateSchema = z.object({
+  codigo_Isencao: z
+    .string({
+      invalid_type_error: "Código de isenção deve ser um texto"
+    })
+    .min(1, "Código de isenção não pode estar vazio")
+    .max(5, "Código de isenção deve ter no máximo 5 caracteres")
+    .trim()
+    .optional(),
+  designacao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .min(1, "Designação não pode estar vazia")
+    .max(300, "Designação deve ter no máximo 300 caracteres")
+    .trim()
+    .optional(),
+  status: z
+    .string()
+    .max(30, "Status deve ter no máximo 30 caracteres")
+    .trim()
+    .optional()
+}).strict();
+
+// ===============================
+// TIPOS DE TAXA IVA VALIDATIONS
+// ===============================
+
+export const tipoTaxaIvaCreateSchema = z.object({
+  taxa: z
+    .union([
+      z.string().transform(val => parseInt(val)),
+      z.number().int()
+    ])
+    .refine(val => !isNaN(val) && val >= 0, "Taxa deve ser um número inteiro válido e não negativo"),
+  designacao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  codigo_Isencao: z
+    .union([
+      z.string().transform(val => parseInt(val)),
+      z.number().int().positive()
+    ])
+    .optional()
+    .nullable(),
+  status: z
+    .string()
+    .max(45, "Status deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+}).strict();
+
+export const tipoTaxaIvaUpdateSchema = z.object({
+  taxa: z
+    .union([
+      z.string().transform(val => parseInt(val)),
+      z.number().int()
+    ])
+    .refine(val => !isNaN(val) && val >= 0, "Taxa deve ser um número inteiro válido e não negativo")
+    .optional(),
+  designacao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  codigo_Isencao: z
+    .union([
+      z.string().transform(val => parseInt(val)),
+      z.number().int().positive()
+    ])
+    .optional()
+    .nullable(),
+  status: z
+    .string()
+    .max(45, "Status deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+}).strict();
