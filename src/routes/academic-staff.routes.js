@@ -9,6 +9,10 @@
  *     description: Gestão de professores e docentes
  *   - name: Disciplinas Docente
  *     description: Associação entre docentes e disciplinas
+ *   - name: Diretores de Turmas
+ *     description: Gestão de diretores de turmas
+ *   - name: Docente Turma
+ *     description: Associação entre docentes e turmas
  *   - name: Consultas Acadêmicas
  *     description: Operações especiais e relatórios acadêmicos
  *
@@ -461,5 +465,302 @@ router.get('/especialidades/:id/docentes', AcademicStaffController.getDocentesPo
  *         description: Relatório acadêmico gerado
  */
 router.get('/relatorio', AcademicStaffController.getRelatorioAcademico);
+
+// ===============================
+// ROTAS DIRETORES DE TURMAS
+// ===============================
+
+/**
+ * @swagger
+ * /api/academic-staff/diretores-turmas:
+ *   post:
+ *     summary: Criar diretor de turma
+ *     tags: [Diretores de Turmas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigoAnoLectivo
+ *               - codigoTurma
+ *               - codigoDocente
+ *             properties:
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *               codigoAnoLectivo:
+ *                 type: integer
+ *               codigoTurma:
+ *                 type: integer
+ *               codigoDocente:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Diretor de turma criado com sucesso
+ */
+router.post('/diretores-turmas', AcademicStaffController.createDiretorTurma);
+
+/**
+ * @swagger
+ * /api/academic-staff/diretores-turmas:
+ *   get:
+ *     summary: Listar diretores de turmas
+ *     tags: [Diretores de Turmas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de diretores de turmas
+ */
+router.get('/diretores-turmas', AcademicStaffController.getDiretoresTurmas);
+
+/**
+ * @swagger
+ * /api/academic-staff/diretores-turmas/{id}:
+ *   get:
+ *     summary: Buscar diretor de turma por ID
+ *     tags: [Diretores de Turmas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Diretor de turma encontrado
+ */
+router.get('/diretores-turmas/:id', AcademicStaffController.getDiretorTurmaById);
+
+/**
+ * @swagger
+ * /api/academic-staff/diretores-turmas/{id}:
+ *   put:
+ *     summary: Atualizar diretor de turma
+ *     tags: [Diretores de Turmas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *               codigoAnoLectivo:
+ *                 type: integer
+ *               codigoTurma:
+ *                 type: integer
+ *               codigoDocente:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Diretor de turma atualizado com sucesso
+ */
+router.put('/diretores-turmas/:id', AcademicStaffController.updateDiretorTurma);
+
+/**
+ * @swagger
+ * /api/academic-staff/diretores-turmas/{id}:
+ *   delete:
+ *     summary: Remover diretor de turma
+ *     tags: [Diretores de Turmas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Diretor de turma removido com sucesso
+ */
+router.delete('/diretores-turmas/:id', AcademicStaffController.deleteDiretorTurma);
+
+// ===============================
+// ROTAS DOCENTE TURMA
+// ===============================
+
+/**
+ * @swagger
+ * /api/academic-staff/docentes-turmas:
+ *   post:
+ *     summary: Criar associação docente-turma
+ *     tags: [Docente Turma]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigo_Docente
+ *               - codigo_turma
+ *             properties:
+ *               codigo_Docente:
+ *                 type: integer
+ *               codigo_turma:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Associação criada com sucesso
+ */
+router.post('/docentes-turmas', AcademicStaffController.createDocenteTurma);
+
+/**
+ * @swagger
+ * /api/academic-staff/docentes-turmas:
+ *   get:
+ *     summary: Listar associações docente-turma
+ *     tags: [Docente Turma]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: docenteId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: turmaId
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de associações docente-turma
+ */
+router.get('/docentes-turmas', AcademicStaffController.getDocentesTurmas);
+
+/**
+ * @swagger
+ * /api/academic-staff/docentes-turmas/{codigoDocente}/{codigoTurma}:
+ *   delete:
+ *     summary: Remover associação docente-turma
+ *     tags: [Docente Turma]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: codigoDocente
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: codigoTurma
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Associação removida com sucesso
+ */
+router.delete('/docentes-turmas/:codigoDocente/:codigoTurma', AcademicStaffController.deleteDocenteTurma);
+
+// ===============================
+// ROTAS CONSULTAS ESPECIAIS ADICIONAIS
+// ===============================
+
+/**
+ * @swagger
+ * /api/academic-staff/anos-lectivos/{anoLectivo}/diretores:
+ *   get:
+ *     summary: Buscar diretores por ano letivo
+ *     tags: [Consultas Acadêmicas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: anoLectivo
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Diretores encontrados por ano letivo
+ */
+router.get('/anos-lectivos/:anoLectivo/diretores', AcademicStaffController.getDiretoresPorAnoLectivo);
+
+/**
+ * @swagger
+ * /api/academic-staff/docentes/{id}/turmas:
+ *   get:
+ *     summary: Buscar turmas por docente
+ *     tags: [Consultas Acadêmicas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Turmas encontradas por docente
+ */
+router.get('/docentes/:id/turmas', AcademicStaffController.getTurmasPorDocente);
+
+/**
+ * @swagger
+ * /api/academic-staff/turmas/{id}/docentes:
+ *   get:
+ *     summary: Buscar docentes por turma
+ *     tags: [Consultas Acadêmicas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Docentes encontrados por turma
+ */
+router.get('/turmas/:id/docentes', AcademicStaffController.getDocentesPorTurma);
 
 export default router;

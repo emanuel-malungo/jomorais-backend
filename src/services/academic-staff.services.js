@@ -641,4 +641,420 @@ export class AcademicStaffService {
       throw new AppError('Erro ao gerar relatório acadêmico', 500);
     }
   }
+
+  // ===============================
+  // DIRETORES DE TURMAS - CRUD COMPLETO
+  // ===============================
+
+  static async createDiretorTurma(data) {
+    try {
+      const { designacao, codigoAnoLectivo, codigoTurma, codigoDocente } = data;
+
+      // Verificar se as entidades relacionadas existem
+      const [turmaExists, docenteExists] = await Promise.all([
+        prisma.tb_turmas.findUnique({ where: { codigo: parseInt(codigoTurma) } }),
+        prisma.tb_docente.findUnique({ where: { codigo: parseInt(codigoDocente) } })
+      ]);
+
+      if (!turmaExists) throw new AppError('Turma não encontrada', 404);
+      if (!docenteExists) throw new AppError('Docente não encontrado', 404);
+
+      // Verificar se já existe um diretor para esta turma no ano letivo
+      const existingDiretor = await prisma.tb_directores_turmas.findFirst({
+        where: {
+          codigoAnoLectivo: parseInt(codigoAnoLectivo),
+          codigoTurma: parseInt(codigoTurma)
+        }
+      });
+
+      if (existingDiretor) {
+        throw new AppError('Já existe um diretor para esta turma neste ano letivo', 409);
+      }
+
+      return await prisma.tb_directores_turmas.create({
+        data: {
+          designacao: designacao?.trim() || null,
+          codigoAnoLectivo: parseInt(codigoAnoLectivo),
+          codigoTurma: parseInt(codigoTurma),
+          codigoDocente: parseInt(codigoDocente)
+        },
+        include: {
+          tb_turmas: { select: { codigo: true, designacao: true } },
+          tb_docente: { select: { codigo: true, nome: true } }
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar diretor de turma', 500);
+    }
+  }
+
+  static async updateDiretorTurma(id, data) {
+    try {
+      const existingDiretor = await prisma.tb_directores_turmas.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingDiretor) {
+        throw new AppError('Diretor de turma não encontrado', 404);
+      }
+
+      // Verificar entidades relacionadas se fornecidas
+      if (data.codigoTurma) {
+        const turmaExists = await prisma.tb_turmas.findUnique({
+          where: { codigo: parseInt(data.codigoTurma) }
+        });
+        if (!turmaExists) throw new AppError('Turma não encontrada', 404);
+      }
+
+      if (data.codigoDocente) {
+        const docenteExists = await prisma.tb_docente.findUnique({
+          where: { codigo: parseInt(data.codigoDocente) }
+        });
+        if (!docenteExists) throw new AppError('Docente não encontrado', 404);
+      }
+
+      const updateData = {};
+      Object.keys(data).forEach(key => {
+        if (data[key] !== undefined && data[key] !== null) {
+          switch (key) {
+            case 'designacao':
+              updateData[key] = data[key].trim();
+              break;
+            case 'codigoAnoLectivo':
+            case 'codigoTurma':
+            case 'codigoDocente':
+              updateData[key] = parseInt(data[key]);
+              break;
+          }
+        }
+      });
+
+      return await prisma.tb_directores_turmas.update({
+        where: { codigo: parseInt(id) },
+        data: updateData,
+        include: {
+          tb_turmas: { select: { codigo: true, designacao: true } },
+          tb_docente: { select: { codigo: true, nome: true } }
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar diretor de turma', 500);
+    }
+  }
+
+  static async getDiretoresTurmas(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        OR: [
+          {
+            designacao: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          },
+          {
+            tb_docente: {
+              nome: {
+                contains: search,
+                mode: 'insensitive'
+              }
+            }
+          }
+        ]
+      } : {};
+
+      const [diretores, total] = await Promise.all([
+        prisma.tb_directores_turmas.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_turmas: { select: { codigo: true, designacao: true } },
+            tb_docente: { select: { codigo: true, nome: true, contacto: true } }
+          },
+          orderBy: { codigo: 'desc' }
+        }),
+        prisma.tb_directores_turmas.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: diretores,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar diretores de turmas', 500);
+    }
+  }
+
+  static async getDiretorTurmaById(id) {
+    try {
+      const diretor = await prisma.tb_directores_turmas.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_turmas: { 
+            select: { 
+              codigo: true, 
+              designacao: true,
+              codigo_Classe: true,
+              codigo_Curso: true 
+            } 
+          },
+          tb_docente: { 
+            select: { 
+              codigo: true, 
+              nome: true, 
+              contacto: true, 
+              email: true 
+            } 
+          }
+        }
+      });
+
+      if (!diretor) {
+        throw new AppError('Diretor de turma não encontrado', 404);
+      }
+
+      return diretor;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar diretor de turma', 500);
+    }
+  }
+
+  static async deleteDiretorTurma(id) {
+    try {
+      const existingDiretor = await prisma.tb_directores_turmas.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingDiretor) {
+        throw new AppError('Diretor de turma não encontrado', 404);
+      }
+
+      await prisma.tb_directores_turmas.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Diretor de turma removido com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao remover diretor de turma', 500);
+    }
+  }
+
+  // ===============================
+  // DOCENTE TURMA - CRUD COMPLETO
+  // ===============================
+
+  static async createDocenteTurma(data) {
+    try {
+      const { codigo_Docente, codigo_turma } = data;
+
+      // Verificar se as entidades relacionadas existem
+      const [docenteExists, turmaExists] = await Promise.all([
+        prisma.tb_docente.findUnique({ where: { codigo: parseInt(codigo_Docente) } }),
+        prisma.tb_turmas.findUnique({ where: { codigo: parseInt(codigo_turma) } })
+      ]);
+
+      if (!docenteExists) throw new AppError('Docente não encontrado', 404);
+      if (!turmaExists) throw new AppError('Turma não encontrada', 404);
+
+      // Verificar se já existe esta associação
+      const existingAssociation = await prisma.tb_docente_turma.findUnique({
+        where: {
+          codigo_Docente_codigo_turma: {
+            codigo_Docente: parseInt(codigo_Docente),
+            codigo_turma: parseInt(codigo_turma)
+          }
+        }
+      });
+
+      if (existingAssociation) {
+        throw new AppError('Esta associação já existe', 409);
+      }
+
+      return await prisma.tb_docente_turma.create({
+        data: {
+          codigo_Docente: parseInt(codigo_Docente),
+          codigo_turma: parseInt(codigo_turma)
+        },
+        include: {
+          tb_docente: { select: { codigo: true, nome: true } },
+          tb_turmas: { select: { codigo: true, designacao: true } }
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar associação docente-turma', 500);
+    }
+  }
+
+  static async getDocentesTurmas(page = 1, limit = 10, docenteId = null, turmaId = null) {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = {};
+      if (docenteId) where.codigo_Docente = parseInt(docenteId);
+      if (turmaId) where.codigo_turma = parseInt(turmaId);
+
+      const [associacoes, total] = await Promise.all([
+        prisma.tb_docente_turma.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            tb_docente: { select: { codigo: true, nome: true, contacto: true } },
+            tb_turmas: { select: { codigo: true, designacao: true } }
+          },
+          orderBy: [
+            { codigo_Docente: 'asc' },
+            { codigo_turma: 'asc' }
+          ]
+        }),
+        prisma.tb_docente_turma.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: associacoes,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar associações docente-turma', 500);
+    }
+  }
+
+  static async deleteDocenteTurma(codigoDocente, codigoTurma) {
+    try {
+      const existingAssociation = await prisma.tb_docente_turma.findUnique({
+        where: {
+          codigo_Docente_codigo_turma: {
+            codigo_Docente: parseInt(codigoDocente),
+            codigo_turma: parseInt(codigoTurma)
+          }
+        }
+      });
+
+      if (!existingAssociation) {
+        throw new AppError('Associação não encontrada', 404);
+      }
+
+      await prisma.tb_docente_turma.delete({
+        where: {
+          codigo_Docente_codigo_turma: {
+            codigo_Docente: parseInt(codigoDocente),
+            codigo_turma: parseInt(codigoTurma)
+          }
+        }
+      });
+
+      return { message: 'Associação docente-turma removida com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao remover associação docente-turma', 500);
+    }
+  }
+
+  // ===============================
+  // OPERAÇÕES ESPECIAIS ADICIONAIS
+  // ===============================
+
+  static async getDiretoresPorAnoLectivo(anoLectivo) {
+    try {
+      return await prisma.tb_directores_turmas.findMany({
+        where: { codigoAnoLectivo: parseInt(anoLectivo) },
+        include: {
+          tb_turmas: { select: { codigo: true, designacao: true } },
+          tb_docente: { select: { codigo: true, nome: true, contacto: true } }
+        },
+        orderBy: { codigoTurma: 'asc' }
+      });
+    } catch (error) {
+      throw new AppError('Erro ao buscar diretores por ano letivo', 500);
+    }
+  }
+
+  static async getTurmasPorDocente(docenteId) {
+    try {
+      const docenteExists = await prisma.tb_docente.findUnique({
+        where: { codigo: parseInt(docenteId) }
+      });
+
+      if (!docenteExists) {
+        throw new AppError('Docente não encontrado', 404);
+      }
+
+      return await prisma.tb_docente_turma.findMany({
+        where: { codigo_Docente: parseInt(docenteId) },
+        include: {
+          tb_turmas: { 
+            select: { 
+              codigo: true, 
+              designacao: true,
+              codigo_Classe: true,
+              codigo_Curso: true
+            } 
+          }
+        },
+        orderBy: { codigo_turma: 'asc' }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar turmas por docente', 500);
+    }
+  }
+
+  static async getDocentesPorTurma(turmaId) {
+    try {
+      const turmaExists = await prisma.tb_turmas.findUnique({
+        where: { codigo: parseInt(turmaId) }
+      });
+
+      if (!turmaExists) {
+        throw new AppError('Turma não encontrada', 404);
+      }
+
+      return await prisma.tb_docente_turma.findMany({
+        where: { codigo_turma: parseInt(turmaId) },
+        include: {
+          tb_docente: { 
+            select: { 
+              codigo: true, 
+              nome: true, 
+              contacto: true,
+              email: true,
+              tb_especialidade: {
+                select: { codigo: true, designacao: true }
+              }
+            } 
+          }
+        },
+        orderBy: { codigo_Docente: 'asc' }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar docentes por turma', 500);
+    }
+  }
 }

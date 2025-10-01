@@ -7,6 +7,8 @@ import {
   docenteCreateSchema,
   docenteUpdateSchema,
   disciplinaDocenteCreateSchema,
+  diretorTurmaCreateSchema,
+  docenteTurmaCreateSchema,
   idParamSchema
 } from "../validations/academic-staff.validations.js";
 
@@ -278,6 +280,197 @@ export class AcademicStaffController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao gerar relatório acadêmico", 400);
+    }
+  }
+
+  // ===============================
+  // DIRETORES DE TURMAS - CRUD
+  // ===============================
+
+  static async createDiretorTurma(req, res) {
+    try {
+      const validatedData = diretorTurmaCreateSchema.parse(req.body);
+      const diretor = await AcademicStaffService.createDiretorTurma(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Diretor de turma criado com sucesso",
+        data: diretor,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar diretor de turma", 400);
+    }
+  }
+
+  static async updateDiretorTurma(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const validatedData = req.body; // Usar schema de update se necessário
+
+      const diretor = await AcademicStaffService.updateDiretorTurma(id, validatedData);
+      
+      res.json({
+        success: true,
+        message: "Diretor de turma atualizado com sucesso",
+        data: diretor,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar diretor de turma", 400);
+    }
+  }
+
+  static async getDiretoresTurmas(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await AcademicStaffService.getDiretoresTurmas(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Diretores de turmas encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar diretores de turmas", 400);
+    }
+  }
+
+  static async getDiretorTurmaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const diretor = await AcademicStaffService.getDiretorTurmaById(id);
+      
+      res.json({
+        success: true,
+        message: "Diretor de turma encontrado",
+        data: diretor,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar diretor de turma", 400);
+    }
+  }
+
+  static async deleteDiretorTurma(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const result = await AcademicStaffService.deleteDiretorTurma(id);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao remover diretor de turma", 400);
+    }
+  }
+
+  // ===============================
+  // DOCENTE TURMA - CRUD
+  // ===============================
+
+  static async createDocenteTurma(req, res) {
+    try {
+      const validatedData = docenteTurmaCreateSchema.parse(req.body);
+      const associacao = await AcademicStaffService.createDocenteTurma(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Associação docente-turma criada com sucesso",
+        data: associacao,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar associação docente-turma", 400);
+    }
+  }
+
+  static async getDocentesTurmas(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const docenteId = req.query.docenteId || null;
+      const turmaId = req.query.turmaId || null;
+
+      const result = await AcademicStaffService.getDocentesTurmas(page, limit, docenteId, turmaId);
+      
+      res.json({
+        success: true,
+        message: "Associações docente-turma encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar associações docente-turma", 400);
+    }
+  }
+
+  static async deleteDocenteTurma(req, res) {
+    try {
+      const codigoDocente = req.params.codigoDocente;
+      const codigoTurma = req.params.codigoTurma;
+
+      const result = await AcademicStaffService.deleteDocenteTurma(codigoDocente, codigoTurma);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao remover associação docente-turma", 400);
+    }
+  }
+
+  // ===============================
+  // OPERAÇÕES ESPECIAIS ADICIONAIS
+  // ===============================
+
+  static async getDiretoresPorAnoLectivo(req, res) {
+    try {
+      const { anoLectivo } = req.params;
+
+      const diretores = await AcademicStaffService.getDiretoresPorAnoLectivo(anoLectivo);
+      
+      res.json({
+        success: true,
+        message: "Diretores encontrados por ano letivo",
+        data: diretores,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar diretores por ano letivo", 400);
+    }
+  }
+
+  static async getTurmasPorDocente(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const turmas = await AcademicStaffService.getTurmasPorDocente(id);
+      
+      res.json({
+        success: true,
+        message: "Turmas encontradas por docente",
+        data: turmas,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar turmas por docente", 400);
+    }
+  }
+
+  static async getDocentesPorTurma(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const docentes = await AcademicStaffService.getDocentesPorTurma(id);
+      
+      res.json({
+        success: true,
+        message: "Docentes encontrados por turma",
+        data: docentes,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar docentes por turma", 400);
     }
   }
 }
