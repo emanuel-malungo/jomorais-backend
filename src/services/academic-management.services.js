@@ -176,7 +176,7 @@ export class AcademicManagementService {
       if (designacao) {
         const existingCurso = await prisma.tb_cursos.findFirst({
           where: {
-            designacao: { equals: designacao.trim(), mode: 'insensitive' }
+            designacao: designacao.trim()
           }
         });
 
@@ -210,7 +210,7 @@ export class AcademicManagementService {
       if (data.designacao) {
         const duplicateCurso = await prisma.tb_cursos.findFirst({
           where: {
-            designacao: { equals: data.designacao.trim(), mode: 'insensitive' },
+            designacao: data.designacao.trim(),
             codigo: { not: parseInt(id) }
           }
         });
