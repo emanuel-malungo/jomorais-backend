@@ -731,4 +731,449 @@ export class FinancialServicesService {
       throw new AppError('Erro ao gerar relatório financeiro', 500);
     }
   }
+
+  // ===============================
+  // MOTIVOS IVA - CRUD COMPLETO
+  // ===============================
+
+  static async createMotivoIva(data) {
+    try {
+      const { codigomotivo, designacao } = data;
+
+      const existingMotivo = await prisma.motivos_iva.findFirst({
+        where: {
+          codigomotivo: codigomotivo.trim()
+        }
+      });
+
+      if (existingMotivo) {
+        throw new AppError('Já existe um motivo IVA com este código', 409);
+      }
+
+      return await prisma.motivos_iva.create({
+        data: {
+          codigomotivo: codigomotivo.trim(),
+          designacao: designacao?.trim() || null
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar motivo IVA', 500);
+    }
+  }
+
+  static async updateMotivoIva(id, data) {
+    try {
+      const existingMotivo = await prisma.motivos_iva.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingMotivo) {
+        throw new AppError('Motivo IVA não encontrado', 404);
+      }
+
+      if (data.codigomotivo) {
+        const duplicateMotivo = await prisma.motivos_iva.findFirst({
+          where: {
+            codigomotivo: data.codigomotivo.trim(),
+            codigo: { not: parseInt(id) }
+          }
+        });
+
+        if (duplicateMotivo) {
+          throw new AppError('Já existe um motivo IVA com este código', 409);
+        }
+      }
+
+      return await prisma.motivos_iva.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          codigomotivo: data.codigomotivo?.trim(),
+          designacao: data.designacao?.trim() || null
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar motivo IVA', 500);
+    }
+  }
+
+  static async getMotivosIva(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        OR: [
+          {
+            codigomotivo: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          },
+          {
+            designacao: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          }
+        ]
+      } : {};
+
+      const [motivos, total] = await Promise.all([
+        prisma.motivos_iva.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            _count: {
+              select: { tb_tipo_servicos: true }
+            }
+          },
+          orderBy: { codigomotivo: 'asc' }
+        }),
+        prisma.motivos_iva.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: motivos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar motivos IVA', 500);
+    }
+  }
+
+  static async getMotivoIvaById(id) {
+    try {
+      const motivo = await prisma.motivos_iva.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: {
+            select: { codigo: true, designacao: true, preco: true },
+            orderBy: { designacao: 'asc' }
+          }
+        }
+      });
+
+      if (!motivo) {
+        throw new AppError('Motivo IVA não encontrado', 404);
+      }
+
+      return motivo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar motivo IVA', 500);
+    }
+  }
+
+  static async deleteMotivoIva(id) {
+    try {
+      const existingMotivo = await prisma.motivos_iva.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: true
+        }
+      });
+
+      if (!existingMotivo) {
+        throw new AppError('Motivo IVA não encontrado', 404);
+      }
+
+      if (existingMotivo.tb_tipo_servicos.length > 0) {
+        throw new AppError('Não é possível excluir este motivo IVA pois possui serviços associados', 400);
+      }
+
+      await prisma.motivos_iva.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Motivo IVA excluído com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao excluir motivo IVA', 500);
+    }
+  }
+
+  // ===============================
+  // TAXAS IVA - CRUD COMPLETO
+  // ===============================
+
+  static async createTaxaIva(data) {
+    try {
+      const { taxa, designcao } = data;
+
+      return await prisma.taxa_iva.create({
+        data: {
+          taxa: parseFloat(taxa),
+          designcao: designcao.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar taxa IVA', 500);
+    }
+  }
+
+  static async updateTaxaIva(id, data) {
+    try {
+      const existingTaxa = await prisma.taxa_iva.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingTaxa) {
+        throw new AppError('Taxa IVA não encontrada', 404);
+      }
+
+      return await prisma.taxa_iva.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          taxa: data.taxa ? parseFloat(data.taxa) : undefined,
+          designcao: data.designcao?.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar taxa IVA', 500);
+    }
+  }
+
+  static async getTaxasIva(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        designcao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [taxas, total] = await Promise.all([
+        prisma.taxa_iva.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            _count: {
+              select: { tb_tipo_servicos: true }
+            }
+          },
+          orderBy: { taxa: 'asc' }
+        }),
+        prisma.taxa_iva.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: taxas,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar taxas IVA', 500);
+    }
+  }
+
+  static async getTaxaIvaById(id) {
+    try {
+      const taxa = await prisma.taxa_iva.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: {
+            select: { codigo: true, designacao: true, preco: true },
+            orderBy: { designacao: 'asc' }
+          }
+        }
+      });
+
+      if (!taxa) {
+        throw new AppError('Taxa IVA não encontrada', 404);
+      }
+
+      return taxa;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar taxa IVA', 500);
+    }
+  }
+
+  static async deleteTaxaIva(id) {
+    try {
+      const existingTaxa = await prisma.taxa_iva.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: true
+        }
+      });
+
+      if (!existingTaxa) {
+        throw new AppError('Taxa IVA não encontrada', 404);
+      }
+
+      if (existingTaxa.tb_tipo_servicos.length > 0) {
+        throw new AppError('Não é possível excluir esta taxa IVA pois possui serviços associados', 400);
+      }
+
+      await prisma.taxa_iva.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Taxa IVA excluída com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao excluir taxa IVA', 500);
+    }
+  }
+
+  // ===============================
+  // TIPOS DE MULTA - CRUD COMPLETO
+  // ===============================
+
+  static async createTipoMulta(data) {
+    try {
+      const { descrisao } = data;
+
+      return await prisma.tb_tipo_multa.create({
+        data: {
+          descrisao: descrisao.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao criar tipo de multa', 500);
+    }
+  }
+
+  static async updateTipoMulta(id, data) {
+    try {
+      const existingTipo = await prisma.tb_tipo_multa.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingTipo) {
+        throw new AppError('Tipo de multa não encontrado', 404);
+      }
+
+      return await prisma.tb_tipo_multa.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          descrisao: data.descrisao?.trim()
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar tipo de multa', 500);
+    }
+  }
+
+  static async getTiposMulta(page = 1, limit = 10, search = '') {
+    try {
+      const skip = (page - 1) * limit;
+      
+      const where = search ? {
+        descrisao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+
+      const [tipos, total] = await Promise.all([
+        prisma.tb_tipo_multa.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            _count: {
+              select: { tb_tipo_servicos: true }
+            }
+          },
+          orderBy: { descrisao: 'asc' }
+        }),
+        prisma.tb_tipo_multa.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: tipos,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      };
+    } catch (error) {
+      throw new AppError('Erro ao buscar tipos de multa', 500);
+    }
+  }
+
+  static async getTipoMultaById(id) {
+    try {
+      const tipo = await prisma.tb_tipo_multa.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: {
+            select: { codigo: true, designacao: true, valorMulta: true },
+            orderBy: { designacao: 'asc' }
+          }
+        }
+      });
+
+      if (!tipo) {
+        throw new AppError('Tipo de multa não encontrado', 404);
+      }
+
+      return tipo;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar tipo de multa', 500);
+    }
+  }
+
+  static async deleteTipoMulta(id) {
+    try {
+      const existingTipo = await prisma.tb_tipo_multa.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_tipo_servicos: true
+        }
+      });
+
+      if (!existingTipo) {
+        throw new AppError('Tipo de multa não encontrado', 404);
+      }
+
+      if (existingTipo.tb_tipo_servicos.length > 0) {
+        throw new AppError('Não é possível excluir este tipo de multa pois possui serviços associados', 400);
+      }
+
+      await prisma.tb_tipo_multa.delete({
+        where: { codigo: parseInt(id) }
+      });
+
+      return { message: 'Tipo de multa excluído com sucesso' };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao excluir tipo de multa', 500);
+    }
+  }
 }

@@ -436,3 +436,110 @@ export const filtroTipoServicoSchema = z.object({
     .transform(val => parseInt(val))
     .optional()
 });
+
+// ===============================
+// MOTIVOS IVA VALIDATIONS
+// ===============================
+
+export const motivoIvaCreateSchema = z.object({
+  codigomotivo: z
+    .string({
+      required_error: "Código do motivo é obrigatório",
+      invalid_type_error: "Código do motivo deve ser um texto"
+    })
+    .min(1, "Código do motivo não pode estar vazio")
+    .max(45, "Código do motivo deve ter no máximo 45 caracteres")
+    .trim(),
+  designacao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+    .nullable()
+}).strict();
+
+export const motivoIvaUpdateSchema = z.object({
+  codigomotivo: z
+    .string({
+      invalid_type_error: "Código do motivo deve ser um texto"
+    })
+    .min(1, "Código do motivo não pode estar vazio")
+    .max(45, "Código do motivo deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  designacao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+    .nullable()
+}).strict();
+
+// ===============================
+// TAXAS IVA VALIDATIONS
+// ===============================
+
+export const taxaIvaCreateSchema = z.object({
+  taxa: z
+    .union([
+      z.string().transform(val => parseFloat(val)),
+      z.number()
+    ])
+    .refine(val => !isNaN(val) && val >= 0, "Taxa deve ser um número válido e não negativo"),
+  designcao: z
+    .string({
+      required_error: "Designação é obrigatória",
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .min(1, "Designação não pode estar vazia")
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+}).strict();
+
+export const taxaIvaUpdateSchema = z.object({
+  taxa: z
+    .union([
+      z.string().transform(val => parseFloat(val)),
+      z.number()
+    ])
+    .refine(val => !isNaN(val) && val >= 0, "Taxa deve ser um número válido e não negativo")
+    .optional(),
+  designcao: z
+    .string({
+      invalid_type_error: "Designação deve ser um texto"
+    })
+    .min(1, "Designação não pode estar vazia")
+    .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+}).strict();
+
+// ===============================
+// TIPOS DE MULTA VALIDATIONS
+// ===============================
+
+export const tipoMultaCreateSchema = z.object({
+  descrisao: z
+    .string({
+      required_error: "Descrição é obrigatória",
+      invalid_type_error: "Descrição deve ser um texto"
+    })
+    .min(1, "Descrição não pode estar vazia")
+    .max(45, "Descrição deve ter no máximo 45 caracteres")
+    .trim()
+}).strict();
+
+export const tipoMultaUpdateSchema = z.object({
+  descrisao: z
+    .string({
+      invalid_type_error: "Descrição deve ser um texto"
+    })
+    .min(1, "Descrição não pode estar vazia")
+    .max(45, "Descrição deve ter no máximo 45 caracteres")
+    .trim()
+    .optional()
+}).strict();

@@ -8,6 +8,12 @@ import {
   categoriaServicoUpdateSchema,
   tipoServicoCreateSchema,
   tipoServicoUpdateSchema,
+  motivoIvaCreateSchema,
+  motivoIvaUpdateSchema,
+  taxaIvaCreateSchema,
+  taxaIvaUpdateSchema,
+  tipoMultaCreateSchema,
+  tipoMultaUpdateSchema,
   idParamSchema
 } from "../validations/financial-services.validations.js";
 
@@ -342,6 +348,261 @@ export class FinancialServicesController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao gerar relatório financeiro", 400);
+    }
+  }
+
+  // ===============================
+  // MOTIVOS IVA - CRUD COMPLETO
+  // ===============================
+
+  static async createMotivoIva(req, res) {
+    try {
+      const validatedData = motivoIvaCreateSchema.parse(req.body);
+      const motivo = await FinancialServicesService.createMotivoIva(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Motivo IVA criado com sucesso",
+        data: motivo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar motivo IVA", 400);
+    }
+  }
+
+  static async updateMotivoIva(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const validatedData = motivoIvaUpdateSchema.parse(req.body);
+
+      const motivo = await FinancialServicesService.updateMotivoIva(id, validatedData);
+      
+      res.json({
+        success: true,
+        message: "Motivo IVA atualizado com sucesso",
+        data: motivo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar motivo IVA", 400);
+    }
+  }
+
+  static async getMotivosIva(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await FinancialServicesService.getMotivosIva(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Motivos IVA encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar motivos IVA", 400);
+    }
+  }
+
+  static async getMotivoIvaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const motivo = await FinancialServicesService.getMotivoIvaById(id);
+      
+      res.json({
+        success: true,
+        message: "Motivo IVA encontrado",
+        data: motivo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar motivo IVA", 400);
+    }
+  }
+
+  static async deleteMotivoIva(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const result = await FinancialServicesService.deleteMotivoIva(id);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao excluir motivo IVA", 400);
+    }
+  }
+
+  // ===============================
+  // TAXAS IVA - CRUD COMPLETO
+  // ===============================
+
+  static async createTaxaIva(req, res) {
+    try {
+      const validatedData = taxaIvaCreateSchema.parse(req.body);
+      const taxa = await FinancialServicesService.createTaxaIva(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Taxa IVA criada com sucesso",
+        data: taxa,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar taxa IVA", 400);
+    }
+  }
+
+  static async updateTaxaIva(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const validatedData = taxaIvaUpdateSchema.parse(req.body);
+
+      const taxa = await FinancialServicesService.updateTaxaIva(id, validatedData);
+      
+      res.json({
+        success: true,
+        message: "Taxa IVA atualizada com sucesso",
+        data: taxa,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar taxa IVA", 400);
+    }
+  }
+
+  static async getTaxasIva(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await FinancialServicesService.getTaxasIva(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Taxas IVA encontradas",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar taxas IVA", 400);
+    }
+  }
+
+  static async getTaxaIvaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const taxa = await FinancialServicesService.getTaxaIvaById(id);
+      
+      res.json({
+        success: true,
+        message: "Taxa IVA encontrada",
+        data: taxa,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar taxa IVA", 400);
+    }
+  }
+
+  static async deleteTaxaIva(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const result = await FinancialServicesService.deleteTaxaIva(id);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao excluir taxa IVA", 400);
+    }
+  }
+
+  // ===============================
+  // TIPOS DE MULTA - CRUD COMPLETO
+  // ===============================
+
+  static async createTipoMulta(req, res) {
+    try {
+      const validatedData = tipoMultaCreateSchema.parse(req.body);
+      const tipo = await FinancialServicesService.createTipoMulta(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Tipo de multa criado com sucesso",
+        data: tipo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar tipo de multa", 400);
+    }
+  }
+
+  static async updateTipoMulta(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const validatedData = tipoMultaUpdateSchema.parse(req.body);
+
+      const tipo = await FinancialServicesService.updateTipoMulta(id, validatedData);
+      
+      res.json({
+        success: true,
+        message: "Tipo de multa atualizado com sucesso",
+        data: tipo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar tipo de multa", 400);
+    }
+  }
+
+  static async getTiposMulta(req, res) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      const result = await FinancialServicesService.getTiposMulta(page, limit, search);
+      
+      res.json({
+        success: true,
+        message: "Tipos de multa encontrados",
+        ...result
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar tipos de multa", 400);
+    }
+  }
+
+  static async getTipoMultaById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const tipo = await FinancialServicesService.getTipoMultaById(id);
+      
+      res.json({
+        success: true,
+        message: "Tipo de multa encontrado",
+        data: tipo,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar tipo de multa", 400);
+    }
+  }
+
+  static async deleteTipoMulta(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+
+      const result = await FinancialServicesService.deleteTipoMulta(id);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao excluir tipo de multa", 400);
     }
   }
 }

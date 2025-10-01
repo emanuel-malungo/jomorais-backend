@@ -9,6 +9,12 @@
  *     description: Categorização de tipos de serviços
  *   - name: Tipos de Serviços
  *     description: Gestão de serviços e produtos financeiros
+ *   - name: Motivos IVA
+ *     description: Gestão de motivos de aplicação de IVA
+ *   - name: Taxas IVA
+ *     description: Gestão de taxas de IVA do sistema
+ *   - name: Tipos de Multa
+ *     description: Gestão de tipos de multa aplicáveis
  *   - name: Consultas Especiais
  *     description: Operações especiais e relatórios
  *   - name: Relatórios Financeiros
@@ -992,5 +998,425 @@ router.get('/moedas/:id/tipos-servicos', FinancialServicesController.getTiposSer
  *                       $ref: '#/components/schemas/RelatorioFinanceiro'
  */
 router.get('/relatorio', FinancialServicesController.getRelatorioFinanceiro);
+
+// ===============================
+// ROTAS MOTIVOS IVA
+// ===============================
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-iva:
+ *   post:
+ *     summary: Criar novo motivo IVA
+ *     description: Cria um novo motivo de IVA no sistema
+ *     tags: [Motivos IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigomotivo
+ *             properties:
+ *               codigomotivo:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Código do motivo IVA
+ *                 example: "M01"
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Designação do motivo
+ *                 example: "Isento de IVA"
+ *     responses:
+ *       201:
+ *         description: Motivo IVA criado com sucesso
+ *       409:
+ *         description: Código já existe
+ */
+router.post('/motivos-iva', FinancialServicesController.createMotivoIva);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-iva:
+ *   get:
+ *     summary: Listar motivos IVA
+ *     description: Lista todos os motivos de IVA com paginação
+ *     tags: [Motivos IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de motivos IVA
+ */
+router.get('/motivos-iva', FinancialServicesController.getMotivosIva);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-iva/{id}:
+ *   get:
+ *     summary: Buscar motivo IVA por ID
+ *     tags: [Motivos IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Motivo IVA encontrado
+ *       404:
+ *         description: Motivo IVA não encontrado
+ */
+router.get('/motivos-iva/:id', FinancialServicesController.getMotivoIvaById);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-iva/{id}:
+ *   put:
+ *     summary: Atualizar motivo IVA
+ *     tags: [Motivos IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               codigomotivo:
+ *                 type: string
+ *                 maxLength: 45
+ *               designacao:
+ *                 type: string
+ *                 maxLength: 45
+ *     responses:
+ *       200:
+ *         description: Motivo IVA atualizado com sucesso
+ */
+router.put('/motivos-iva/:id', FinancialServicesController.updateMotivoIva);
+
+/**
+ * @swagger
+ * /api/financial-services/motivos-iva/{id}:
+ *   delete:
+ *     summary: Excluir motivo IVA
+ *     tags: [Motivos IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Motivo IVA excluído com sucesso
+ *       400:
+ *         description: Motivo possui dependências
+ */
+router.delete('/motivos-iva/:id', FinancialServicesController.deleteMotivoIva);
+
+// ===============================
+// ROTAS TAXAS IVA
+// ===============================
+
+/**
+ * @swagger
+ * /api/financial-services/taxas-iva:
+ *   post:
+ *     summary: Criar nova taxa IVA
+ *     description: Cria uma nova taxa de IVA no sistema
+ *     tags: [Taxas IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - taxa
+ *               - designcao
+ *             properties:
+ *               taxa:
+ *                 type: number
+ *                 minimum: 0
+ *                 description: Percentual da taxa IVA
+ *                 example: 14.0
+ *               designcao:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Designação da taxa
+ *                 example: "IVA Normal"
+ *     responses:
+ *       201:
+ *         description: Taxa IVA criada com sucesso
+ */
+router.post('/taxas-iva', FinancialServicesController.createTaxaIva);
+
+/**
+ * @swagger
+ * /api/financial-services/taxas-iva:
+ *   get:
+ *     summary: Listar taxas IVA
+ *     tags: [Taxas IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de taxas IVA
+ */
+router.get('/taxas-iva', FinancialServicesController.getTaxasIva);
+
+/**
+ * @swagger
+ * /api/financial-services/taxas-iva/{id}:
+ *   get:
+ *     summary: Buscar taxa IVA por ID
+ *     tags: [Taxas IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Taxa IVA encontrada
+ */
+router.get('/taxas-iva/:id', FinancialServicesController.getTaxaIvaById);
+
+/**
+ * @swagger
+ * /api/financial-services/taxas-iva/{id}:
+ *   put:
+ *     summary: Atualizar taxa IVA
+ *     tags: [Taxas IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               taxa:
+ *                 type: number
+ *                 minimum: 0
+ *               designcao:
+ *                 type: string
+ *                 maxLength: 45
+ *     responses:
+ *       200:
+ *         description: Taxa IVA atualizada com sucesso
+ */
+router.put('/taxas-iva/:id', FinancialServicesController.updateTaxaIva);
+
+/**
+ * @swagger
+ * /api/financial-services/taxas-iva/{id}:
+ *   delete:
+ *     summary: Excluir taxa IVA
+ *     tags: [Taxas IVA]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Taxa IVA excluída com sucesso
+ */
+router.delete('/taxas-iva/:id', FinancialServicesController.deleteTaxaIva);
+
+// ===============================
+// ROTAS TIPOS DE MULTA
+// ===============================
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-multa:
+ *   post:
+ *     summary: Criar novo tipo de multa
+ *     description: Cria um novo tipo de multa no sistema
+ *     tags: [Tipos de Multa]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - descrisao
+ *             properties:
+ *               descrisao:
+ *                 type: string
+ *                 maxLength: 45
+ *                 description: Descrição do tipo de multa
+ *                 example: "Multa por atraso no pagamento"
+ *     responses:
+ *       201:
+ *         description: Tipo de multa criado com sucesso
+ */
+router.post('/tipos-multa', FinancialServicesController.createTipoMulta);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-multa:
+ *   get:
+ *     summary: Listar tipos de multa
+ *     tags: [Tipos de Multa]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de tipos de multa
+ */
+router.get('/tipos-multa', FinancialServicesController.getTiposMulta);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-multa/{id}:
+ *   get:
+ *     summary: Buscar tipo de multa por ID
+ *     tags: [Tipos de Multa]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tipo de multa encontrado
+ */
+router.get('/tipos-multa/:id', FinancialServicesController.getTipoMultaById);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-multa/{id}:
+ *   put:
+ *     summary: Atualizar tipo de multa
+ *     tags: [Tipos de Multa]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               descrisao:
+ *                 type: string
+ *                 maxLength: 45
+ *     responses:
+ *       200:
+ *         description: Tipo de multa atualizado com sucesso
+ */
+router.put('/tipos-multa/:id', FinancialServicesController.updateTipoMulta);
+
+/**
+ * @swagger
+ * /api/financial-services/tipos-multa/{id}:
+ *   delete:
+ *     summary: Excluir tipo de multa
+ *     tags: [Tipos de Multa]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tipo de multa excluído com sucesso
+ */
+router.delete('/tipos-multa/:id', FinancialServicesController.deleteTipoMulta);
 
 export default router;
