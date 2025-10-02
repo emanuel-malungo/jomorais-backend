@@ -512,58 +512,6 @@ model tb_proveniencias {
   @@index([codigoStatus], name: "FK_tb_proveniencias_1")
 }
 
-// --
-// -- Definition of table `tb_alunos`
-// --
-
-// DROP TABLE IF EXISTS `tb_alunos`;
-// CREATE TABLE `tb_alunos` (
-//   `Codigo` int(10) unsigned NOT NULL AUTO_INCREMENT,
-//   `Nome` varchar(200) DEFAULT NULL,
-//   `Pai` varchar(200) DEFAULT NULL,
-//   `Mae` varchar(200) DEFAULT NULL,
-//   `Codigo_Nacionalidade` int(10) unsigned NOT NULL,
-//   `Codigo_Estado_Civil` int(10) DEFAULT NULL,
-//   `DataNascimento` date DEFAULT NULL,
-//   `Email` varchar(45) DEFAULT NULL,
-//   `Telefone` varchar(45) DEFAULT NULL,
-//   `Codigo_Status` int(10) DEFAULT '1',
-//   `Codigo_Comuna` int(10) unsigned NOT NULL,
-//   `Codigo_Encarregado` int(10) unsigned NOT NULL,
-//   `Codigo_Utilizador` int(10) unsigned NOT NULL,
-//   `Sexo` varchar(10) DEFAULT NULL,
-//   `N_documento_identificacao` varchar(45) DEFAULT NULL,
-//   `DataCadastro` date DEFAULT NULL,
-//   `Saldo` float DEFAULT '0',
-//   `Desconto` float DEFAULT NULL,
-//   `URL_Foto` varchar(345) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT 'fotoDefault.png',
-//   `tipo_desconto` varchar(45) DEFAULT NULL,
-//   `EscolaProveniencia` int(10) DEFAULT NULL,
-//   `Saldo_Anterior` float DEFAULT NULL,
-//   `CodigoTipoDocumento` int(10) unsigned NOT NULL DEFAULT '1',
-//   `Morada` varchar(60) NOT NULL DEFAULT '...',
-//   `DataEmissao` date DEFAULT NULL,
-//   `Motivo_Desconto` varchar(455) DEFAULT NULL,
-//   `ProvinciaEmissao` varchar(45) NOT NULL DEFAULT 'LUANDA',
-//   `user_id` bigint(20) unsigned DEFAULT '1',
-//   PRIMARY KEY (`Codigo`),
-//   UNIQUE KEY `Index_9` (`Nome`),
-//   KEY `FK_tb_alunos_status` (`Codigo_Status`),
-//   KEY `FK_tb_alunos_Nacionalidade` (`Codigo_Nacionalidade`),
-//   KEY `FK_tb_alunos_Estado_Civil` (`Codigo_Estado_Civil`),
-//   KEY `FK_tb_alunos_Comuna` (`Codigo_Comuna`),
-//   KEY `FK_tb_alunos_Encarregado` (`Codigo_Encarregado`),
-//   KEY `FK_tb_alunos_Utilizador` (`Codigo_Utilizador`),
-//   KEY `proveniencias` (`EscolaProveniencia`),
-//   KEY `FK_tb_alunos_2` (`user_id`),
-//   CONSTRAINT `FK_tb_alunos_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-//   CONSTRAINT `FK_tb_alunos_Comuna` FOREIGN KEY (`Codigo_Comuna`) REFERENCES `tb_comunas` (`Codigo`),
-//   CONSTRAINT `FK_tb_alunos_Encarregado` FOREIGN KEY (`Codigo_Encarregado`) REFERENCES `tb_encarregados` (`Codigo`),
-//   CONSTRAINT `FK_tb_alunos_Nacionalidade` FOREIGN KEY (`Codigo_Nacionalidade`) REFERENCES `tb_nacionalidades` (`Codigo`),
-//   CONSTRAINT `FK_tb_alunos_Utilizador` FOREIGN KEY (`Codigo_Utilizador`) REFERENCES `tb_utilizadores` (`Codigo`),
-//   CONSTRAINT `proveniencias` FOREIGN KEY (`EscolaProveniencia`) REFERENCES `tb_proveniencias` (`Codigo`)
-// ) ENGINE=InnoDB AUTO_INCREMENT=4689 DEFAULT CHARSET=utf8;
-
 model tb_alunos {
   codigo               Int       @id @default(autoincrement()) @map("Codigo")
   nome                 String?   @db.VarChar(200) @map("Nome")

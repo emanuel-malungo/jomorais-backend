@@ -419,21 +419,14 @@ export const alunoComEncarregadoCreateSchema = z.object({
     nome: z
       .string({
         required_error: "Nome do encarregado é obrigatório",
-        invalid_type_error: "Nome do encarregado deve ser um texto"
       })
-      .min(1, "Nome do encarregado não pode estar vazio")
-      .max(250, "Nome do encarregado deve ter no máximo 250 caracteres")
-      .trim(),
+      .min(1, "Nome do encarregado não pode estar vazio"),
     telefone: z
       .string({
         required_error: "Telefone do encarregado é obrigatório",
-        invalid_type_error: "Telefone do encarregado deve ser um texto"
       })
-      .min(1, "Telefone do encarregado não pode estar vazio")
-      .max(45, "Telefone do encarregado deve ter no máximo 45 caracteres")
-      .trim(),
+      .min(1, "Telefone do encarregado não pode estar vazio"),
     email: z
-      .string()
       .email("Email do encarregado deve ter um formato válido")
       .max(45, "Email do encarregado deve ter no máximo 45 caracteres")
       .trim()
@@ -441,7 +434,6 @@ export const alunoComEncarregadoCreateSchema = z.object({
     codigo_Profissao: z
       .number({
         required_error: "Código da profissão do encarregado é obrigatório",
-        invalid_type_error: "Código da profissão do encarregado deve ser um número"
       })
       .int("Código da profissão do encarregado deve ser um número inteiro")
       .positive("Código da profissão do encarregado deve ser positivo"),
@@ -456,8 +448,6 @@ export const alunoComEncarregadoCreateSchema = z.object({
     status: z
       .number()
       .int("Status do encarregado deve ser um número inteiro")
-      .min(0, "Status do encarregado deve ser 0 ou 1")
-      .max(1, "Status do encarregado deve ser 0 ou 1")
       .default(1)
   })
 }).strict();
