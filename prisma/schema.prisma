@@ -183,7 +183,7 @@ model tb_dados_instituicao {
   telefone_Fixo  String  @db.VarChar(45) @default("0") @map("Telefone_Fixo")
   telefone_Movel String  @db.VarChar(45) @default("0") @map("Telefone_Movel")
   email          String  @db.VarChar(145) @default("nenhum") @map("Email")
-  site           String  @db.VarChar(145)B9D3-94D1 @default("nenhum") @map("Site")
+  site           String  @db.VarChar(145) @default("nenhum") @map("Site")
   localidade     String  @db.VarChar(145) @default("0") @map("Localidade")
   contribuinte   String  @db.VarChar(45) @default("0") @map("Contribuinte")
   nif            String  @db.VarChar(45) @default("nenhum") @map("NIF")
