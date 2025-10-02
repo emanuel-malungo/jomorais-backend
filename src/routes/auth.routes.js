@@ -407,5 +407,9 @@ router.get('/me', authenticateToken, requireModernUser, AuthController.me);
  */
 router.get('/user-types', AuthController.getUserTypes);
 
+// Rota de teste
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Rota de auth funcionando' });
+});
 
 export default router;

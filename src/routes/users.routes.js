@@ -1,5 +1,6 @@
 import express from "express";
 import { UsersController } from "../controller/users.controller.js";
+import { authenticateToken } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -286,6 +287,114 @@ router.get('/legacy/:id', UsersController.getUserLegacyById);
  *       500:
  *         description: Erro interno do servidor.
  */
+// Rota de teste
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Rota de usuários funcionando' });
+});
+
+/**
+ * @swagger
+ * /api/users/legacy:
+ *   post:
+ *     summary: Criar novo usuário no sistema legado
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 example: "João Silva"
+ *               user:
+ *                 type: string
+ *                 example: "jsilva"
+ *               passe:
+ *                 type: string
+ *                 example: "senha123"
+ *               codigo_Tipo_Utilizador:
+ *                 type: integer
+ *                 example: 2
+ *               estadoActual:
+ *                 type: string
+ *                 example: "ATIVO"
+ *     responses:
+ *       201:
+ *         description: Usuário criado com sucesso
+ *       400:
+ *         description: Dados inválidos
+ *       409:
+ *         description: Nome de usuário já existe
+ */
+router.post('/legacy', UsersController.createLegacyUser);
+
+/**
+ * @swagger
+ * /api/users/legacy/{id}:
+ *     summary: Atualizar usuário do sistema legado
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               user:
+ *                 type: string
+ *               passe:
+ *                 type: string
+ *               codigo_Tipo_Utilizador:
+ *                 type: integer
+ *               estadoActual:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Usuário atualizado com sucesso
+ *       404:
+ *         description: Usuário não encontrado
+ */
+router.put('/legacy/:id', UsersController.updateLegacyUser);
+
+/**
+ * @swagger
+ * /api/users/legacy/{id}:
+ *   delete:
+ *     summary: Excluir usuário do sistema legado
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Usuário excluído com sucesso
+ *       404:
+ *         description: Usuário não encontrado
+ *       409:
+ *         description: Usuário não pode ser excluído (tem dependências)
+ */
+router.delete('/legacy/:id', UsersController.deleteLegacyUser);
+
+// Rota genérica /:id deve ficar por último para não interceptar outras rotas
 router.get('/:id', UsersController.getUserById);
 
 export default router;

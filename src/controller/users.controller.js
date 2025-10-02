@@ -50,7 +50,45 @@ export class UsersController {
         data: user,
       });
     } catch (error) {
-      handleControllerError(res, error, "Erro ao obter utilizador legado", 500);
+      handleControllerError(res, error, "Erro ao obter utilizador legado por ID", 500);
+    }
+  }
+
+  static async createLegacyUser(req, res) {
+    try {
+      const user = await UsersServices.createLegacyUser(req.body);
+      res.status(201).json({
+        success: true,
+        message: "Utilizador criado com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar utilizador", 500);
+    }
+  }
+
+  static async updateLegacyUser(req, res) {
+    try {
+      const user = await UsersServices.updateLegacyUser(req.params.id, req.body);
+      res.json({
+        success: true,
+        message: "Utilizador atualizado com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar utilizador", 500);
+    }
+  }
+
+  static async deleteLegacyUser(req, res) {
+    try {
+      await UsersServices.deleteLegacyUser(req.params.id);
+      res.json({
+        success: true,
+        message: "Utilizador excluído com sucesso",
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao excluir utilizador", 500);
     }
   }
 }
