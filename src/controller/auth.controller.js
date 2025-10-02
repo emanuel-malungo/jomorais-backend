@@ -3,6 +3,9 @@ import {
   loginSchema,
   legacyRegisterSchema,
   legacyLoginSchema,
+  changePasswordLegacySchema,
+  resetPasswordLegacySchema,
+  userIdParamSchema,
 } from "../validations/auth.validations.js";
 
 import { AuthService } from "../services/auth.services.js";
@@ -148,6 +151,92 @@ export class AuthController {
         error,
         "Erro ao obter tipos de utilizador",
         500
+      );
+    }
+  }
+
+  // ===============================
+  // MUDANÇA DE SENHA - USUÁRIO LEGADO
+  // ===============================
+
+  static async changePasswordLegacy(req, res) {
+    try {
+      const { userId } = userIdParamSchema.parse(req.params);
+      const validatedData = changePasswordLegacySchema.parse(req.body);
+
+      const result = await AuthService.changePasswordLegacy(
+        userId,
+        validatedData.currentPassword,
+        validatedData.newPassword
+      );
+
+      res.json({
+        success: true,
+        message: result.message,
+        data: result.user
+      });
+    } catch (error) {
+      handleControllerError(
+        res,
+        error,
+        "Erro ao alterar senha",
+        400
+      );
+    }
+  }
+
+  static async resetPasswordLegacy(req, res) {
+    try {
+      const validatedData = resetPasswordLegacySchema.parse(req.body);
+      
+      // Pegar o ID do admin do token JWT se disponível
+      const adminUserId = req.user?.codigo || validatedData.adminUserId;
+
+      const result = await AuthService.resetPasswordLegacy(
+        validatedData.userId,
+        validatedData.newPassword,
+        adminUserId
+      );
+
+      res.json({
+        success: true,
+        message: result.message,
+        data: result.user
+      });
+    } catch (error) {
+      handleControllerError(
+        res,
+        error,
+        "Erro ao resetar senha",
+        400
+      );
+    }
+  }
+
+  static async getCurrentUserLegacy(req, res) {
+    try {
+      const userId = req.user?.codigo;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Token inválido ou usuário não autenticado"
+        });
+      }
+
+      const user = await AuthService.getUserById(userId);
+      
+      res.json({
+        success: true,
+        message: "Dados do usuário obtidos com sucesso",
+        data: user
+      });
+    } catch (error) {
+      handleControllerError(
+        res,
+        error,
+        "Erro ao obter dados do usuário",
+        400
       );
     }
   }

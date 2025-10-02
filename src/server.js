@@ -16,6 +16,7 @@ import academicManagementRoutes from './routes/academic-management.routes.js';
 import studentManagementRoutes from './routes/student-management.routes.js';
 import statusControlRoutes from './routes/status-control.routes.js';
 import financialServicesRoutes from './routes/financial-services.routes.js';
+import paymentManagementRoutes from './routes/payment-management.routes.js';
 import academicStaffRoutes from './routes/academic-staff.routes.js';
 import academicEvaluationRoutes from './routes/academic-evaluation.routes.js';
 
@@ -68,6 +69,7 @@ app.get('/', (req, res) => {
       studentManagement: '/api/student-management',
       statusControl: '/api/status-control',
       financialServices: '/api/financial-services',
+      paymentManagement: '/api/payment-management',
       academicStaff: '/api/academic-staff',
       academicEvaluation: '/api/academic-evaluation',
       docs: '/api/docs'
@@ -95,6 +97,7 @@ app.use('/api/academic-management', academicManagementRoutes);
 app.use('/api/student-management', studentManagementRoutes);
 app.use('/api/status-control', statusControlRoutes);
 app.use('/api/financial-services', financialServicesRoutes);
+app.use('/api/payment-management', paymentManagementRoutes);
 app.use('/api/academic-staff', academicStaffRoutes);
 app.use('/api/academic-evaluation', academicEvaluationRoutes);
 

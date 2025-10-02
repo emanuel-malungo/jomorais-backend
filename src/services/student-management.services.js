@@ -664,6 +664,8 @@ export class StudentManagementService {
       let alunos, total;
       
       try {
+        console.log(`[getAlunos] Buscando alunos - página ${page}, limite ${limit}, busca: ${search}`);
+        
         // Tentativa com includes complexos
         [alunos, total] = await Promise.all([
           prisma.tb_alunos.findMany({
@@ -715,6 +717,8 @@ export class StudentManagementService {
           }),
           prisma.tb_alunos.count({ where })
         ]);
+
+        console.log(`[getAlunos] Encontrados ${total} alunos, retornando ${alunos.length} nesta página`);
 
         // Buscar dados relacionados adicionais para cada aluno
         const alunosComDadosCompletos = await Promise.all(
@@ -863,46 +867,181 @@ export class StudentManagementService {
 
   static async getAlunoById(id) {
     try {
-      const aluno = await prisma.tb_alunos.findUnique({
-        where: { codigo: parseInt(id) },
-        include: {
-          tb_encarregados: {
-            select: {
-              codigo: true,
-              nome: true,
-              telefone: true
+      console.log(`[getAlunoById] Buscando aluno com ID: ${id}`);
+      
+      // Implementação robusta baseada na memória - step-by-step query approach
+      let aluno;
+      
+      try {
+        // Primeiro, verificar se o aluno existe
+        const alunoBasico = await prisma.tb_alunos.findUnique({
+          where: { codigo: parseInt(id) }
+        });
+
+        if (!alunoBasico) {
+          throw new AppError('Aluno não encontrado', 404);
+        }
+
+        console.log(`[getAlunoById] Aluno encontrado, buscando dados relacionados...`);
+
+        // Tentativa com includes complexos
+        aluno = await prisma.tb_alunos.findUnique({
+          where: { codigo: parseInt(id) },
+          include: {
+            tb_encarregados: {
+              select: {
+                codigo: true,
+                nome: true,
+                telefone: true
+              }
+            },
+            tb_utilizadores: {
+              select: {
+                codigo: true,
+                nome: true,
+                user: true
+              }
+            },
+            tb_tipo_documento: {
+              select: {
+                codigo: true,
+                designacao: true
+              }
+            },
+            tb_matriculas: {
+              select: {
+                codigo: true,
+                data_Matricula: true,
+                codigoStatus: true,
+                tb_cursos: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                },
+                tb_utilizadores: {
+                  select: {
+                    codigo: true,
+                    nome: true
+                  }
+                }
+              }
             }
-          },
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          },
-          tb_tipo_documento: true,
-          tb_matriculas: {
-            select: {
-              codigo: true,
-              data_Matricula: true,
-              codigoStatus: true,
-              tb_cursos: {
+          }
+        });
+
+        if (!aluno) {
+          throw new AppError('Aluno não encontrado', 404);
+        }
+
+        // Buscar dados relacionados adicionais
+        try {
+          const [nacionalidade, estadoCivil, comuna, status] = await Promise.all([
+            // Nacionalidade
+            aluno.codigo_Nacionalidade ? 
+              prisma.tb_nacionalidades.findUnique({
+                where: { codigo: aluno.codigo_Nacionalidade },
+                select: { codigo: true, designacao: true }
+              }).catch(() => null) : null,
+            
+            // Estado Civil
+            aluno.codigo_Estado_Civil ? 
+              prisma.tb_estado_civil.findUnique({
+                where: { codigo: aluno.codigo_Estado_Civil },
+                select: { codigo: true, designacao: true }
+              }).catch(() => null) : null,
+            
+            // Comuna
+            aluno.codigo_Comuna ? 
+              prisma.tb_comunas.findUnique({
+                where: { codigo: aluno.codigo_Comuna },
+                select: { 
+                  codigo: true, 
+                  designacao: true,
+                  tb_municipios: {
+                    select: {
+                      codigo: true,
+                      designacao: true,
+                      tb_provincias: {
+                        select: {
+                          codigo: true,
+                          designacao: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }).catch(() => null) : null,
+            
+            // Status
+            aluno.codigo_Status ? 
+              prisma.tb_status.findUnique({
+                where: { codigo: aluno.codigo_Status },
+                select: { codigo: true, designacao: true }
+              }).catch(() => null) : null
+          ]);
+
+          return {
+            ...aluno,
+            tb_nacionalidade: nacionalidade,
+            tb_estado_civil: estadoCivil,
+            tb_comuna: comuna,
+            tb_status: status
+          };
+
+        } catch (relatedError) {
+          console.error(`Erro ao buscar dados relacionados para aluno ${aluno.codigo}:`, relatedError);
+          // Retorna o aluno sem os dados relacionados em caso de erro
+          return aluno;
+        }
+
+      } catch (complexError) {
+        console.error('Erro com includes complexos no getAlunoById, tentando abordagem simples:', complexError);
+        
+        // Fallback: busca simples sem includes complexos
+        try {
+          aluno = await prisma.tb_alunos.findUnique({
+            where: { codigo: parseInt(id) },
+            include: {
+              tb_encarregados: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  telefone: true
+                }
+              },
+              tb_tipo_documento: {
                 select: {
                   codigo: true,
                   designacao: true
                 }
               }
             }
+          });
+
+          if (!aluno) {
+            throw new AppError('Aluno não encontrado', 404);
           }
+
+          return aluno;
+
+        } catch (simpleError) {
+          console.error('Erro com includes simples no getAlunoById, verificando se aluno existe:', simpleError);
+          
+          // Fallback final: verificar se o aluno existe
+          aluno = await prisma.tb_alunos.findUnique({
+            where: { codigo: parseInt(id) }
+          });
+
+          if (!aluno) {
+            throw new AppError('Aluno não encontrado', 404);
+          }
+
+          return aluno;
         }
-      });
-
-      if (!aluno) {
-        throw new AppError('Aluno não encontrado', 404);
       }
-
-      return aluno;
     } catch (error) {
+      console.error('Erro geral ao buscar aluno por ID:', error);
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao buscar aluno', 500);
     }

@@ -279,8 +279,193 @@ export class AuthService {
   }
 
   // ===============================
+  // MUDANÇA DE SENHA - USUÁRIO LEGADO
+  // ===============================
+
+  static async changePasswordLegacy(userId, currentPassword, newPassword) {
+    try {
+      // Buscar o usuário legado
+      const user = await prisma.tb_utilizadores.findUnique({
+        where: { codigo: parseInt(userId) },
+        select: {
+          codigo: true,
+          nome: true,
+          user: true,
+          senha: true,
+          estadoActual: true
+        }
+      });
+
+      if (!user) {
+        throw new AppError('Usuário não encontrado', 404);
+      }
+
+      // Verificar se o usuário está ativo
+      if (user.estadoActual !== 1) {
+        throw new AppError('Usuário inativo. Não é possível alterar a senha', 403);
+      }
+
+      // Verificar a senha atual
+      const isCurrentPasswordValid = await compareLegacyPasswords(currentPassword, user.senha);
+      if (!isCurrentPasswordValid) {
+        throw new AppError('Senha atual incorreta', 400);
+      }
+
+      // Validar nova senha (mínimo 6 caracteres)
+      if (!newPassword || newPassword.length < 6) {
+        throw new AppError('A nova senha deve ter pelo menos 6 caracteres', 400);
+      }
+
+      // Verificar se a nova senha é diferente da atual
+      const isSamePassword = await compareLegacyPasswords(newPassword, user.senha);
+      if (isSamePassword) {
+        throw new AppError('A nova senha deve ser diferente da senha atual', 400);
+      }
+
+      // Criptografar nova senha
+      const hashedNewPassword = await hashLegacyPassword(newPassword);
+
+      // Atualizar senha no banco de dados
+      await prisma.tb_utilizadores.update({
+        where: { codigo: parseInt(userId) },
+        data: {
+          senha: hashedNewPassword,
+          // Opcional: atualizar data de última modificação se existir campo
+          // dataUltimaAlteracao: new Date()
+        }
+      });
+
+      return {
+        success: true,
+        message: 'Senha alterada com sucesso',
+        user: {
+          codigo: user.codigo,
+          nome: user.nome,
+          username: user.user
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro ao alterar senha do usuário legado:', error);
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro interno ao alterar senha', 500);
+    }
+  }
+
+  static async resetPasswordLegacy(userId, newPassword, adminUserId) {
+    try {
+      // Verificar se o usuário admin existe (opcional - para auditoria)
+      if (adminUserId) {
+        const adminUser = await prisma.tb_utilizadores.findUnique({
+          where: { codigo: parseInt(adminUserId) },
+          select: { codigo: true, nome: true, codigo_Tipo_Utilizador: true }
+        });
+
+        if (!adminUser) {
+          throw new AppError('Usuário administrador não encontrado', 404);
+        }
+
+        // Verificar se tem permissão de admin (assumindo que tipo 1 é admin)
+        if (adminUser.codigo_Tipo_Utilizador !== 1) {
+          throw new AppError('Apenas administradores podem resetar senhas', 403);
+        }
+      }
+
+      // Buscar o usuário que terá a senha resetada
+      const user = await prisma.tb_utilizadores.findUnique({
+        where: { codigo: parseInt(userId) },
+        select: {
+          codigo: true,
+          nome: true,
+          user: true,
+          estadoActual: true
+        }
+      });
+
+      if (!user) {
+        throw new AppError('Usuário não encontrado', 404);
+      }
+
+      // Validar nova senha
+      if (!newPassword || newPassword.length < 6) {
+        throw new AppError('A nova senha deve ter pelo menos 6 caracteres', 400);
+      }
+
+      // Criptografar nova senha
+      const hashedNewPassword = await hashLegacyPassword(newPassword);
+
+      // Atualizar senha no banco de dados
+      await prisma.tb_utilizadores.update({
+        where: { codigo: parseInt(userId) },
+        data: {
+          senha: hashedNewPassword,
+          senhaResetadaPorAdmin: true,
+          dataUltimoReset: new Date()
+        }
+      });
+
+      return {
+        success: true,
+        message: 'Senha resetada com sucesso',
+        user: {
+          codigo: user.codigo,
+          nome: user.nome,
+          username: user.user
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro ao resetar senha do usuário legado:', error);
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro interno ao resetar senha', 500);
+    }
+  }
+
+  // ===============================
   // OPERAÇÕES GERAIS
   // ===============================
+
+  static async getUserById(userId) {
+    try {
+      const user = await prisma.tb_utilizadores.findUnique({
+        where: { codigo: parseInt(userId) },
+        select: {
+          codigo: true,
+          nome: true,
+          user: true,
+          codigo_Tipo_Utilizador: true,
+          estadoActual: true,
+          dataCadastro: true,
+          loginStatus: true,
+          tb_tipos_utilizador: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          }
+        }
+      });
+
+      if (!user) {
+        throw new AppError('Usuário não encontrado', 404);
+      }
+
+      return {
+        codigo: user.codigo,
+        nome: user.nome,
+        username: user.user,
+        tipo: user.codigo_Tipo_Utilizador,
+        tipoDesignacao: user.tb_tipos_utilizador?.designacao || 'Não definido',
+        estadoActual: user.estadoActual,
+        dataCadastro: user.dataCadastro,
+        loginStatus: user.loginStatus,
+        legacy: true
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar usuário', 500);
+    }
+  }
 
   static async getUserTypes() {
     return await prisma.tb_tipos_utilizador.findMany({

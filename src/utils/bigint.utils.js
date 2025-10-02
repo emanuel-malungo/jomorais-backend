@@ -17,6 +17,9 @@ export const convertBigIntToString = (obj) => {
   // Se é BigInt, converte para string
   if (typeof obj === 'bigint') return obj.toString();
   
+  // Se é Date, mantém como está (será serializado automaticamente pelo JSON.stringify)
+  if (obj instanceof Date) return obj;
+  
   // Se é array, processa cada elemento
   if (Array.isArray(obj)) return obj.map(convertBigIntToString);
   
