@@ -280,6 +280,188 @@ export const alunoCreateSchema = z.object({
 
 export const alunoUpdateSchema = alunoCreateSchema.partial();
 
+// Schema para criar aluno com encarregado embutido
+export const alunoComEncarregadoCreateSchema = z.object({
+  // Dados do Aluno
+  nome: z
+    .string({
+      required_error: "Nome é obrigatório",
+      invalid_type_error: "Nome deve ser um texto"
+    })
+    .min(1, "Nome não pode estar vazio")
+    .max(200, "Nome deve ter no máximo 200 caracteres")
+    .trim(),
+  pai: z
+    .string()
+    .max(200, "Nome do pai deve ter no máximo 200 caracteres")
+    .trim()
+    .optional(),
+  mae: z
+    .string()
+    .max(200, "Nome da mãe deve ter no máximo 200 caracteres")
+    .trim()
+    .optional(),
+  codigo_Nacionalidade: z
+    .number({
+      required_error: "Código da nacionalidade é obrigatório",
+      invalid_type_error: "Código da nacionalidade deve ser um número"
+    })
+    .int("Código da nacionalidade deve ser um número inteiro")
+    .positive("Código da nacionalidade deve ser positivo"),
+  codigo_Estado_Civil: z
+    .number()
+    .int("Código do estado civil deve ser um número inteiro")
+    .positive("Código do estado civil deve ser positivo")
+    .optional(),
+  dataNascimento: z
+    .string()
+    .datetime("Data de nascimento deve estar no formato ISO")
+    .or(z.date())
+    .transform((val) => new Date(val))
+    .optional(),
+  email: z
+    .string()
+    .email("Email deve ter um formato válido")
+    .max(45, "Email deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  telefone: z
+    .string()
+    .max(45, "Telefone deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  codigo_Status: z
+    .number()
+    .int("Status deve ser um número inteiro")
+    .min(0, "Status deve ser 0 ou 1")
+    .max(1, "Status deve ser 0 ou 1")
+    .default(1),
+  codigo_Comuna: z
+    .number({
+      required_error: "Código da comuna é obrigatório",
+      invalid_type_error: "Código da comuna deve ser um número"
+    })
+    .int("Código da comuna deve ser um número inteiro")
+    .positive("Código da comuna deve ser positivo"),
+  sexo: z
+    .string()
+    .max(10, "Sexo deve ter no máximo 10 caracteres")
+    .refine((val) => ['M', 'F', 'Masculino', 'Feminino'].includes(val), {
+      message: "Sexo deve ser M, F, Masculino ou Feminino"
+    })
+    .optional(),
+  n_documento_identificacao: z
+    .string()
+    .max(45, "Número do documento deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  saldo: z
+    .number()
+    .min(0, "Saldo não pode ser negativo")
+    .default(0),
+  desconto: z
+    .number()
+    .min(0, "Desconto não pode ser negativo")
+    .max(100, "Desconto não pode ser maior que 100%")
+    .optional(),
+  url_Foto: z
+    .string()
+    .max(345, "URL da foto deve ter no máximo 345 caracteres")
+    .trim()
+    .default("fotoDefault.png"),
+  tipo_desconto: z
+    .string()
+    .max(45, "Tipo de desconto deve ter no máximo 45 caracteres")
+    .trim()
+    .optional(),
+  escolaProveniencia: z
+    .number()
+    .int("Escola de proveniência deve ser um número inteiro")
+    .positive("Escola de proveniência deve ser positivo")
+    .optional(),
+  saldo_Anterior: z
+    .number()
+    .optional(),
+  codigoTipoDocumento: z
+    .number()
+    .int("Código do tipo de documento deve ser um número inteiro")
+    .positive("Código do tipo de documento deve ser positivo")
+    .default(1),
+  morada: z
+    .string()
+    .max(60, "Morada deve ter no máximo 60 caracteres")
+    .trim()
+    .default("..."),
+  dataEmissao: z
+    .string()
+    .datetime("Data de emissão deve estar no formato ISO")
+    .or(z.date())
+    .transform((val) => new Date(val))
+    .optional(),
+  motivo_Desconto: z
+    .string()
+    .max(455, "Motivo do desconto deve ter no máximo 455 caracteres")
+    .trim()
+    .optional(),
+  provinciaEmissao: z
+    .string()
+    .max(45, "Província de emissão deve ter no máximo 45 caracteres")
+    .trim()
+    .default("LUANDA"),
+  user_id: z
+    .bigint()
+    .positive("User ID deve ser positivo")
+    .default(BigInt(1))
+    .optional(),
+  
+  // Dados do Encarregado (objeto aninhado)
+  encarregado: z.object({
+    nome: z
+      .string({
+        required_error: "Nome do encarregado é obrigatório",
+        invalid_type_error: "Nome do encarregado deve ser um texto"
+      })
+      .min(1, "Nome do encarregado não pode estar vazio")
+      .max(250, "Nome do encarregado deve ter no máximo 250 caracteres")
+      .trim(),
+    telefone: z
+      .string({
+        required_error: "Telefone do encarregado é obrigatório",
+        invalid_type_error: "Telefone do encarregado deve ser um texto"
+      })
+      .min(1, "Telefone do encarregado não pode estar vazio")
+      .max(45, "Telefone do encarregado deve ter no máximo 45 caracteres")
+      .trim(),
+    email: z
+      .string()
+      .email("Email do encarregado deve ter um formato válido")
+      .max(45, "Email do encarregado deve ter no máximo 45 caracteres")
+      .trim()
+      .optional(),
+    codigo_Profissao: z
+      .number({
+        required_error: "Código da profissão do encarregado é obrigatório",
+        invalid_type_error: "Código da profissão do encarregado deve ser um número"
+      })
+      .int("Código da profissão do encarregado deve ser um número inteiro")
+      .positive("Código da profissão do encarregado deve ser positivo"),
+    local_Trabalho: z
+      .string({
+        required_error: "Local de trabalho do encarregado é obrigatório",
+        invalid_type_error: "Local de trabalho do encarregado deve ser um texto"
+      })
+      .min(1, "Local de trabalho do encarregado não pode estar vazio")
+      .max(45, "Local de trabalho do encarregado deve ter no máximo 45 caracteres")
+      .trim(),
+    status: z
+      .number()
+      .int("Status do encarregado deve ser um número inteiro")
+      .min(0, "Status do encarregado deve ser 0 ou 1")
+      .max(1, "Status do encarregado deve ser 0 ou 1")
+      .default(1)
+  })
+}).strict();
+
 export const alunoFlexibleCreateSchema = z.object({
   nome: z.string().min(1).max(200).trim(),
   pai: z.string().max(200).trim().optional(),

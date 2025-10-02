@@ -212,6 +212,158 @@
  *         saldo: 0
  *         morada: "Rua da Paz, 123"
  *
+ *     AlunoComEncarregado:
+ *       type: object
+ *       required:
+ *         - nome
+ *         - codigo_Nacionalidade
+ *         - codigo_Comuna
+ *         - encarregado
+ *       properties:
+ *         nome:
+ *           type: string
+ *           maxLength: 200
+ *           description: Nome completo do aluno
+ *         pai:
+ *           type: string
+ *           maxLength: 200
+ *           description: Nome do pai
+ *         mae:
+ *           type: string
+ *           maxLength: 200
+ *           description: Nome da mãe
+ *         codigo_Nacionalidade:
+ *           type: integer
+ *           description: Código da nacionalidade
+ *         codigo_Estado_Civil:
+ *           type: integer
+ *           description: Código do estado civil
+ *         dataNascimento:
+ *           type: string
+ *           format: date
+ *           description: Data de nascimento
+ *         email:
+ *           type: string
+ *           maxLength: 45
+ *           description: Email do aluno
+ *         telefone:
+ *           type: string
+ *           maxLength: 45
+ *           description: Telefone do aluno
+ *         codigo_Status:
+ *           type: integer
+ *           enum: [0, 1]
+ *           description: Status (0=Inativo, 1=Ativo)
+ *           default: 1
+ *         codigo_Comuna:
+ *           type: integer
+ *           description: Código da comuna
+ *         sexo:
+ *           type: string
+ *           enum: [M, F, Masculino, Feminino]
+ *           description: Sexo do aluno
+ *         n_documento_identificacao:
+ *           type: string
+ *           maxLength: 45
+ *           description: Número do documento de identificação
+ *         saldo:
+ *           type: number
+ *           description: Saldo do aluno
+ *           default: 0
+ *         desconto:
+ *           type: number
+ *           description: Percentual de desconto
+ *         url_Foto:
+ *           type: string
+ *           maxLength: 345
+ *           description: URL da foto do aluno
+ *           default: "fotoDefault.png"
+ *         tipo_desconto:
+ *           type: string
+ *           maxLength: 45
+ *           description: Tipo de desconto
+ *         escolaProveniencia:
+ *           type: integer
+ *           description: Código da escola de proveniência
+ *         saldo_Anterior:
+ *           type: number
+ *           description: Saldo anterior
+ *         codigoTipoDocumento:
+ *           type: integer
+ *           description: Código do tipo de documento
+ *           default: 1
+ *         morada:
+ *           type: string
+ *           maxLength: 60
+ *           description: Morada do aluno
+ *           default: "..."
+ *         dataEmissao:
+ *           type: string
+ *           format: date
+ *           description: Data de emissão do documento
+ *         motivo_Desconto:
+ *           type: string
+ *           maxLength: 455
+ *           description: Motivo do desconto
+ *         provinciaEmissao:
+ *           type: string
+ *           maxLength: 45
+ *           description: Província de emissão do documento
+ *           default: "LUANDA"
+ *         encarregado:
+ *           type: object
+ *           required:
+ *             - nome
+ *             - telefone
+ *             - codigo_Profissao
+ *             - local_Trabalho
+ *           properties:
+ *             nome:
+ *               type: string
+ *               maxLength: 250
+ *               description: Nome completo do encarregado
+ *             telefone:
+ *               type: string
+ *               maxLength: 45
+ *               description: Número de telefone do encarregado
+ *             email:
+ *               type: string
+ *               maxLength: 45
+ *               description: Email do encarregado
+ *             codigo_Profissao:
+ *               type: integer
+ *               description: Código da profissão do encarregado
+ *             local_Trabalho:
+ *               type: string
+ *               maxLength: 45
+ *               description: Local de trabalho do encarregado
+ *             status:
+ *               type: integer
+ *               enum: [0, 1]
+ *               description: Status do encarregado (0=Inativo, 1=Ativo)
+ *               default: 1
+ *       example:
+ *         nome: "Maria Santos"
+ *         pai: "João Santos"
+ *         mae: "Ana Santos"
+ *         codigo_Nacionalidade: 1
+ *         dataNascimento: "2010-05-15T00:00:00.000Z"
+ *         email: "maria.santos@email.com"
+ *         telefone: "923456789"
+ *         codigo_Comuna: 1
+ *         sexo: "F"
+ *         n_documento_identificacao: "123456789LA"
+ *         saldo: 0
+ *         morada: "Rua da Paz, 123"
+ *         codigoTipoDocumento: 1
+ *         encarregado:
+ *           nome: "João Santos (Pai)"
+ *           telefone: "923456780"
+ *           email: "joao.santos@email.com"
+ *           codigo_Profissao: 1
+ *           local_Trabalho: "Hospital Central de Luanda"
+ *           status: 1
+ *
  *     Matricula:
  *       type: object
  *       required:
@@ -934,7 +1086,20 @@ router.delete('/proveniencias/:id', StudentManagementController.deleteProvenienc
  * @swagger
  * /api/student-management/alunos:
  *   post:
- *     summary: Criar novo aluno
+ *     summary: Criar novo aluno (com ou sem encarregado)
+ *     description: |
+ *       Este endpoint permite criar um aluno de duas formas:
+ *       
+ *       **1. Com Encarregado Automático (NOVO):**
+ *       - Envie os dados do aluno com um objeto `encarregado` incluído
+ *       - O sistema criará automaticamente o encarregado
+ *       - O `codigo_Utilizador` será obtido do usuário logado
+ *       - Não é necessário enviar `codigo_Encarregado` nem `codigo_Utilizador`
+ *       
+ *       **2. Sem Encarregado (Fluxo Original):**
+ *       - Envie os dados do aluno sem o objeto `encarregado`
+ *       - Você precisa fornecer `codigo_Encarregado` e `codigo_Utilizador`
+ *       - O encarregado deve existir previamente
  *     tags: [Gestão de Estudantes - Alunos]
  *     security:
  *       - bearerAuth: []
@@ -943,14 +1108,88 @@ router.delete('/proveniencias/:id', StudentManagementController.deleteProvenienc
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Aluno'
+ *             oneOf:
+ *               - $ref: '#/components/schemas/AlunoComEncarregado'
+ *               - $ref: '#/components/schemas/Aluno'
+ *           examples:
+ *             comEncarregado:
+ *               summary: Criar aluno com encarregado (novo)
+ *               description: Cria o aluno e o encarregado automaticamente. O codigo_Utilizador é obtido do usuário logado.
+ *               value:
+ *                 nome: "Maria Santos"
+ *                 pai: "João Santos"
+ *                 mae: "Ana Santos"
+ *                 codigo_Nacionalidade: 1
+ *                 dataNascimento: "2010-05-15T00:00:00.000Z"
+ *                 email: "maria.santos@email.com"
+ *                 telefone: "923456789"
+ *                 codigo_Comuna: 1
+ *                 sexo: "F"
+ *                 n_documento_identificacao: "123456789LA"
+ *                 saldo: 0
+ *                 morada: "Rua da Paz, 123"
+ *                 codigoTipoDocumento: 1
+ *                 encarregado:
+ *                   nome: "João Santos (Pai)"
+ *                   telefone: "923456780"
+ *                   email: "joao.santos@email.com"
+ *                   codigo_Profissao: 1
+ *                   local_Trabalho: "Hospital Central de Luanda"
+ *                   status: 1
+ *             semEncarregado:
+ *               summary: Criar aluno sem encarregado (fluxo original)
+ *               description: Cria apenas o aluno. O encarregado deve existir previamente.
+ *               value:
+ *                 nome: "Pedro Silva"
+ *                 pai: "Carlos Silva"
+ *                 mae: "Teresa Silva"
+ *                 codigo_Nacionalidade: 1
+ *                 dataNascimento: "2011-08-20T00:00:00.000Z"
+ *                 email: "pedro.silva@email.com"
+ *                 telefone: "923456790"
+ *                 codigo_Comuna: 1
+ *                 codigo_Encarregado: 5
+ *                 codigo_Utilizador: 1
+ *                 sexo: "M"
+ *                 n_documento_identificacao: "987654321LA"
+ *                 saldo: 0
+ *                 morada: "Rua da Esperança, 456"
  *     responses:
  *       201:
- *         description: Aluno criado com sucesso
+ *         description: Aluno criado com sucesso (com ou sem encarregado)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Aluno e encarregado criados com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                     nome:
+ *                       type: string
+ *                     codigo_Encarregado:
+ *                       type: integer
+ *                     codigo_Utilizador:
+ *                       type: integer
+ *                     tb_encarregados:
+ *                       type: object
+ *                       description: Dados completos do encarregado (quando criado automaticamente)
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         description: Recurso não encontrado (profissão, nacionalidade, tipo de documento, etc.)
+ *       409:
+ *         description: Conflito - Aluno com documento de identificação já existe
  */
 router.post('/alunos', StudentManagementController.createAluno);
 

@@ -466,6 +466,129 @@ export class StudentManagementService {
   // ALUNOS - CRUD COMPLETO
   // ===============================
 
+  static async createAlunoComEncarregado(data, codigo_Utilizador) {
+    try {
+      // Verificar se o utilizador existe
+      const utilizadorExists = await prisma.tb_utilizadores.findUnique({
+        where: { codigo: codigo_Utilizador }
+      });
+
+      if (!utilizadorExists) {
+        throw new AppError('Utilizador não encontrado', 404);
+      }
+
+      // Verificar se a profissão do encarregado existe
+      const profissaoExists = await prisma.tb_profissao.findUnique({
+        where: { codigo: data.encarregado.codigo_Profissao }
+      });
+
+      if (!profissaoExists) {
+        throw new AppError('Profissão do encarregado não encontrada', 404);
+      }
+
+      // Verificar se o tipo de documento existe
+      const tipoDocumentoExists = await prisma.tb_tipo_documento.findUnique({
+        where: { codigo: data.codigoTipoDocumento }
+      });
+
+      if (!tipoDocumentoExists) {
+        throw new AppError('Tipo de documento não encontrado', 404);
+      }
+
+      // Verificar se já existe aluno com mesmo documento de identificação
+      if (data.n_documento_identificacao) {
+        const existingAluno = await prisma.tb_alunos.findFirst({
+          where: {
+            n_documento_identificacao: data.n_documento_identificacao.trim(),
+            codigoTipoDocumento: data.codigoTipoDocumento
+          }
+        });
+
+        if (existingAluno) {
+          throw new AppError('Já existe um aluno com este documento de identificação', 409);
+        }
+      }
+
+      // Usar transação para criar encarregado e aluno
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Criar o encarregado
+        const encarregado = await tx.tb_encarregados.create({
+          data: {
+            nome: data.encarregado.nome.trim(),
+            telefone: data.encarregado.telefone.trim(),
+            email: data.encarregado.email?.trim() || null,
+            codigo_Profissao: data.encarregado.codigo_Profissao,
+            local_Trabalho: data.encarregado.local_Trabalho.trim(),
+            codigo_Utilizador: codigo_Utilizador,
+            dataCadastro: new Date(),
+            status: data.encarregado.status ?? 1
+          }
+        });
+
+        // 2. Preparar dados do aluno
+        const alunoData = { ...data };
+        delete alunoData.encarregado; // Remover objeto encarregado
+        
+        // Adicionar referências
+        alunoData.codigo_Encarregado = encarregado.codigo;
+        alunoData.codigo_Utilizador = codigo_Utilizador;
+
+        // Limpar dados de texto
+        if (alunoData.nome) alunoData.nome = alunoData.nome.trim();
+        if (alunoData.pai) alunoData.pai = alunoData.pai.trim();
+        if (alunoData.mae) alunoData.mae = alunoData.mae.trim();
+        if (alunoData.email) alunoData.email = alunoData.email.trim();
+        if (alunoData.telefone) alunoData.telefone = alunoData.telefone.trim();
+        if (alunoData.n_documento_identificacao) alunoData.n_documento_identificacao = alunoData.n_documento_identificacao.trim();
+        if (alunoData.morada) alunoData.morada = alunoData.morada.trim();
+        if (alunoData.motivo_Desconto) alunoData.motivo_Desconto = alunoData.motivo_Desconto.trim();
+        if (alunoData.provinciaEmissao) alunoData.provinciaEmissao = alunoData.provinciaEmissao.trim();
+        if (alunoData.tipo_desconto) alunoData.tipo_desconto = alunoData.tipo_desconto.trim();
+        if (alunoData.url_Foto) alunoData.url_Foto = alunoData.url_Foto.trim();
+
+        // Definir dataCadastro se não fornecida
+        if (!alunoData.dataCadastro) {
+          alunoData.dataCadastro = new Date();
+        }
+
+        // 3. Criar o aluno
+        const aluno = await tx.tb_alunos.create({
+          data: alunoData,
+          include: {
+            tb_encarregados: {
+              include: {
+                tb_profissao: true,
+                tb_utilizadores: {
+                  select: {
+                    codigo: true,
+                    nome: true,
+                    user: true
+                  }
+                }
+              }
+            },
+            tb_utilizadores: {
+              select: {
+                codigo: true,
+                nome: true,
+                user: true
+              }
+            },
+            tb_tipo_documento: true
+          }
+        });
+
+        return aluno;
+      });
+
+      return result;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      console.error('Erro ao criar aluno com encarregado:', error);
+      throw new AppError('Erro ao criar aluno com encarregado', 500);
+    }
+  }
+
   static async createAluno(data) {
     try {
       // Verificar se o encarregado existe

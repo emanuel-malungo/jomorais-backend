@@ -11,6 +11,7 @@ import {
   alunoCreateSchema,
   alunoUpdateSchema,
   alunoFlexibleCreateSchema,
+  alunoComEncarregadoCreateSchema,
   matriculaCreateSchema,
   matriculaUpdateSchema,
   matriculaFlexibleCreateSchema,
@@ -214,21 +215,46 @@ export class StudentManagementController {
 
   static async createAluno(req, res) {
     try {
-      // Tentar primeiro o schema flexível, depois o padrão
-      let validatedData;
-      try {
-        validatedData = alunoFlexibleCreateSchema.parse(req.body);
-      } catch {
-        validatedData = alunoCreateSchema.parse(req.body);
-      }
+      // Verificar se tem dados do encarregado embutidos
+      if (req.body.encarregado) {
+        // Validar schema com encarregado embutido
+        const validatedData = alunoComEncarregadoCreateSchema.parse(req.body);
+        
+        // Obter codigo_Utilizador do usuário logado
+        const codigo_Utilizador = req.user?.id;
+        
+        if (!codigo_Utilizador) {
+          throw new Error('Usuário não autenticado');
+        }
 
-      const aluno = await StudentManagementService.createAluno(validatedData);
-      
-      res.status(201).json({
-        success: true,
-        message: "Aluno criado com sucesso",
-        data: convertBigIntToString(aluno),
-      });
+        // Criar aluno com encarregado
+        const aluno = await StudentManagementService.createAlunoComEncarregado(
+          validatedData, 
+          codigo_Utilizador
+        );
+        
+        res.status(201).json({
+          success: true,
+          message: "Aluno e encarregado criados com sucesso",
+          data: convertBigIntToString(aluno),
+        });
+      } else {
+        // Fluxo original - apenas criar aluno
+        let validatedData;
+        try {
+          validatedData = alunoFlexibleCreateSchema.parse(req.body);
+        } catch {
+          validatedData = alunoCreateSchema.parse(req.body);
+        }
+
+        const aluno = await StudentManagementService.createAluno(validatedData);
+        
+        res.status(201).json({
+          success: true,
+          message: "Aluno criado com sucesso",
+          data: convertBigIntToString(aluno),
+        });
+      }
     } catch (error) {
       handleControllerError(res, error, "Erro ao criar aluno", 400);
     }
