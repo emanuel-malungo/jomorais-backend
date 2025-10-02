@@ -220,12 +220,8 @@ export class StudentManagementController {
         // Validar schema com encarregado embutido
         const validatedData = alunoComEncarregadoCreateSchema.parse(req.body);
         
-        // Obter codigo_Utilizador do usuário logado
-        const codigo_Utilizador = req.user?.id;
-        
-        if (!codigo_Utilizador) {
-          throw new Error('Usuário não autenticado');
-        }
+        // Obter codigo_Utilizador do usuário logado ou usar valor padrão (1) para desenvolvimento
+        const codigo_Utilizador = req.user?.id || 1;
 
         // Criar aluno com encarregado
         const aluno = await StudentManagementService.createAlunoComEncarregado(

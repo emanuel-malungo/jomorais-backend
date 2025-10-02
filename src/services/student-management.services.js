@@ -529,6 +529,11 @@ export class StudentManagementService {
         const alunoData = { ...data };
         delete alunoData.encarregado; // Remover objeto encarregado
         
+        // Remover campos que não existem na tabela tb_alunos (usados apenas no frontend)
+        delete alunoData.provincia;
+        delete alunoData.municipio;
+        delete alunoData.codigo_Utilizador; // Este campo já será adicionado abaixo
+        
         // Adicionar referências
         alunoData.codigo_Encarregado = encarregado.codigo;
         alunoData.codigo_Utilizador = codigo_Utilizador;
