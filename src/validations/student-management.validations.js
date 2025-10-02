@@ -414,6 +414,11 @@ export const alunoComEncarregadoCreateSchema = z.object({
     .default(BigInt(1))
     .optional(),
   
+  // Campos adicionais do frontend (ignorados no backend)
+  codigo_Utilizador: z.string().optional(),
+  provincia: z.string().optional(),
+  municipio: z.string().optional(),
+  
   // Dados do Encarregado (objeto aninhado)
   encarregado: z.object({
     nome: z
@@ -450,7 +455,7 @@ export const alunoComEncarregadoCreateSchema = z.object({
       .int("Status do encarregado deve ser um número inteiro")
       .default(1)
   })
-}).strict();
+});
 
 export const alunoFlexibleCreateSchema = z.object({
   nome: z.string().min(1).max(200).trim(),
