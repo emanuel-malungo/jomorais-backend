@@ -388,26 +388,172 @@ router.delete('/formas-pagamento/:id', PaymentManagementController.deleteFormaPa
  *               data:
  *                 type: string
  *                 format: date
+ *                 description: Data do pagamento
  *                 example: "2024-01-15"
  *               codigo_Aluno:
  *                 type: integer
+ *                 description: Código do aluno
  *                 example: 123
  *               status:
  *                 type: integer
+ *                 description: Status do pagamento (1=Ativo, 2=Cancelado, etc)
  *                 example: 1
+ *               total:
+ *                 type: number
+ *                 description: Valor total do pagamento
+ *                 example: 15000
  *               valorEntregue:
  *                 type: number
+ *                 description: Valor entregue pelo cliente
  *                 example: 15000
  *               dataBanco:
  *                 type: string
  *                 format: date
+ *                 description: Data de processamento no banco
  *                 example: "2024-01-15"
  *               totalDesconto:
  *                 type: number
- *                 example: 0
+ *                 description: Total de desconto aplicado
+ *                 default: 0
+ *                 example: 500
  *               obs:
  *                 type: string
  *                 maxLength: 200
+ *                 description: Observações do pagamento
+ *                 example: "Pagamento referente à matrícula"
+ *               borderoux:
+ *                 type: string
+ *                 maxLength: 200
+ *                 description: Número do borderô
+ *                 example: "BRD-2024-001"
+ *               saldoAnterior:
+ *                 type: number
+ *                 description: Saldo anterior do aluno
+ *                 default: 0
+ *                 example: 0
+ *               descontoSaldo:
+ *                 type: number
+ *                 description: Desconto aplicado no saldo
+ *                 default: 0
+ *                 example: 0
+ *               saldo:
+ *                 type: number
+ *                 description: Saldo atual após pagamento
+ *                 default: 0
+ *                 example: 0
+ *               codigoPagamento:
+ *                 type: integer
+ *                 description: Código de referência do pagamento
+ *                 default: 0
+ *                 example: 0
+ *               saldoOperacao:
+ *                 type: number
+ *                 description: Saldo da operação
+ *                 default: 0
+ *                 example: 0
+ *               codigoUtilizador:
+ *                 type: integer
+ *                 description: Código do utilizador que registrou o pagamento
+ *                 example: 1
+ *               hash:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 description: Hash de segurança do pagamento
+ *                 example: "a1b2c3d4e5f6..."
+ *               tipoDocumento:
+ *                 type: string
+ *                 maxLength: 50
+ *                 description: Tipo de documento (Recibo, Fatura, etc)
+ *                 example: "Recibo"
+ *               totalIva:
+ *                 type: number
+ *                 description: Total de IVA
+ *                 example: 2100
+ *               nifCliente:
+ *                 type: string
+ *                 maxLength: 50
+ *                 description: NIF do cliente
+ *                 example: "123456789"
+ *               troco:
+ *                 type: number
+ *                 description: Troco a devolver ao cliente
+ *                 example: 0
+ *     responses:
+ *       201:
+ *         description: Pagamento principal criado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Pagamento principal criado com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: integer
+ *                       example: 1
+ *                     data:
+ *                       type: string
+ *                       format: date
+ *                     codigo_Aluno:
+ *                       type: integer
+ *                     status:
+ *                       type: integer
+ *                     total:
+ *                       type: number
+ *                     valorEntregue:
+ *                       type: number
+ *                     dataBanco:
+ *                       type: string
+ *                       format: date
+ *                     totalDesconto:
+ *                       type: number
+ *                     obs:
+ *                       type: string
+ *                     borderoux:
+ *                       type: string
+ *                     saldoAnterior:
+ *                       type: number
+ *                     descontoSaldo:
+ *                       type: number
+ *                     saldo:
+ *                       type: number
+ *                     codigoPagamento:
+ *                       type: integer
+ *                     saldoOperacao:
+ *                       type: number
+ *                     codigoUtilizador:
+ *                       type: integer
+ *                     hash:
+ *                       type: string
+ *                     tipoDocumento:
+ *                       type: string
+ *                     totalIva:
+ *                       type: number
+ *                     nifCliente:
+ *                       type: string
+ *                     troco:
+ *                       type: number
+ *                     tb_pagamentos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     tb_nota_credito:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       400:
+ *         description: Erro de validação
+ *       404:
+ *         description: Aluno ou utilizador não encontrado
+ *       500:
+ *         description: Erro interno do servidor
  *   get:
  *     summary: Listar pagamentos principais
  *     tags: [Gestão de Pagamentos - Pagamentos Principais]

@@ -136,6 +136,17 @@ export class PaymentManagementService {
         throw new AppError('Aluno não encontrado', 404);
       }
 
+      // Verificar se o utilizador existe (se fornecido)
+      if (data.codigoUtilizador) {
+        const utilizadorExists = await prisma.tb_utilizadores.findUnique({
+          where: { codigo: data.codigoUtilizador }
+        });
+
+        if (!utilizadorExists) {
+          throw new AppError('Utilizador não encontrado', 404);
+        }
+      }
+
       const pagamentoi = await prisma.tb_pagamentoi.create({
         data: {
           data: data.data,
@@ -158,6 +169,23 @@ export class PaymentManagementService {
           totalIva: data.totalIva,
           nifCliente: data.nifCliente,
           troco: data.troco
+        },
+        include: {
+          tb_pagamentos: {
+            select: {
+              codigo: true,
+              mes: true,
+              totalgeral: true,
+              tipoDocumento: true
+            }
+          },
+          tb_nota_credito: {
+            select: {
+              codigo: true,
+              designacao: true,
+              valor: true
+            }
+          }
         }
       });
 
