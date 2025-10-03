@@ -36,23 +36,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Middleware para lidar com BigInt automaticamente
 app.use(bigIntMiddleware);
 
-// Middleware de tratamento de erros globais
-app.use((err, req, res, next) => {
-  console.error('Erro global:', err);
-  
-  if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({
-      success: false,
-      message: 'JSON inválido'
-    });
-  }
-  
-  res.status(500).json({
-    success: false,
-    message: 'Erro interno do servidor'
-  });
-});
-
 // Rota raiz
 app.get('/', (req, res) => {
   res.json({
@@ -103,6 +86,23 @@ app.use('/api/academic-evaluation', academicEvaluationRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
+
+// Middleware de tratamento de erros globais (deve ser o último)
+app.use((err, req, res, next) => {
+  console.error('Erro global capturado:', err);
+  
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      success: false,
+      message: 'JSON inválido'
+    });
+  }
+  
+  res.status(500).json({
+    success: false,
+    message: 'Erro interno do servidor'
+  });
+});
 
 const PORT = process.env.PORT || 8000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;

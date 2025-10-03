@@ -1500,46 +1500,84 @@ export class StudentManagementService {
 
   static async createMatricula(data) {
     try {
+      console.log('=== SERVICE - CRIAR MATRÍCULA ===');
+      console.log('Dados recebidos:', data);
+      
       const { codigo_Aluno, data_Matricula, codigo_Curso, codigo_Utilizador, codigoStatus } = data;
+      
+      console.log('Dados extraídos:', {
+        codigo_Aluno,
+        data_Matricula,
+        codigo_Curso,
+        codigo_Utilizador,
+        codigoStatus
+      });
 
       // Verificar se o aluno existe
+      console.log('Verificando se aluno existe:', codigo_Aluno);
       const alunoExists = await prisma.tb_alunos.findUnique({
         where: { codigo: codigo_Aluno }
       });
+      console.log('Aluno encontrado:', !!alunoExists);
 
       if (!alunoExists) {
         throw new AppError('Aluno não encontrado', 404);
       }
 
       // Verificar se o curso existe
+      console.log('Verificando se curso existe:', codigo_Curso);
       const cursoExists = await prisma.tb_cursos.findUnique({
         where: { codigo: codigo_Curso }
       });
+      console.log('Curso encontrado:', !!cursoExists);
 
       if (!cursoExists) {
         throw new AppError('Curso não encontrado', 404);
       }
 
       // Verificar se o utilizador existe
+      console.log('Verificando se utilizador existe:', codigo_Utilizador);
       const utilizadorExists = await prisma.tb_utilizadores.findUnique({
         where: { codigo: codigo_Utilizador }
       });
+      console.log('Utilizador encontrado:', !!utilizadorExists);
 
       if (!utilizadorExists) {
         throw new AppError('Utilizador não encontrado', 404);
       }
 
       // Verificar se já existe matrícula para este aluno
+      console.log('Verificando se aluno já tem matrícula:', codigo_Aluno);
       const existingMatricula = await prisma.tb_matriculas.findUnique({
         where: { codigo_Aluno }
       });
+      console.log('Matrícula existente:', !!existingMatricula);
 
       if (existingMatricula) {
         throw new AppError('Já existe uma matrícula para este aluno', 409);
       }
 
-      return await prisma.tb_matriculas.create({
+      console.log('Criando matrícula com dados:', {
+        codigo_Aluno,
+        data_Matricula,
+        codigo_Curso,
+        codigo_Utilizador,
+        codigoStatus: codigoStatus ?? 1
+      });
+      
+      // Verificar se o problema é de mapeamento de campos
+      console.log('Tentando criar com Prisma...');
+      
+      // Buscar o próximo ID disponível
+      const lastMatricula = await prisma.tb_matriculas.findFirst({
+        orderBy: { codigo: 'desc' }
+      });
+      const nextCodigo = (lastMatricula?.codigo || 0) + 1;
+      console.log('Próximo código:', nextCodigo);
+      
+      const matricula = await prisma.tb_matriculas.create({
         data: {
+          codigo: nextCodigo,
           codigo_Aluno,
           data_Matricula,
           codigo_Curso,
@@ -1565,7 +1603,17 @@ export class StudentManagementService {
           }
         }
       });
+      
+      console.log('Matrícula criada com sucesso:', matricula.codigo);
+      return matricula;
+      
     } catch (error) {
+      console.log('=== ERRO NO SERVICE ===');
+      console.log('Erro completo:', error);
+      console.log('Mensagem:', error.message);
+      console.log('Stack:', error.stack);
+      console.log('======================');
+      
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao criar matrícula', 500);
     }

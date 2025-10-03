@@ -343,15 +343,27 @@ export class StudentManagementController {
   // ===============================
 
   static async createMatricula(req, res) {
+    console.log('\n\n=== CONTROLLER CHAMADO - CRIAR MATRÍCULA ===');
+    console.log('Método:', req.method);
+    console.log('URL:', req.url);
+    console.log('Headers:', req.headers);
+    
     try {
+      console.log('=== CONTROLLER - CRIAR MATRÍCULA ===');
+      console.log('Body recebido:', req.body);
+      
       // Tentar primeiro o schema flexível, depois o padrão
       let validatedData;
       try {
         validatedData = matriculaFlexibleCreateSchema.parse(req.body);
-      } catch {
+        console.log('Validado com schema flexível:', validatedData);
+      } catch (flexError) {
+        console.log('Erro no schema flexível:', flexError.message);
         validatedData = matriculaCreateSchema.parse(req.body);
+        console.log('Validado com schema padrão:', validatedData);
       }
 
+      console.log('Chamando service com dados:', validatedData);
       const matricula = await StudentManagementService.createMatricula(validatedData);
       
       res.status(201).json({
@@ -360,6 +372,11 @@ export class StudentManagementController {
         data: matricula,
       });
     } catch (error) {
+      console.log('=== ERRO NO CONTROLLER ===');
+      console.log('Erro completo:', error);
+      console.log('Mensagem:', error.message);
+      console.log('Stack:', error.stack);
+      console.log('========================');
       handleControllerError(res, error, "Erro ao criar matrícula", 400);
     }
   }
