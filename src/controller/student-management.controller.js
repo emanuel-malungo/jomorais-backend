@@ -12,6 +12,7 @@ import {
   alunoUpdateSchema,
   alunoFlexibleCreateSchema,
   alunoComEncarregadoCreateSchema,
+  alunoComEncarregadoUpdateSchema,
   matriculaCreateSchema,
   matriculaUpdateSchema,
   matriculaFlexibleCreateSchema,
@@ -259,9 +260,21 @@ export class StudentManagementController {
   static async updateAluno(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
-      const validatedData = alunoUpdateSchema.parse(req.body);
+      
+      // Tentar primeiro o schema com encarregado, depois o padrão
+      let validatedData;
+      let hasEncarregadoData = false;
+      
+      try {
+        validatedData = alunoComEncarregadoUpdateSchema.parse(req.body);
+        hasEncarregadoData = !!validatedData.encarregado;
+      } catch {
+        validatedData = alunoUpdateSchema.parse(req.body);
+      }
 
-      const aluno = await StudentManagementService.updateAluno(id, validatedData);
+      const aluno = hasEncarregadoData 
+        ? await StudentManagementService.updateAlunoComEncarregado(id, validatedData)
+        : await StudentManagementService.updateAluno(id, validatedData);
       
       res.json({
         success: true,

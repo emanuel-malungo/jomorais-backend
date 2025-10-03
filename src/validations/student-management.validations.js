@@ -280,6 +280,39 @@ export const alunoCreateSchema = z.object({
 
 export const alunoUpdateSchema = alunoCreateSchema.partial();
 
+// Schema para atualizar aluno com dados do encarregado
+export const alunoComEncarregadoUpdateSchema = alunoCreateSchema.partial().extend({
+  encarregado: z.object({
+    nome: z
+      .string()
+      .min(1, "Nome do encarregado não pode estar vazio")
+      .max(250, "Nome do encarregado deve ter no máximo 250 caracteres")
+      .trim()
+      .optional(),
+    telefone: z
+      .string()
+      .max(45, "Telefone do encarregado deve ter no máximo 45 caracteres")
+      .trim()
+      .optional(),
+    email: z
+      .string()
+      .email("Email do encarregado deve ter um formato válido")
+      .max(45, "Email do encarregado deve ter no máximo 45 caracteres")
+      .trim()
+      .optional(),
+    codigo_Profissao: z
+      .number()
+      .int("Código da profissão deve ser um número inteiro")
+      .positive("Código da profissão deve ser positivo")
+      .optional(),
+    local_Trabalho: z
+      .string()
+      .max(45, "Local de trabalho deve ter no máximo 45 caracteres")
+      .trim()
+      .optional(),
+  }).optional()
+});
+
 // Schema para criar aluno com encarregado embutido
 export const alunoComEncarregadoCreateSchema = z.object({
   // Dados do Aluno

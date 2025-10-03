@@ -679,6 +679,115 @@ export class StudentManagementService {
     }
   }
 
+  static async updateAlunoComEncarregado(id, data) {
+    try {
+      const existingAluno = await prisma.tb_alunos.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_encarregados: true
+        }
+      });
+
+      if (!existingAluno) {
+        throw new AppError('Aluno não encontrado', 404);
+      }
+
+      // Usar transação para atualizar aluno e encarregado
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Atualizar dados do encarregado se fornecidos
+        if (data.encarregado && Object.keys(data.encarregado).length > 0) {
+          const encarregadoData = { ...data.encarregado };
+          
+          // Verificar se a profissão existe (se fornecida)
+          if (encarregadoData.codigo_Profissao) {
+            const profissaoExists = await tx.tb_profissao.findUnique({
+              where: { codigo: encarregadoData.codigo_Profissao }
+            });
+            
+            if (!profissaoExists) {
+              throw new AppError('Profissão do encarregado não encontrada', 404);
+            }
+          }
+          
+          await tx.tb_encarregados.update({
+            where: { codigo: existingAluno.codigo_Encarregado },
+            data: encarregadoData
+          });
+        }
+
+        // 2. Atualizar dados do aluno
+        const alunoData = { ...data };
+        delete alunoData.encarregado; // Remover dados do encarregado
+        
+        // Verificar referências se fornecidas
+        if (alunoData.codigoTipoDocumento) {
+          const tipoDocumentoExists = await tx.tb_tipo_documento.findUnique({
+            where: { codigo: alunoData.codigoTipoDocumento }
+          });
+          
+          if (!tipoDocumentoExists) {
+            throw new AppError('Tipo de documento não encontrado', 404);
+          }
+        }
+        
+        // Verificar documento duplicado
+        if (alunoData.n_documento_identificacao && alunoData.codigoTipoDocumento) {
+          const existingWithDoc = await tx.tb_alunos.findFirst({
+            where: {
+              n_documento_identificacao: alunoData.n_documento_identificacao.trim(),
+              codigoTipoDocumento: alunoData.codigoTipoDocumento,
+              codigo: { not: parseInt(id) }
+            }
+          });
+          
+          if (existingWithDoc) {
+            throw new AppError('Já existe um aluno com este documento de identificação', 409);
+          }
+        }
+        
+        // Limpar dados de texto
+        if (alunoData.nome) alunoData.nome = alunoData.nome.trim();
+        if (alunoData.pai) alunoData.pai = alunoData.pai.trim();
+        if (alunoData.mae) alunoData.mae = alunoData.mae.trim();
+        if (alunoData.email) alunoData.email = alunoData.email.trim();
+        if (alunoData.telefone) alunoData.telefone = alunoData.telefone.trim();
+        if (alunoData.n_documento_identificacao) alunoData.n_documento_identificacao = alunoData.n_documento_identificacao.trim();
+        if (alunoData.morada) alunoData.morada = alunoData.morada.trim();
+        if (alunoData.motivo_Desconto) alunoData.motivo_Desconto = alunoData.motivo_Desconto.trim();
+        if (alunoData.provinciaEmissao) alunoData.provinciaEmissao = alunoData.provinciaEmissao.trim();
+        if (alunoData.tipo_desconto) alunoData.tipo_desconto = alunoData.tipo_desconto.trim();
+        if (alunoData.url_Foto) alunoData.url_Foto = alunoData.url_Foto.trim();
+        
+        // Atualizar aluno
+        return await tx.tb_alunos.update({
+          where: { codigo: parseInt(id) },
+          data: alunoData,
+          include: {
+            tb_encarregados: {
+              include: {
+                tb_profissao: true
+              }
+            },
+            tb_utilizadores: {
+              select: {
+                codigo: true,
+                nome: true,
+                user: true
+              }
+            },
+            tb_tipo_documento: true
+          }
+        });
+      });
+      
+      return result;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      console.error('Erro ao atualizar aluno com encarregado:', error);
+      throw new AppError('Erro ao atualizar aluno com encarregado', 500);
+    }
+  }
+
   static async updateAluno(id, data) {
     try {
       const existingAluno = await prisma.tb_alunos.findUnique({
@@ -1181,7 +1290,8 @@ export class StudentManagementService {
         where: { codigo: parseInt(id) },
         include: {
           tb_matriculas: true,
-          tb_pagamentos: true
+          tb_pagamentos: true,
+          tb_encarregados: true
         }
       });
 
@@ -1189,19 +1299,198 @@ export class StudentManagementService {
         throw new AppError('Aluno não encontrado', 404);
       }
 
-      // Verificar se há matrículas ou pagamentos associados
-      if (existingAluno.tb_matriculas || existingAluno.tb_pagamentos.length > 0) {
-        throw new AppError('Não é possível excluir aluno com matrículas ou pagamentos associados', 400);
-      }
-
-      await prisma.tb_alunos.delete({
-        where: { codigo: parseInt(id) }
+      // Usar transação para excluir todas as dependências em cascata
+      const result = await prisma.$transaction(async (tx) => {
+        // console.log(`Iniciando exclusão em cascata do aluno ${id}`);
+        
+        // 1. Excluir confirmações (se existir matrícula)
+        let confirmacoes = 0;
+        if (existingAluno.tb_matriculas) {
+          const confirmacoesList = await tx.tb_confirmacoes.findMany({
+            where: { codigo_Matricula: existingAluno.tb_matriculas.codigo }
+          });
+          
+          if (confirmacoesList.length > 0) {
+            await tx.tb_confirmacoes.deleteMany({
+              where: { codigo_Matricula: existingAluno.tb_matriculas.codigo }
+            });
+            confirmacoes = confirmacoesList.length;
+            // console.log(`Excluídas ${confirmacoes} confirmações`);
+          }
+        }
+        
+        // 2. Primeiro, buscar todos os pagamentos principais do aluno
+        const pagamentoiIds = await tx.tb_pagamentoi.findMany({
+          where: { codigo_Aluno: parseInt(id) },
+          select: { codigo: true }
+        });
+        
+        const pagamentoiIdsList = pagamentoiIds.map(p => p.codigo);
+        
+        // 3. Excluir notas de crédito (por aluno E por pagamentos principais)
+        let notasCreditoCount = 0;
+        if (pagamentoiIdsList.length > 0) {
+          notasCreditoCount = await tx.tb_nota_credito.count({
+            where: {
+              OR: [
+                { codigo_aluno: parseInt(id) },
+                { codigoPagamentoi: { in: pagamentoiIdsList } }
+              ]
+            }
+          });
+          
+          if (notasCreditoCount > 0) {
+            await tx.tb_nota_credito.deleteMany({
+              where: {
+                OR: [
+                  { codigo_aluno: parseInt(id) },
+                  { codigoPagamentoi: { in: pagamentoiIdsList } }
+                ]
+              }
+            });
+            // console.log(`Excluídas ${notasCreditoCount} notas de crédito`);
+          }
+        } else {
+          // Se não há pagamentos principais, excluir apenas por aluno
+          notasCreditoCount = await tx.tb_nota_credito.count({
+            where: { codigo_aluno: parseInt(id) }
+          });
+          
+          if (notasCreditoCount > 0) {
+            await tx.tb_nota_credito.deleteMany({
+              where: { codigo_aluno: parseInt(id) }
+            });
+            // console.log(`Excluídas ${notasCreditoCount} notas de crédito`);
+          }
+        }
+        
+        // 4. Excluir pagamentos (por aluno E por pagamentos principais)
+        let pagamentosCount = 0;
+        if (pagamentoiIdsList.length > 0) {
+          pagamentosCount = await tx.tb_pagamentos.count({
+            where: {
+              OR: [
+                { codigo_Aluno: parseInt(id) },
+                { codigoPagamento: { in: pagamentoiIdsList } }
+              ]
+            }
+          });
+          
+          if (pagamentosCount > 0) {
+            await tx.tb_pagamentos.deleteMany({
+              where: {
+                OR: [
+                  { codigo_Aluno: parseInt(id) },
+                  { codigoPagamento: { in: pagamentoiIdsList } }
+                ]
+              }
+            });
+            // console.log(`Excluídos ${pagamentosCount} pagamentos`);
+          }
+        } else {
+          // Se não há pagamentos principais, excluir apenas por aluno
+          pagamentosCount = await tx.tb_pagamentos.count({
+            where: { codigo_Aluno: parseInt(id) }
+          });
+          
+          if (pagamentosCount > 0) {
+            await tx.tb_pagamentos.deleteMany({
+              where: { codigo_Aluno: parseInt(id) }
+            });
+            // console.log(`Excluídos ${pagamentosCount} pagamentos`);
+          }
+        }
+        
+        // 5. Agora excluir pagamentos principais
+        const pagamentoiCount = pagamentoiIds.length;
+        if (pagamentoiCount > 0) {
+          await tx.tb_pagamentoi.deleteMany({
+            where: { codigo_Aluno: parseInt(id) }
+          });
+          // console.log(`Excluídos ${pagamentoiCount} pagamentos principais`);
+        }
+        
+        // 6. Excluir serviços do aluno
+        const servicosCount = await tx.tb_servico_aluno.count({
+          where: { codigo_Aluno: parseInt(id) }
+        });
+        
+        if (servicosCount > 0) {
+          await tx.tb_servico_aluno.deleteMany({
+            where: { codigo_Aluno: parseInt(id) }
+          });
+          // console.log(`Excluídos ${servicosCount} serviços`);
+        }
+        
+        // 7. Excluir transferências
+        const transferenciasCount = await tx.tb_transferencias.count({
+          where: { codigoAluno: parseInt(id) }
+        });
+        
+        if (transferenciasCount > 0) {
+          await tx.tb_transferencias.deleteMany({
+            where: { codigoAluno: parseInt(id) }
+          });
+          // console.log(`Excluídas ${transferenciasCount} transferências`);
+        }
+        
+        // 8. Excluir matrícula
+        let matriculaExcluida = 0;
+        if (existingAluno.tb_matriculas) {
+          await tx.tb_matriculas.delete({
+            where: { codigo: existingAluno.tb_matriculas.codigo }
+          });
+          matriculaExcluida = 1;
+          // console.log('Matrícula excluída');
+        }
+        
+        // 9. Excluir o aluno
+        await tx.tb_alunos.delete({
+          where: { codigo: parseInt(id) }
+        });
+        // console.log('Aluno excluído');
+        
+        // 10. OPCIONAL: Excluir encarregado se não tiver outros alunos
+        let encarregadoExcluido = false;
+        if (existingAluno.tb_encarregados) {
+          const outrosAlunos = await tx.tb_alunos.count({
+            where: { 
+              codigo_Encarregado: existingAluno.codigo_Encarregado
+            }
+          });
+          
+          if (outrosAlunos === 0) {
+            await tx.tb_encarregados.delete({
+              where: { codigo: existingAluno.codigo_Encarregado }
+            });
+            // console.log('Encarregado excluído (não tinha outros alunos)');
+            encarregadoExcluido = true;
+          } else {
+            // console.log(`Encarregado mantido (tem ${outrosAlunos} outros alunos)`);
+          }
+        }
+        
+        return { 
+          message: 'Aluno e todas as dependências excluídos com sucesso',
+          detalhes: {
+            confirmacoes,
+            notasCredito: notasCreditoCount,
+            pagamentos: pagamentosCount,
+            pagamentosPrincipais: pagamentoiCount,
+            servicos: servicosCount,
+            transferencias: transferenciasCount,
+            matricula: matriculaExcluida,
+            encarregadoExcluido
+          }
+        };
       });
-
-      return { message: 'Aluno excluído com sucesso' };
+      
+      return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao excluir aluno', 500);
+      console.error('Erro ao excluir aluno em cascata:', error);
+      console.error('Stack trace:', error.stack);
+      throw new AppError(`Erro ao excluir aluno e dependências: ${error.message}`, 500);
     }
   }
 

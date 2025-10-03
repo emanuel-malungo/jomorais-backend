@@ -545,17 +545,12 @@ model tb_alunos {
   // Relacionamentos
   tb_encarregados    tb_encarregados  @relation(fields: [codigo_Encarregado], references: [codigo])
   tb_utilizadores    tb_utilizadores  @relation(fields: [codigo_Utilizador], references: [codigo])
-  tb_tipo_documento  tb_tipo_documento? @relation(fields: [codigoTipoDocumento], references: [codigo])
+  tb_tipo_documento  tb_tipo_documento @relation(fields: [codigoTipoDocumento], references: [codigo])
   tb_matriculas      tb_matriculas?
   tb_pagamentos      tb_pagamentos[]
   tb_nota_credito    tb_nota_credito[]
   tb_servico_aluno   tb_servico_aluno[]
   tb_transferencias  tb_transferencias[]
-
-  @@index([codigo_Encarregado], name: "FK_tb_alunos_Encarregado")
-  @@index([codigo_Utilizador], name: "FK_tb_alunos_Utilizador")
-  @@index([codigoTipoDocumento], name: "FK_tb_alunos_TipoDocumento")
-  @@index([codigo_Status], name: "FK_tb_alunos_Status")
 }
 
 model tb_matriculas {
