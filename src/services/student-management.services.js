@@ -143,10 +143,10 @@ export class StudentManagementService {
 
       const where = search ? {
         OR: [
-          { nome: { contains: search, mode: 'insensitive' } },
+          { nome: { contains: search } },
           { telefone: { contains: search } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { local_Trabalho: { contains: search, mode: 'insensitive' } }
+          { email: { contains: search } },
+          { local_Trabalho: { contains: search } }
         ]
       } : {};
 
@@ -375,8 +375,8 @@ export class StudentManagementService {
 
       const where = search ? {
         OR: [
-          { designacao: { contains: search, mode: 'insensitive' } },
-          { localizacao: { contains: search, mode: 'insensitive' } },
+          { designacao: { contains: search } },
+          { localizacao: { contains: search } },
           { contacto: { contains: search } }
         ]
       } : {};
@@ -888,10 +888,10 @@ export class StudentManagementService {
 
       const where = search ? {
         OR: [
-          { nome: { contains: search, mode: 'insensitive' } },
-          { pai: { contains: search, mode: 'insensitive' } },
-          { mae: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
+          { nome: { contains: search } },
+          { pai: { contains: search } },
+          { mae: { contains: search } },
+          { email: { contains: search } },
           { telefone: { contains: search } },
           { n_documento_identificacao: { contains: search } }
         ]
@@ -1702,14 +1702,13 @@ export class StudentManagementService {
 
   static async getMatriculas(page = 1, limit = 10, search = '') {
     try {
+      console.log('getMatriculas - Parâmetros:', { page, limit, search });
       const { skip, take } = getPagination(page, limit);
 
-      const where = search ? {
-        OR: [
-          { tb_alunos: { nome: { contains: search, mode: 'insensitive' } } },
-          { tb_cursos: { designacao: { contains: search, mode: 'insensitive' } } }
-        ]
-      } : {};
+      // Desabilitando busca no backend - será feita no frontend
+      const where = {};
+      
+      console.log('getMatriculas - Where clause:', JSON.stringify(where, null, 2));
 
       const [matriculas, total] = await Promise.all([
         prisma.tb_matriculas.findMany({
@@ -2017,13 +2016,8 @@ export class StudentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      const where = search ? {
-        OR: [
-          { tb_matriculas: { tb_alunos: { nome: { contains: search, mode: 'insensitive' } } } },
-          { tb_turmas: { designacao: { contains: search, mode: 'insensitive' } } },
-          { classificacao: { contains: search, mode: 'insensitive' } }
-        ]
-      } : {};
+      // Desabilitando busca no backend - será feita no frontend
+      const where = {};
 
       const [confirmacoes, total] = await Promise.all([
         prisma.tb_confirmacoes.findMany({
@@ -2237,8 +2231,8 @@ export class StudentManagementService {
 
       const where = search ? {
         OR: [
-          { tb_alunos: { nome: { contains: search, mode: 'insensitive' } } },
-          { obs: { contains: search, mode: 'insensitive' } }
+          { tb_alunos: { nome: { contains: search } } },
+          { obs: { contains: search } }
         ]
       } : {};
 
