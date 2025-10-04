@@ -61,7 +61,8 @@ export const pagamentoiUpdateSchema = pagamentoiCreateSchema.partial();
 // DETALHES DE PAGAMENTO (tb_pagamentos)
 // ===============================
 
-export const pagamentoCreateSchema = z.object({
+// Schema completo para pagamentos (uso interno)
+export const pagamentoCreateSchemaFull = z.object({
   codigo_Aluno: positiveInt,
   codigo_Tipo_Servico: optionalPositiveInt,
   
@@ -126,6 +127,17 @@ export const pagamentoCreateSchema = z.object({
   preco: positiveNumber.default(0),
   indice_mes: z.number().int().min(1).max(12).optional(),
   indice_ano: z.number().int().min(1900).max(2100).optional()
+});
+
+// Schema simplificado para frontend
+export const pagamentoCreateSchema = z.object({
+  codigo_Aluno: positiveInt,
+  codigo_Tipo_Servico: positiveInt,
+  mes: z.string().min(1, "Mês é obrigatório").max(45, "Mês deve ter no máximo 45 caracteres"),
+  ano: z.number().int().min(1900).max(2100),
+  preco: positiveNumber,
+  observacao: z.string().max(100, "Observação deve ter no máximo 100 caracteres").optional().default(""),
+  codigo_FormaPagamento: positiveInt
 });
 
 export const pagamentoUpdateSchema = pagamentoCreateSchema.partial();

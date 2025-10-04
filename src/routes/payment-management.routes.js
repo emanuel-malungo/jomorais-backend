@@ -941,4 +941,204 @@ router.get('/dashboard', PaymentManagementController.getDashboardFinanceiro);
  */
 router.get('/estatisticas', PaymentManagementController.getEstatisticasPagamentos);
 
+// ========== NOVAS ROTAS PARA GESTÃO FINANCEIRA ==========
+
+/**
+ * @swagger
+ * /api/payment-management/pagamentos:
+ *   post:
+ *     summary: Criar novo pagamento
+ *     tags: [Pagamentos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigo_Aluno
+ *               - codigo_Tipo_Servico
+ *               - mes
+ *               - ano
+ *               - preco
+ *             properties:
+ *               codigo_Aluno:
+ *                 type: integer
+ *                 description: ID do aluno
+ *               codigo_Tipo_Servico:
+ *                 type: integer
+ *                 description: ID do tipo de serviço
+ *               mes:
+ *                 type: string
+ *                 description: Mês do pagamento
+ *               ano:
+ *                 type: integer
+ *                 description: Ano do pagamento
+ *               preco:
+ *                 type: number
+ *                 description: Valor do pagamento
+ *               observacao:
+ *                 type: string
+ *                 description: Observações
+ *               codigo_FormaPagamento:
+ *                 type: integer
+ *                 description: ID da forma de pagamento
+ *     responses:
+ *       201:
+ *         description: Pagamento criado com sucesso
+ *       400:
+ *         description: Dados inválidos
+ */
+router.post('/pagamentos', PaymentManagementController.createPagamento);
+
+/**
+ * @swagger
+ * /api/payment-management/alunos-confirmados:
+ *   get:
+ *     summary: Listar alunos confirmados em turmas
+ *     tags: [Alunos Financeiro]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número da página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Itens por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Buscar por nome do aluno
+ *       - in: query
+ *         name: turma
+ *         schema:
+ *           type: integer
+ *         description: Filtrar por turma
+ *       - in: query
+ *         name: curso
+ *         schema:
+ *           type: integer
+ *         description: Filtrar por curso
+ *     responses:
+ *       200:
+ *         description: Lista de alunos confirmados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   type: object
+ */
+router.get('/alunos-confirmados', PaymentManagementController.getAlunosConfirmados);
+
+/**
+ * @swagger
+ * /api/payment-management/aluno/{id}/financeiro:
+ *   get:
+ *     summary: Obter dados financeiros de um aluno
+ *     tags: [Alunos Financeiro]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do aluno
+ *       - in: query
+ *         name: ano_lectivo
+ *         schema:
+ *           type: integer
+ *         description: ID do ano letivo
+ *     responses:
+ *       200:
+ *         description: Dados financeiros do aluno
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     aluno:
+ *                       type: object
+ *                     mesesPropina:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           mes:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           valor:
+ *                             type: number
+ *                           dataPagamento:
+ *                             type: string
+ *                     historicoFinanceiro:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       404:
+ *         description: Aluno não encontrado
+ */
+router.get('/aluno/:id/financeiro', PaymentManagementController.getDadosFinanceirosAluno);
+
+/**
+ * @swagger
+ * /api/payment-management/pagamento/{id}/fatura:
+ *   get:
+ *     summary: Gerar PDF da fatura de pagamento
+ *     tags: [Faturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do pagamento
+ *     responses:
+ *       200:
+ *         description: PDF da fatura
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Pagamento não encontrado
+ */
+router.get('/pagamento/:id/fatura', PaymentManagementController.gerarFaturaPDF);
+
+// Rotas auxiliares
+router.get('/tipos-servico', PaymentManagementController.getTiposServico);
+router.get('/formas-pagamento', PaymentManagementController.getFormasPagamento);
+
 export default router;

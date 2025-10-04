@@ -1256,4 +1256,527 @@ export class PaymentManagementService {
       throw new AppError('Erro ao gerar relatório por serviço', 500);
     }
   }
+
+  // ===============================
+  // NOVA GESTÃO FINANCEIRA
+  // ===============================
+
+  static async createPagamento(data) {
+    try {
+      // Criar pagamento
+      
+      // Gerar hash para o pagamento
+      const hash = `PAG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Criar pagamento principal primeiro
+      const pagamentoPrincipal = await prisma.tb_pagamentoi.create({
+        data: {
+          data: new Date(),
+          codigo_Aluno: data.codigo_Aluno,
+          status: 1, // Ativo
+          total: data.preco,
+          valorEntregue: data.preco,
+          dataBanco: new Date(),
+          totalDesconto: 0,
+          obs: data.observacao || '',
+          borderoux: `BOR_${Date.now()}`,
+          hash: hash
+        }
+      });
+
+      // Criar registro de pagamento detalhado
+      const pagamento = await prisma.tb_pagamentos.create({
+        data: {
+          codigo_Aluno: data.codigo_Aluno,
+          codigo_Tipo_Servico: data.codigo_Tipo_Servico,
+          data: new Date(),
+          n_Bordoro: `BOR_${Date.now()}`,
+          multa: 0,
+          mes: data.mes,
+          codigo_Utilizador: 1, // TODO: Pegar do usuário logado
+          observacao: data.observacao || '',
+          ano: data.ano,
+          contaMovimentada: 'CAIXA',
+          quantidade: 1,
+          desconto: 0,
+          totalgeral: data.preco,
+          dataBanco: new Date(),
+          codigo_Estatus: 1,
+          codigo_Empresa: 1,
+          codigo_FormaPagamento: data.codigo_FormaPagamento || 1,
+          saldo_Anterior: 0,
+          codigoPagamento: pagamentoPrincipal.codigo,
+          descontoSaldo: 0,
+          tipoDocumento: 'FATURA',
+          next: 'NEXT',
+          codoc: 0,
+          fatura: `FAT_${Date.now()}`,
+          taxa_iva: 0,
+          hash: hash,
+          preco: data.preco,
+          indice_mes: this.getIndiceMes(data.mes),
+          indice_ano: data.ano
+        },
+        include: {
+          aluno: {
+            select: {
+              codigo: true,
+              nome: true,
+              n_documento_identificacao: true
+            }
+          },
+          tipoServico: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          }
+        }
+      });
+
+      // Verificar se o tipo de serviço é propina e atualizar status
+      await this.atualizarStatusPropina(data, pagamento);
+
+      // Pagamento criado com sucesso
+      return pagamento;
+    } catch (error) {
+      console.error('Erro ao criar pagamento:', error);
+      throw new AppError('Erro ao criar pagamento', 500);
+    }
+  }
+
+  // Método para atualizar status de propina quando pagamento for de propina
+  static async atualizarStatusPropina(dadosPagamento, pagamento) {
+    try {
+      // Verificar se o tipo de serviço é propina
+      const tipoServico = pagamento.tipoServico;
+      if (!tipoServico || !tipoServico.designacao) {
+        return; // Não é possível determinar se é propina
+      }
+
+      const isPropina = tipoServico.designacao.toLowerCase().includes('propina');
+      if (!isPropina) {
+        return; // Não é pagamento de propina
+      }
+
+      console.log(`Atualizando status de propina para aluno ${dadosPagamento.codigo_Aluno}, mês ${dadosPagamento.mes}, ano ${dadosPagamento.ano}`);
+
+      // Buscar dados do aluno para atualizar saldo
+      const aluno = await prisma.tb_alunos.findUnique({
+        where: { codigo: dadosPagamento.codigo_Aluno },
+        select: { saldo: true }
+      });
+
+      if (aluno) {
+        // Atualizar saldo do aluno (subtrair o valor pago)
+        const novoSaldo = (aluno.saldo || 0) - dadosPagamento.preco;
+        await prisma.tb_alunos.update({
+          where: { codigo: dadosPagamento.codigo_Aluno },
+          data: { saldo: Math.max(0, novoSaldo) } // Não permitir saldo negativo
+        });
+
+        console.log(`Saldo do aluno atualizado: ${aluno.saldo} -> ${Math.max(0, novoSaldo)}`);
+      }
+
+      // Aqui poderia implementar lógica adicional para marcar o mês como pago
+      // em uma tabela de controle de propinas, se existir
+      
+    } catch (error) {
+      console.error('Erro ao atualizar status de propina:', error);
+      // Não lançar erro para não interromper o fluxo principal
+    }
+  }
+
+  static async getAlunosConfirmados(page = 1, limit = 10, filters = {}) {
+    try {
+      const { skip, take } = getPagination(page, limit);
+      
+      // Construir filtros
+      let whereClause = {
+        tb_matriculas: {
+          tb_confirmacoes: {
+            some: {
+              codigo_Status: 1 // Apenas confirmações ativas
+            }
+          }
+        }
+      };
+
+      // Nota: Busca será feita localmente após carregar os dados
+      // devido a problemas com o Prisma mode: 'insensitive'
+
+      // Filtro por turma
+      if (filters.turma) {
+        whereClause.tb_matriculas.tb_confirmacoes.some.codigo_Turma = parseInt(filters.turma);
+      }
+
+      // Filtro por curso
+      if (filters.curso) {
+        whereClause.tb_matriculas.codigo_Curso = parseInt(filters.curso);
+      }
+
+      // Se há busca, carregar muito mais dados para filtrar localmente
+      const searchLimit = filters.search ? Math.max(take * 100, 1000) : take;
+      const searchSkip = filters.search ? 0 : skip;
+      
+      const [allAlunos, total] = await Promise.all([
+        prisma.tb_alunos.findMany({
+          where: whereClause,
+          skip: searchSkip,
+          take: searchLimit,
+          include: {
+            tb_matriculas: {
+              include: {
+                tb_cursos: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                },
+                tb_confirmacoes: {
+                  where: {
+                    codigo_Status: 1
+                  },
+                  include: {
+                    tb_turmas: {
+                      select: {
+                        codigo: true,
+                        designacao: true,
+                        tb_classes: {
+                          select: {
+                            designacao: true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            nome: 'asc'
+          }
+        }),
+        prisma.tb_alunos.count({ where: whereClause })
+      ]);
+
+      // Aplicar busca local se necessário
+      let alunos = allAlunos;
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        // Dividir o termo de busca em palavras para busca mais flexível
+        const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
+        
+        // Função para normalizar texto (remover acentos)
+        const normalizeText = (text) => {
+          return text.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, '');
+        };
+        
+        alunos = allAlunos.filter(aluno => {
+          const nome = normalizeText(aluno.nome || '');
+          const email = normalizeText(aluno.email || '');
+          const documento = normalizeText(aluno.n_documento_identificacao || '');
+          const telefone = normalizeText(aluno.telefone || '');
+          const normalizedSearch = normalizeText(searchTerm);
+          
+          // Se é uma busca por palavras, verificar se todas as palavras estão presentes
+          if (searchWords.length > 1) {
+            const normalizedWords = searchWords.map(word => normalizeText(word));
+            return normalizedWords.every(word => 
+              nome.includes(word) || 
+              email.includes(word) || 
+              documento.includes(word) ||
+              telefone.includes(word)
+            );
+          }
+          
+          // Busca simples por termo único
+          return nome.includes(normalizedSearch) ||
+                 email.includes(normalizedSearch) ||
+                 documento.includes(normalizedSearch) ||
+                 telefone.includes(normalizedSearch);
+        });
+        
+        // Aplicar paginação após filtro local
+        const startIndex = (page - 1) * limit;
+        alunos = alunos.slice(startIndex, startIndex + limit);
+      }
+
+      const pagination = {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit
+      };
+
+      return {
+        data: alunos,
+        pagination
+      };
+    } catch (error) {
+      console.error('Erro ao buscar alunos confirmados:', error);
+      throw new AppError('Erro ao buscar alunos confirmados', 500);
+    }
+  }
+
+  static async getDadosFinanceirosAluno(alunoId, anoLectivoId = null) {
+    try {
+      // Buscar dados do aluno
+      const aluno = await prisma.tb_alunos.findUnique({
+        where: { codigo: alunoId },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_cursos: {
+                select: {
+                  codigo: true,
+                  designacao: true
+                }
+              },
+              tb_confirmacoes: {
+                where: {
+                  codigo_Status: 1
+                },
+                include: {
+                  tb_turmas: {
+                    select: {
+                      codigo: true,
+                      designacao: true,
+                      codigo_AnoLectivo: true,
+                      tb_classes: {
+                        select: {
+                          designacao: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!aluno) {
+        throw new AppError('Aluno não encontrado', 404);
+      }
+
+      // Determinar ano letivo (usar o da confirmação ativa ou o fornecido)
+      const anoLectivo = anoLectivoId || 
+        aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.codigo_AnoLectivo || 
+        new Date().getFullYear(); // Usar ano atual como padrão
+
+      // Buscar pagamentos do aluno
+      console.log(`Buscando pagamentos para aluno ${alunoId}, ano lectivo: ${anoLectivo}`);
+      
+      // Primeiro buscar todos os pagamentos do aluno para debug
+      const todosPagamentos = await prisma.tb_pagamentos.findMany({
+        where: {
+          codigo_Aluno: alunoId
+        },
+        include: {
+          tipoServico: {
+            select: {
+              designacao: true
+            }
+          }
+        },
+        orderBy: {
+          data: 'desc'
+        }
+      });
+      
+      console.log(`Total de pagamentos do aluno ${alunoId}: ${todosPagamentos.length}`);
+      if (todosPagamentos.length > 0) {
+        console.log('Anos dos pagamentos:', todosPagamentos.map(p => p.ano));
+        console.log('Tipos de serviço:', todosPagamentos.map(p => p.tipoServico?.designacao));
+      }
+      
+      // Filtrar pagamentos por ano letivo
+      const pagamentos = await prisma.tb_pagamentos.findMany({
+        where: {
+          codigo_Aluno: alunoId,
+          ano: {
+            in: [anoLectivo - 1, anoLectivo, anoLectivo + 1] // Incluir ano anterior, atual e próximo
+          }
+        },
+        include: {
+          tipoServico: {
+            select: {
+              designacao: true
+            }
+          }
+        },
+        orderBy: {
+          data: 'desc'
+        }
+      });
+      
+      console.log(`Encontrados ${pagamentos.length} pagamentos para o aluno ${alunoId}`);
+      if (pagamentos.length > 0) {
+        console.log('Primeiro pagamento:', pagamentos[0]);
+      }
+
+      // Meses do ano letivo (Setembro a Julho)
+      const mesesAnoLectivo = [
+        'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
+        'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'
+      ];
+
+      // Valor da propina (valor padrão - pode ser configurado posteriormente)
+      const valorPropina = 15000; // Valor padrão em Kz
+
+      // Criar status dos meses
+      const mesesPropina = mesesAnoLectivo.map(mes => {
+        const pagamentoMes = pagamentos.find(p => 
+          p.mes === mes && 
+          p.tipoServico?.designacao?.toLowerCase().includes('propina')
+        );
+
+        return {
+          mes,
+          status: pagamentoMes ? 'PAGO' : 'NÃO_PAGO',
+          valor: pagamentoMes ? pagamentoMes.preco : valorPropina, // Usar valor real se pago, senão valor padrão
+          dataPagamento: pagamentoMes?.data || null,
+          codigoPagamento: pagamentoMes?.codigo || null
+        };
+      });
+
+      // Histórico financeiro (outros serviços)
+      const historicoFinanceiro = pagamentos
+        .filter(p => !p.tipoServico?.designacao?.toLowerCase().includes('propina'))
+        .map(p => ({
+          codigo: p.codigo,
+          data: p.data,
+          servico: p.tipoServico?.designacao || 'Serviço',
+          valor: p.preco,
+          observacao: p.observacao,
+          fatura: p.fatura
+        }));
+
+      return {
+        aluno: {
+          codigo: aluno.codigo,
+          nome: aluno.nome,
+          documento: aluno.n_documento_identificacao,
+          email: aluno.email,
+          telefone: aluno.telefone,
+          curso: aluno.tb_matriculas[0]?.tb_cursos?.designacao,
+          turma: aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.designacao,
+          classe: aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.tb_classes?.designacao
+        },
+        mesesPropina,
+        historicoFinanceiro,
+        resumo: {
+          totalMeses: mesesAnoLectivo.length,
+          mesesPagos: mesesPropina.filter(m => m.status === 'PAGO').length,
+          mesesPendentes: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length,
+          valorMensal: valorPropina,
+          totalPago: mesesPropina.filter(m => m.status === 'PAGO').length * valorPropina,
+          totalPendente: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length * valorPropina
+        }
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error('Erro ao obter dados financeiros do aluno:', error);
+      throw new AppError('Erro ao obter dados financeiros do aluno', 500);
+    }
+  }
+
+  static async gerarFaturaPDF(pagamentoId) {
+    try {
+      // Buscar dados do pagamento
+      const pagamento = await prisma.tb_pagamentos.findUnique({
+        where: { codigo: pagamentoId },
+        include: {
+          aluno: {
+            select: {
+              codigo: true,
+              nome: true,
+              n_documento_identificacao: true,
+              email: true,
+              telefone: true
+            }
+          },
+          tipoServico: {
+            select: {
+              designacao: true
+            }
+          },
+          formaPagamento: {
+            select: {
+              designacao: true
+            }
+          }
+        }
+      });
+
+      if (!pagamento) {
+        throw new AppError('Pagamento não encontrado', 404);
+      }
+
+      // TODO: Implementar geração de PDF
+      // Por enquanto, retornar dados para o frontend gerar
+      return {
+        pagamento,
+        instituicao: {
+          nome: 'INSTITUTO MÉDIO POLITÉCNICO JO MORAIS',
+          endereco: 'Luanda, Angola',
+          telefone: '+244 XXX XXX XXX',
+          email: 'info@jomorais.ao'
+        }
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error('Erro ao gerar fatura PDF:', error);
+      throw new AppError('Erro ao gerar fatura PDF', 500);
+    }
+  }
+
+  // Utilitários
+  static getIndiceMes(mes) {
+    const meses = {
+      'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4,
+      'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8,
+      'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12
+    };
+    return meses[mes.toUpperCase()] || 1;
+  }
+
+  // Métodos auxiliares
+  static async getTiposServico() {
+    try {
+      const tiposServico = await prisma.tb_tipo_servicos.findMany({
+        orderBy: {
+          designacao: 'asc'
+        }
+      });
+      return tiposServico;
+    } catch (error) {
+      console.error('Erro ao buscar tipos de serviço:', error);
+      throw new AppError('Erro ao buscar tipos de serviço', 500);
+    }
+  }
+
+  static async getFormasPagamento() {
+    try {
+      const formasPagamento = await prisma.tb_forma_pagamento.findMany({
+        orderBy: {
+          designacao: 'asc'
+        }
+      });
+      return formasPagamento;
+    } catch (error) {
+      console.error('Erro ao buscar formas de pagamento:', error);
+      throw new AppError('Erro ao buscar formas de pagamento', 500);
+    }
+  }
 }

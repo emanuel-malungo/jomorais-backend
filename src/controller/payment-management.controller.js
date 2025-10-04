@@ -486,4 +486,122 @@ export class PaymentManagementController {
       handleControllerError(res, error, "Erro ao obter estatísticas de pagamentos", 400);
     }
   }
+
+  // ===============================
+  // NOVA GESTÃO FINANCEIRA
+  // ===============================
+
+  static async createPagamento(req, res) {
+    try {
+      const validatedData = pagamentoCreateSchema.parse(req.body);
+      const pagamento = await PaymentManagementService.createPagamento(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Pagamento criado com sucesso",
+        data: pagamento,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao criar pagamento", 400);
+    }
+  }
+
+  static async getAlunosConfirmados(req, res) {
+    try {
+      const { page = 1, limit = 10, search, turma, curso } = req.query;
+      const filters = { search, turma, curso };
+      
+      const result = await PaymentManagementService.getAlunosConfirmados(
+        parseInt(page),
+        parseInt(limit),
+        filters
+      );
+      
+      res.json({
+        success: true,
+        message: `${result.data.length} alunos encontrados`,
+        data: result.data,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar alunos confirmados", 400);
+    }
+  }
+
+  static async getDadosFinanceirosAluno(req, res) {
+    try {
+      const { id } = req.params;
+      const { ano_lectivo } = req.query;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do aluno deve ser um número válido",
+        });
+      }
+
+      const dadosFinanceiros = await PaymentManagementService.getDadosFinanceirosAluno(
+        parseInt(id),
+        ano_lectivo ? parseInt(ano_lectivo) : null
+      );
+      
+      res.json({
+        success: true,
+        message: "Dados financeiros obtidos com sucesso",
+        data: dadosFinanceiros,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter dados financeiros do aluno", 400);
+    }
+  }
+
+  static async gerarFaturaPDF(req, res) {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do pagamento deve ser um número válido",
+        });
+      }
+
+      const pdfBuffer = await PaymentManagementService.gerarFaturaPDF(parseInt(id));
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="fatura_${id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao gerar fatura PDF", 400);
+    }
+  }
+
+  // Métodos auxiliares
+  static async getTiposServico(req, res) {
+    try {
+      const tiposServico = await PaymentManagementService.getTiposServico();
+      
+      res.json({
+        success: true,
+        message: "Tipos de serviço obtidos com sucesso",
+        data: tiposServico,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter tipos de serviço", 400);
+    }
+  }
+
+  static async getFormasPagamento(req, res) {
+    try {
+      const formasPagamento = await PaymentManagementService.getFormasPagamento();
+      
+      res.json({
+        success: true,
+        message: "Formas de pagamento obtidas com sucesso",
+        data: formasPagamento,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter formas de pagamento", 400);
+    }
+  }
 }
