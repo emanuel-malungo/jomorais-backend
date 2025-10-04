@@ -974,4 +974,46 @@ export class AcademicManagementController {
       handleControllerError(res, error, "Erro ao obter turmas", 400);
     }
   }
+
+  // ===============================
+  // RELATÓRIOS DE ALUNOS POR TURMA
+  // ===============================
+
+  static async getAlunosByTurma(req, res) {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          success: false,
+          message: "ID da turma deve ser um número válido",
+        });
+      }
+
+      const alunos = await AcademicManagementService.getAlunosByTurma(parseInt(id));
+      
+      res.json({
+        success: true,
+        message: `${alunos.length} alunos encontrados na turma`,
+        data: alunos,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter alunos da turma", 400);
+    }
+  }
+
+  static async getRelatorioCompletoTurmas(req, res) {
+    try {
+      const { ano_lectivo } = req.query;
+      const relatorio = await AcademicManagementService.getRelatorioCompletoTurmas(ano_lectivo);
+      
+      res.json({
+        success: true,
+        message: `Relatório completo de ${relatorio.length} turmas gerado`,
+        data: relatorio,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao gerar relatório completo", 400);
+    }
+  }
 }

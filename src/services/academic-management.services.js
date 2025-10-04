@@ -1376,4 +1376,139 @@ export class AcademicManagementService {
       throw new AppError('Erro ao buscar turmas por classe e curso', 500);
     }
   }
+
+  // ===============================
+  // RELATÓRIOS DE ALUNOS POR TURMA
+  // ===============================
+
+  static async getAlunosByTurma(turmaId) {
+    try {
+      // Primeiro verificar se a turma existe
+      const turma = await prisma.tb_turmas.findUnique({
+        where: { codigo: turmaId }
+      });
+
+      if (!turma) {
+        throw new AppError('Turma não encontrada', 404);
+      }
+
+      // Buscar alunos matriculados na turma através das confirmações
+      const confirmacoes = await prisma.tb_confirmacoes.findMany({
+        where: {
+          codigo_Turma: turmaId,
+          codigo_Status: 1 // Apenas confirmações ativas
+        },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_alunos: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  n_documento_identificacao: true,
+                  email: true,
+                  telefone: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Extrair dados dos alunos e remover duplicatas
+      const alunosMap = new Map();
+      confirmacoes.forEach(confirmacao => {
+        const aluno = confirmacao.tb_matriculas?.tb_alunos;
+        if (aluno && !alunosMap.has(aluno.codigo)) {
+          alunosMap.set(aluno.codigo, {
+            codigo: aluno.codigo,
+            nome: aluno.nome,
+            numero_documento: aluno.n_documento_identificacao,
+            email: aluno.email,
+            telefone: aluno.telefone
+          });
+        }
+      });
+
+      return Array.from(alunosMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error('Erro ao buscar alunos da turma:', error);
+      throw new AppError('Erro ao buscar alunos da turma', 500);
+    }
+  }
+
+  static async getRelatorioCompletoTurmas(anoLectivoId) {
+    try {
+      // Construir filtros
+      const where = {
+        OR: [
+          { status: 'Ativo' },
+          { status: 'Activo' } // Variação encontrada no banco
+        ]
+      };
+      
+      // Adicionar filtro de ano letivo se fornecido
+      if (anoLectivoId) {
+        where.codigo_AnoLectivo = parseInt(anoLectivoId);
+      }
+      
+      // Buscar turmas com filtros
+      const turmas = await prisma.tb_turmas.findMany({
+        where,
+        include: {
+          tb_classes: { select: { designacao: true } },
+          tb_cursos: { select: { designacao: true } },
+          tb_salas: { select: { designacao: true } },
+          tb_periodos: { select: { designacao: true } }
+        },
+        orderBy: [
+          { tb_classes: { designacao: 'asc' } },
+          { designacao: 'asc' }
+        ]
+      });
+
+      // Para cada turma, buscar seus alunos
+      const relatorioCompleto = [];
+      
+      for (const turma of turmas) {
+        try {
+          const alunos = await this.getAlunosByTurma(turma.codigo);
+          
+          relatorioCompleto.push({
+            turma: {
+              codigo: turma.codigo,
+              designacao: turma.designacao,
+              tb_classes: turma.tb_classes,
+              tb_cursos: turma.tb_cursos,
+              tb_salas: turma.tb_salas,
+              tb_periodos: turma.tb_periodos
+            },
+            alunos: alunos
+          });
+        } catch (error) {
+          console.error(`Erro ao buscar alunos da turma ${turma.designacao}:`, error);
+          // Continuar com as outras turmas mesmo se uma falhar
+          relatorioCompleto.push({
+            turma: {
+              codigo: turma.codigo,
+              designacao: turma.designacao,
+              tb_classes: turma.tb_classes,
+              tb_cursos: turma.tb_cursos,
+              tb_salas: turma.tb_salas,
+              tb_periodos: turma.tb_periodos
+            },
+            alunos: []
+          });
+        }
+      }
+
+      return relatorioCompleto;
+    } catch (error) {
+      console.error('Erro ao gerar relatório completo:', error);
+      throw new AppError('Erro ao gerar relatório completo de turmas', 500);
+    }
+  }
 }

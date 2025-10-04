@@ -1752,6 +1752,9 @@ router.get('/turmas', AcademicManagementController.getTurmas);
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
+// Rota para alunos de uma turma (deve vir antes da rota genérica)
+router.get('/turmas/:id/alunos', AcademicManagementController.getAlunosByTurma);
+
 router.get('/turmas/:id', AcademicManagementController.getTurmaById);
 
 /**
@@ -2390,8 +2393,6 @@ router.post('/disciplinas/batch', AcademicManagementController.createMultipleDis
  *                     codigo_Classe: 1
  *                     codigo_Curso: 1
  *                     codigo_Sala: 1
- *                     codigo_Periodo: 1
- *                     codigo_AnoLectivo: 1
  *                   - designacao: "10IG-B"
  *                     codigo_Classe: 1
  *                     codigo_Curso: 1
@@ -2399,7 +2400,7 @@ router.post('/disciplinas/batch', AcademicManagementController.createMultipleDis
  *                     codigo_Periodo: 1
  *                     codigo_AnoLectivo: 1
  *     responses:
- *       201:
+ *       200:
  *         description: Turmas criadas com sucesso
  *         content:
  *           application/json:
@@ -2408,32 +2409,12 @@ router.post('/disciplinas/batch', AcademicManagementController.createMultipleDis
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *                 message:
  *                   type: string
- *                   example: "Operação em lote concluída"
  *                 data:
- *                   type: object
- *                   properties:
- *                     sucessos:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Turma'
- *                     falhas:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           item:
- *                             type: object
- *                           erro:
- *                             type: string
- *                     total:
- *                       type: integer
- *                     sucessos_count:
- *                       type: integer
- *                     falhas_count:
- *                       type: integer
+ *                   type: array
+ *                   items:
+ *                     type: integer
  *       400:
  *         description: Dados inválidos ou limite excedido
  *         content:
@@ -2442,5 +2423,54 @@ router.post('/disciplinas/batch', AcademicManagementController.createMultipleDis
  *               $ref: '#/components/schemas/ApiError'
  */
 router.post('/turmas/batch', AcademicManagementController.createMultipleTurmas);
+
+// ========== RELATÓRIOS DE ALUNOS POR TURMA ==========
+
+/**
+ * @swagger
+ * /api/academic-management/turmas/relatorio-completo:
+ *   get:
+ *     summary: Obter relatório completo de todas as turmas com seus alunos
+ *     tags: [Relatórios]
+ *     responses:
+ *       200:
+ *         description: Relatório completo de turmas e alunos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       turma:
+ *                         type: object
+ *                         properties:
+ *                           codigo:
+ *                             type: integer
+ *                           designacao:
+ *                             type: string
+ *                           tb_classes:
+ *                             type: object
+ *                           tb_cursos:
+ *                             type: object
+ *                           tb_salas:
+ *                             type: object
+ *                           tb_periodos:
+ *                             type: object
+ *                       alunos:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/relatorio-turmas-completo', AcademicManagementController.getRelatorioCompletoTurmas);
 
 export default router;
