@@ -1140,5 +1140,6 @@ router.get('/pagamento/:id/fatura', PaymentManagementController.gerarFaturaPDF);
 // Rotas auxiliares
 router.get('/tipos-servico', PaymentManagementController.getTiposServico);
 router.get('/formas-pagamento', PaymentManagementController.getFormasPagamento);
+router.get('/aluno/:id/completo', PaymentManagementController.getAlunoCompleto);
 
 export default router;

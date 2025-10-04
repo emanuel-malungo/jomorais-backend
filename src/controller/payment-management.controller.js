@@ -604,4 +604,19 @@ export class PaymentManagementController {
       handleControllerError(res, error, "Erro ao obter formas de pagamento", 400);
     }
   }
+
+  static async getAlunoCompleto(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const aluno = await PaymentManagementService.getAlunoCompleto(id);
+      
+      res.json({
+        success: true,
+        message: "Dados completos do aluno obtidos com sucesso",
+        data: aluno,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter dados do aluno", 400);
+    }
+  }
 }

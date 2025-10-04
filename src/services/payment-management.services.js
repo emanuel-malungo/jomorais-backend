@@ -1755,6 +1755,11 @@ export class PaymentManagementService {
   static async getTiposServico() {
     try {
       const tiposServico = await prisma.tb_tipo_servicos.findMany({
+        select: {
+          codigo: true,
+          designacao: true,
+          preco: true // Incluir o campo preço
+        },
         orderBy: {
           designacao: 'asc'
         }
@@ -1777,6 +1782,69 @@ export class PaymentManagementService {
     } catch (error) {
       console.error('Erro ao buscar formas de pagamento:', error);
       throw new AppError('Erro ao buscar formas de pagamento', 500);
+    }
+  }
+
+  // Método para buscar dados completos de um aluno específico
+  static async getAlunoCompleto(alunoId) {
+    try {
+      const aluno = await prisma.tb_alunos.findUnique({
+        where: { codigo: parseInt(alunoId) },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_cursos: {
+                select: {
+                  codigo: true,
+                  designacao: true
+                }
+              },
+              tb_confirmacoes: {
+                where: {
+                  codigo_Status: 1 // Apenas confirmações ativas
+                },
+                include: {
+                  tb_turmas: {
+                    select: {
+                      codigo: true,
+                      designacao: true,
+                      tb_classes: {
+                        select: {
+                          codigo: true,
+                          designacao: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!aluno) {
+        throw new AppError('Aluno não encontrado', 404);
+      }
+
+      // Extrair dados da matrícula ativa
+      const matricula = aluno.tb_matriculas;
+      const confirmacao = matricula?.tb_confirmacoes?.[0];
+      const turma = confirmacao?.tb_turmas;
+      const classe = turma?.tb_classes;
+      const curso = matricula?.tb_cursos;
+
+      return {
+        ...aluno,
+        dadosAcademicos: {
+          curso: curso?.designacao || 'Curso não especificado',
+          classe: classe?.designacao || 'Classe não especificada',
+          turma: turma?.designacao || 'Turma não especificada'
+        }
+      };
+    } catch (error) {
+      console.error('Erro ao buscar dados completos do aluno:', error);
+      throw new AppError('Erro ao buscar dados do aluno', 500);
     }
   }
 }
