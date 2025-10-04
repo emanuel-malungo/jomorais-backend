@@ -1628,7 +1628,7 @@ export class PaymentManagementService {
       ];
 
       // Valor da propina (valor padrão - pode ser configurado posteriormente)
-      const valorPropina = 15000; // Valor padrão em Kz
+      const valorPropina = 0; // Valor padrão em Kz - inicia com 0 quando pendente
 
       // Criar status dos meses
       const mesesPropina = mesesAnoLectivo.map(mes => {
@@ -1675,9 +1675,9 @@ export class PaymentManagementService {
           totalMeses: mesesAnoLectivo.length,
           mesesPagos: mesesPropina.filter(m => m.status === 'PAGO').length,
           mesesPendentes: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length,
-          valorMensal: valorPropina,
-          totalPago: mesesPropina.filter(m => m.status === 'PAGO').length * valorPropina,
-          totalPendente: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length * valorPropina
+          valorMensal: valorPropina, // Valor padrão (0 para pendentes)
+          totalPago: mesesPropina.filter(m => m.status === 'PAGO').reduce((total, mes) => total + (mes.valor || 0), 0),
+          totalPendente: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length * valorPropina // 0 para pendentes
         }
       };
     } catch (error) {
