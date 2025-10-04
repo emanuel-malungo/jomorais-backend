@@ -23,7 +23,7 @@ if [ ! -f .env ]; then
     echo "✅ Arquivo .env criado. Por favor, configure as variáveis necessárias."
 fi
 
-# Parar containers existentes
+# Parar containers existentes (aplica-se apenas aos serviços definidos no compose)
 echo "🛑 Parando containers existentes..."
 docker compose down
 
@@ -31,11 +31,14 @@ docker compose down
 # echo "🗑️  Removendo volumes antigos..."
 # docker compose down -v
 
-# Construir e iniciar os containers
-echo "🏗️  Construindo containers..."
-docker compose build
+# Observação: o serviço da API (`jomorais_api`) foi removido do docker-compose para
+# evitar tentativas de pull/build automáticas. Este script não irá construir nem iniciar
+# o backend Node.js no container. Execute o backend localmente com `npm run dev` ou
+# construa/tagueie a imagem manualmente antes de usar o compose:
+#   docker build -t jomorais_api:latest .
+#   docker compose up -d
 
-echo "🚀 Iniciando serviços..."
+echo "ℹ️  Iniciando apenas os serviços gerenciados pelo docker-compose (sem a API)..."
 docker compose up -d
 
 # Aguardar o MySQL estar pronto

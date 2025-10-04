@@ -21,25 +21,10 @@ services:
     command: --default-authentication-plugin=mysql_native_password
 
   # Application Service
-  app:
-    build: .
-    container_name: jomorais_api
-    restart: always
-    depends_on:
-      - mysql
-    environment:
-      DATABASE_URL: "mysql://jomorais_user:jomorais_password@mysql:3306/gestao_escolar"
-      NODE_ENV: development
-      JWT_SECRET: your_jwt_secret_here
-      PORT: 3000
-    ports:
-      - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    networks:
-      - jomorais_network
-    command: sh -c "sleep 30 && npx prisma db push && npm run dev"
+  # Application service removed to avoid automatic image pull/build for jomorais_api.
+  # If you want to run the backend locally, either:
+  # - build and tag the image manually: `docker build -t jomorais_api:latest .` then `docker compose up -d`
+  # - or run the app outside of Compose (e.g., `npm run dev` locally).
 
   # phpMyAdmin (optional - for database management)
   phpmyadmin:
