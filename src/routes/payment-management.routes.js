@@ -7,21 +7,20 @@
  *       properties:
  *         codigo:
  *           type: integer
- *           description: ID da forma de pagamento
+ *           description: "ID da forma de pagamento"
  *         designacao:
  *           type: string
- *           description: Nome da forma de pagamento
- *     
+ *           description: "Nome da forma de pagamento"
  *     PagamentoPrincipal:
  *       type: object
  *       properties:
  *         codigo:
  *           type: integer
- *           description: ID do pagamento principal
+ *           description: "ID do pagamento principal"
  *         data:
  *           type: string
  *           format: date
- *           description: Data do pagamento
+ *           description: "Data do pagamento"
  *         codigo_Aluno:
  *           type: integer
  *           description: ID do aluno
@@ -181,17 +180,17 @@
  *   
  *   tags:
  *     - name: Gestão de Pagamentos - Formas de Pagamento
- *       description: Operações relacionadas às formas de pagamento
+ *       description: "Operações relacionadas às formas de pagamento"
  *     - name: Gestão de Pagamentos - Pagamentos Principais
- *       description: Operações relacionadas aos pagamentos principais
+ *       description: "Operações relacionadas aos pagamentos principais"
  *     - name: Gestão de Pagamentos - Detalhes de Pagamento
- *       description: Operações relacionadas aos detalhes de pagamento
+ *       description: "Operações relacionadas aos detalhes de pagamento"
  *     - name: Gestão de Pagamentos - Notas de Crédito
- *       description: Operações relacionadas às notas de crédito
+ *       description: "Operações relacionadas às notas de crédito"
  *     - name: Gestão de Pagamentos - Motivos de Anulação
- *       description: Operações relacionadas aos motivos de anulação
+ *       description: "Operações relacionadas aos motivos de anulação"
  *     - name: Gestão de Pagamentos - Relatórios
- *       description: Relatórios e dashboards financeiros
+ *       description: "Relatórios e dashboards financeiros"
  */
 
 import express from 'express';
@@ -902,10 +901,10 @@ router.get('/dashboard', PaymentManagementController.getDashboardFinanceiro);
  *     parameters:
  *       - in: query
  *         name: periodo
+ *         description: "Período em dias (ex: 30, 60, 90)"
  *         schema:
  *           type: string
  *           default: "30"
- *         description: Período em dias (ex: 30, 60, 90)
  *         example: "30"
  *     responses:
  *       200:

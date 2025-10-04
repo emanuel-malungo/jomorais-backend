@@ -216,10 +216,27 @@ export class StudentManagementController {
 
   static async createAluno(req, res) {
     try {
+      console.log('=== CREATE ALUNO DEBUG ===');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      
       // Verificar se tem dados do encarregado embutidos
       if (req.body.encarregado) {
-        // Validar schema com encarregado embutido
-        const validatedData = alunoComEncarregadoCreateSchema.parse(req.body);
+        console.log('Validando com schema de encarregado embutido...');
+        let validatedData;
+        try {
+          // Validar schema com encarregado embutido
+          validatedData = alunoComEncarregadoCreateSchema.parse(req.body);
+          console.log('Validação ZOD bem-sucedida!');
+        } catch (zodError) {
+          console.error('ERRO DE VALIDAÇÃO ZOD:');
+          console.error('Mensagem:', zodError.message);
+          console.error('Erros detalhados:', JSON.stringify(zodError.errors, null, 2));
+          return res.status(400).json({
+            success: false,
+            message: 'Dados inválidos',
+            errors: zodError.errors
+          });
+        }
         
         // Obter codigo_Utilizador do usuário logado ou usar valor padrão (1) para desenvolvimento
         const codigo_Utilizador = req.user?.id || 1;

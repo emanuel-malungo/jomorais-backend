@@ -886,16 +886,8 @@ export class StudentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      const where = search ? {
-        OR: [
-          { nome: { contains: search } },
-          { pai: { contains: search } },
-          { mae: { contains: search } },
-          { email: { contains: search } },
-          { telefone: { contains: search } },
-          { n_documento_identificacao: { contains: search } }
-        ]
-      } : {};
+      // Desabilitando busca no backend - será feita no frontend
+      const where = {};
 
       // Implementação robusta baseada na memória - step-by-step query approach
       let alunos, total;
