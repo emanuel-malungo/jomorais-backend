@@ -7,6 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "build": "npm install && npx prisma generate",
+    "postinstall": "npx prisma generate",
     "docker:setup": "./scripts/setup.sh",
     "docker:dev": "./scripts/dev.sh",
     "docker:up": "docker-compose up -d",
@@ -14,7 +16,8 @@
     "docker:logs": "docker-compose logs -f",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:deploy": "prisma db push --accept-data-loss"
   },
   "repository": {
     "type": "git",
