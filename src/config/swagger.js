@@ -16,7 +16,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.BASE_URL || "http://localhost:8000",
+        url: "https://jomorais-backend-o5e5.onrender.com",
         description: "Servidor de desenvolvimento"
       },
     ],
