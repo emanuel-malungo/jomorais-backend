@@ -26,5 +26,5 @@ databases:
   - name: jomorais-db
     databaseName: jomorais_db
     user: jomorais_user
-    region: oregon # mesmo da aplicação
-    plan: free # starter para mais recursos
+    region: oregon # mesmo da aplicação  
+    plan: free # PostgreSQL gratuito

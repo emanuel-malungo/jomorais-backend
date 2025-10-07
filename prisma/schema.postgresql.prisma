@@ -1,0 +1,37 @@
+// prisma/schema.prisma para PostgreSQL (Render)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ===============================================================
+// CONTEXTO: SISTEMA DE AUTENTICAÇÃO E USUÁRIOS
+// ===============================================================
+
+model users {
+  id               BigInt     @id @default(autoincrement())
+  name             String     @db.VarChar(191)
+  username         String     @db.VarChar(191) @unique @default("root")
+  email            String     @db.VarChar(191) @unique
+  email_verified_at DateTime?
+  password         String     @db.VarChar(191)
+  tipo             Int        @default(1)
+  remember_token   String?    @db.VarChar(100)
+  created_at       DateTime   @default(now()) 
+  updated_at       DateTime? 
+  foto             String     @db.VarChar(191) @default("img_avatar1.png")
+
+  @@map("users")
+}
+
+// Nota: Para converter o schema completo para PostgreSQL, 
+// será necessário ajustar todos os tipos de dados MySQL específicos
+// para os equivalentes PostgreSQL. Isso inclui:
+// - @db.VarChar() -> @db.VarChar() (compatível)
+// - Tipos de data específicos do MySQL
+// - Configurações de auto-increment
+// - Constraints específicas do MySQL
