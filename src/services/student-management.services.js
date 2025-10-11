@@ -2060,49 +2060,119 @@ export class StudentManagementService {
 
   static async getConfirmacaoById(id) {
     try {
+      // Primeiro, verificar se a confirmação existe
       const confirmacao = await prisma.tb_confirmacoes.findUnique({
-        where: { codigo: parseInt(id) },
-        include: {
-          tb_matriculas: {
-            include: {
-              tb_alunos: {
-                include: {
-                  tb_encarregados: {
-                    include: {
-                      tb_profissao: true
-                    }
-                  },
-                  tb_tipo_documento: true
-                }
-              },
-              tb_cursos: true
-            }
-          },
-          tb_turmas: {
-            include: {
-              tb_classes: true,
-              tb_salas: true,
-              tb_periodos: true
-            }
-          },
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true,
-              email: true
-            }
-          }
-        }
+        where: { codigo: parseInt(id) }
       });
 
       if (!confirmacao) {
         throw new AppError('Confirmação não encontrada', 404);
       }
 
-      return confirmacao;
+      // Buscar com includes de forma mais segura, mantendo a mesma estrutura do endpoint de listagem
+      try {
+        const confirmacaoCompleta = await prisma.tb_confirmacoes.findUnique({
+          where: { codigo: parseInt(id) },
+          include: {
+            tb_matriculas: {
+              include: {
+                tb_alunos: {
+                  select: {
+                    codigo: true,
+                    nome: true,
+                    dataNascimento: true,
+                    sexo: true,
+                    url_Foto: true
+                  }
+                },
+                tb_cursos: {
+                  select: {
+                    codigo: true,
+                    designacao: true,
+                    codigo_Status: true
+                  }
+                }
+              }
+            },
+            tb_turmas: {
+              include: {
+                tb_classes: {
+                  select: {
+                    codigo: true,
+                    designacao: true,
+                    status: true,
+                    notaMaxima: true,
+                    exame: true
+                  }
+                },
+                tb_salas: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                },
+                tb_periodos: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                }
+              }
+            },
+            tb_utilizadores: {
+              select: {
+                codigo: true,
+                nome: true,
+                user: true
+              }
+            }
+          }
+        });
+
+        return confirmacaoCompleta || confirmacao;
+      } catch (includeError) {
+        console.warn('Erro ao buscar dados relacionados da confirmação:', includeError.message);
+        
+        // Se falhar com includes complexos, tentar com includes básicos
+        try {
+          const confirmacaoBasica = await prisma.tb_confirmacoes.findUnique({
+            where: { codigo: parseInt(id) },
+            include: {
+              tb_matriculas: {
+                include: {
+                  tb_alunos: {
+                    select: {
+                      codigo: true,
+                      nome: true,
+                      dataNascimento: true,
+                      sexo: true,
+                      url_Foto: true
+                    }
+                  },
+                  tb_cursos: true
+                }
+              },
+              tb_turmas: true,
+              tb_utilizadores: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  user: true
+                }
+              }
+            }
+          });
+
+          return confirmacaoBasica || confirmacao;
+        } catch (basicError) {
+          console.warn('Erro ao buscar dados básicos da confirmação:', basicError.message);
+          // Retornar apenas a confirmação sem includes
+          return confirmacao;
+        }
+      }
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao buscar confirmação:', error);
       throw new AppError('Erro ao buscar confirmação', 500);
     }
   }
