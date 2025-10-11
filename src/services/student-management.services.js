@@ -947,7 +947,7 @@ export class StudentManagementService {
           prisma.tb_alunos.count({ where })
         ]);
 
-        console.log(`[getAlunos] Encontrados ${total} alunos, retornando ${alunos.length} nesta página`);
+        // console.log(`[getAlunos] Encontrados ${total} alunos, retornando ${alunos.length} nesta página`);
 
         // Buscar dados relacionados adicionais para cada aluno
         const alunosComDadosCompletos = await Promise.all(
@@ -1758,18 +1758,23 @@ export class StudentManagementService {
   }
 
   static async getMatriculaById(id) {
+    
     try {
       const matricula = await prisma.tb_matriculas.findUnique({
         where: { codigo: parseInt(id) },
         include: {
           tb_alunos: {
-            include: {
-              tb_encarregados: {
-                include: {
-                  tb_profissao: true
-                }
-              },
-              tb_tipo_documento: true
+            select: {
+              codigo: true,
+              nome: true,
+              email: true,
+              telefone: true,
+              morada: true,
+              sexo: true,
+              dataNascimento: true,
+              pai: true,
+              mae: true,
+              url_Foto: true
             }
           },
           tb_cursos: true,
@@ -1777,19 +1782,7 @@ export class StudentManagementService {
             select: {
               codigo: true,
               nome: true,
-              user: true,
-              email: true
-            }
-          },
-          tb_confirmacoes: {
-            include: {
-              tb_turmas: {
-                include: {
-                  tb_classes: true,
-                  tb_salas: true,
-                  tb_periodos: true
-                }
-              }
+              user: true
             }
           }
         }
