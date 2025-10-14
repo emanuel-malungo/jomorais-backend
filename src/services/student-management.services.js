@@ -886,8 +886,19 @@ export class StudentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      // Desabilitando busca no backend - será feita no frontend
-      const where = {};
+      // Construir filtro de busca
+      // Nota: Para MySQL, removemos o 'mode: insensitive' pois não é suportado
+      // O MySQL já faz buscas case-insensitive por padrão (dependendo da collation)
+      const where = search ? {
+        OR: [
+          { nome: { contains: search } },
+          { email: { contains: search } },
+          { telefone: { contains: search } },
+          { n_documento_identificacao: { contains: search } },
+          { pai: { contains: search } },
+          { mae: { contains: search } }
+        ]
+      } : {};
 
       // Implementação robusta baseada na memória - step-by-step query approach
       let alunos, total;
