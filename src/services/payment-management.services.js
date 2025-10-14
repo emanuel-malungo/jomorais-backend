@@ -182,18 +182,23 @@ export class PaymentManagementService {
           tb_nota_credito: {
             select: {
               codigo: true,
-              designacao: true,
-              valor: true
+              designacao: true
             }
           }
         }
       });
 
-      return pagamentoi;
+      // Após criar o pagamento, invalidar cache de meses pendentes se for propina
+      if (tipoServico && tipoServico.designacao.toLowerCase().includes('propina')) {
+        console.log(`Pagamento de propina criado para aluno ${data.codigo_Aluno}, mês ${data.mes}/${data.ano}`);
+        // Cache será invalidado automaticamente na próxima consulta
+      }
+
+      return pagamento;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao criar pagamento principal:', error);
-      throw new AppError('Erro ao criar pagamento principal', 500);
+      console.error('Erro ao criar pagamento:', error);
+      throw new AppError('Erro ao criar pagamento', 500);
     }
   }
 
@@ -535,6 +540,14 @@ export class PaymentManagementService {
 
       if (filters.codigo_Tipo_Servico) {
         where.codigo_Tipo_Servico = filters.codigo_Tipo_Servico;
+      }
+
+      if (filters.codigoPagamento) {
+        where.codigoPagamento = parseInt(filters.codigoPagamento);
+      }
+
+      if (filters.n_Bordoro) {
+        where.n_Bordoro = filters.n_Bordoro;
       }
 
       if (filters.dataInicio && filters.dataFim) {
@@ -1263,10 +1276,31 @@ export class PaymentManagementService {
 
   static async createPagamento(data) {
     try {
-      // Criar pagamento
-      
+      // Validar borderô se for depósito
+      if (data.numeroBordero) {
+        await this.validateBordero(data.numeroBordero);
+      }
+
+      // Determinar conta movimentada baseada na forma de pagamento e tipo de conta
+      let contaMovimentada = 'CAIXA'; // Padrão
+      if (data.tipoConta) {
+        switch (data.tipoConta) {
+          case 'BAI':
+            contaMovimentada = 'BAI CONTA: 89248669/10/001';
+            break;
+          case 'BFA':
+            contaMovimentada = 'BFA CONTA: 180912647/30/001';
+            break;
+          default:
+            contaMovimentada = 'CAIXA';
+        }
+      }
+
       // Gerar hash para o pagamento
       const hash = `PAG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Gerar borderô (usar o fornecido ou gerar automaticamente)
+      const borderoux = data.numeroBordero || `BOR_${Date.now()}`;
       
       // Criar pagamento principal primeiro
       const pagamentoPrincipal = await prisma.tb_pagamentoi.create({
@@ -1279,7 +1313,7 @@ export class PaymentManagementService {
           dataBanco: new Date(),
           totalDesconto: 0,
           obs: data.observacao || '',
-          borderoux: `BOR_${Date.now()}`,
+          borderoux: borderoux,
           hash: hash
         }
       });
@@ -1290,13 +1324,13 @@ export class PaymentManagementService {
           codigo_Aluno: data.codigo_Aluno,
           codigo_Tipo_Servico: data.codigo_Tipo_Servico,
           data: new Date(),
-          n_Bordoro: `BOR_${Date.now()}`,
+          n_Bordoro: borderoux,
           multa: 0,
           mes: data.mes,
-          codigo_Utilizador: 1, // TODO: Pegar do usuário logado
+          codigo_Utilizador: data.codigo_Utilizador || 1, // Usar o funcionário especificado ou padrão
           observacao: data.observacao || '',
           ano: data.ano,
-          contaMovimentada: 'CAIXA',
+          contaMovimentada: contaMovimentada,
           quantidade: 1,
           desconto: 0,
           totalgeral: data.preco,
@@ -1330,6 +1364,12 @@ export class PaymentManagementService {
               codigo: true,
               designacao: true
             }
+          },
+          formaPagamento: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
           }
         }
       });
@@ -1337,8 +1377,13 @@ export class PaymentManagementService {
       // Verificar se o tipo de serviço é propina e atualizar status
       await this.atualizarStatusPropina(data, pagamento);
 
-      // Pagamento criado com sucesso
-      return pagamento;
+      // Adicionar dados extras para a fatura
+      return {
+        ...pagamento,
+        contaMovimentada,
+        numeroBordero: borderoux,
+        tipoConta: data.tipoConta || null
+      };
     } catch (error) {
       console.error('Erro ao criar pagamento:', error);
       throw new AppError('Erro ao criar pagamento', 500);
@@ -1751,23 +1796,138 @@ export class PaymentManagementService {
     return meses[mes.toUpperCase()] || 1;
   }
 
-  // Métodos auxiliares
+  // Método para buscar tipos de serviço
   static async getTiposServico() {
     try {
       const tiposServico = await prisma.tb_tipo_servicos.findMany({
         select: {
           codigo: true,
           designacao: true,
-          preco: true // Incluir o campo preço
+          preco: true
         },
         orderBy: {
           designacao: 'asc'
         }
       });
+
       return tiposServico;
     } catch (error) {
       console.error('Erro ao buscar tipos de serviço:', error);
-      throw new AppError('Erro ao buscar tipos de serviço', 500);
+      throw new Error('Erro ao buscar tipos de serviço');
+    }
+  }
+
+  // Método para verificar se aluno tem pagamentos no ano letivo (temporariamente desabilitado)
+  static async verificarPagamentosNoAno(alunoId, anoLectivo) {
+    return false; // Simplificado para debug
+  }
+
+  // Método para buscar propina da classe do aluno
+  static async getPropinaClasse(alunoId, anoLectivoId) {
+    try {
+      // Buscar a confirmação ativa do aluno para o ano letivo
+      const confirmacao = await prisma.tb_confirmacoes.findFirst({
+        where: {
+          codigo_Ano_lectivo: parseInt(anoLectivoId),
+          tb_matriculas: {
+            codigo_Aluno: parseInt(alunoId)
+          },
+          codigo_Status: 1
+        },
+        include: {
+          tb_turmas: {
+            include: {
+              tb_classes: {
+                select: {
+                  codigo: true,
+                  designacao: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!confirmacao || !confirmacao.tb_turmas?.tb_classes) {
+        return null;
+      }
+
+      // Buscar propina da classe
+      const propinaClasse = await prisma.tb_propina_classe.findFirst({
+        where: {
+          codigo_Classe: confirmacao.tb_turmas.tb_classes.codigo,
+          codigo_Ano_lectivo: parseInt(anoLectivoId)
+        },
+        include: {
+          tb_tipo_servicos: {
+            select: {
+              codigo: true,
+              designacao: true,
+              preco: true
+            }
+          }
+        }
+      });
+
+      return propinaClasse;
+    } catch (error) {
+      console.error('Erro ao buscar propina da classe:', error);
+      return null;
+    }
+  }
+
+  // Método para buscar anos letivos
+  static async getAnosLectivos() {
+    try {
+      const anosLectivos = await prisma.tb_ano_lectivo.findMany({
+        select: {
+          codigo: true,
+          designacao: true,
+          mesInicial: true,
+          mesFinal: true,
+          anoInicial: true,
+          anoFinal: true
+        },
+        orderBy: {
+          designacao: 'desc' // Mais recente primeiro
+        }
+      });
+      return anosLectivos;
+    } catch (error) {
+      console.error('Erro ao buscar anos letivos:', error);
+      throw new AppError('Erro ao buscar anos letivos', 500);
+    }
+  }
+
+  // Método para validar número de borderô (9 dígitos únicos)
+  static async validateBordero(bordero, excludeId = null) {
+    try {
+      // Validar formato (exatamente 9 dígitos)
+      if (!/^\d{9}$/.test(bordero)) {
+        throw new AppError('Número de borderô deve conter exatamente 9 dígitos', 400);
+      }
+
+      // Verificar duplicatas na tb_pagamentoi
+      const whereClause = { borderoux: bordero };
+      if (excludeId) {
+        whereClause.codigo = { not: excludeId };
+      }
+
+      const existingBordero = await prisma.tb_pagamentoi.findFirst({
+        where: whereClause
+      });
+
+      if (existingBordero) {
+        throw new AppError('Este número de borderô já foi utilizado', 400);
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error('Erro ao validar borderô:', error);
+      throw new AppError('Erro ao validar número de borderô', 500);
     }
   }
 
@@ -1839,12 +1999,788 @@ export class PaymentManagementService {
         dadosAcademicos: {
           curso: curso?.designacao || 'Curso não especificado',
           classe: classe?.designacao || 'Classe não especificada',
-          turma: turma?.designacao || 'Turma não especificada'
+          turma: turma?.designacao || 'Turma não especificada',
+          codigoTurma: turma?.codigo,
+          codigoClasse: classe?.codigo,
+          codigoCurso: curso?.codigo
         }
       };
     } catch (error) {
       console.error('Erro ao buscar dados completos do aluno:', error);
       throw new AppError('Erro ao buscar dados do aluno', 500);
+    }
+  }
+
+  // Método para buscar tipo de serviço específico da turma do aluno (propinas)
+  static async getTipoServicoTurmaAluno(alunoId) {
+    try {
+      // Primeiro buscar dados do aluno e sua turma
+      const alunoCompleto = await this.getAlunoCompleto(alunoId);
+      
+      if (!alunoCompleto.dadosAcademicos.codigoTurma) {
+        throw new AppError('Aluno não possui turma associada', 400);
+      }
+
+      const codigoTurma = alunoCompleto.dadosAcademicos.codigoTurma;
+      const codigoClasse = alunoCompleto.dadosAcademicos.codigoClasse;
+
+      // Buscar serviços específicos da turma (tb_servicos_turma)
+      let tipoServico = await prisma.tb_servicos_turma.findFirst({
+        where: {
+          codigoTurma: codigoTurma,
+          codigoClasse: codigoClasse
+        },
+        include: {
+          tb_tipo_servicos: {
+            select: {
+              codigo: true,
+              designacao: true,
+              preco: true
+            }
+          }
+        }
+      });
+
+      // Se não encontrar na tb_servicos_turma, buscar em tb_servico_aluno
+      if (!tipoServico) {
+        const servicoAluno = await prisma.tb_servico_aluno.findFirst({
+          where: {
+            codigo_Aluno: parseInt(alunoId),
+            codigo_Turma: codigoTurma,
+            status: 1 // Ativo
+          },
+          include: {
+            tb_tipo_servicos: {
+              select: {
+                codigo: true,
+                designacao: true,
+                preco: true
+              }
+            }
+          }
+        });
+
+        if (servicoAluno) {
+          tipoServico = {
+            tb_tipo_servicos: servicoAluno.tb_tipo_servicos
+          };
+        }
+      }
+
+      // Se ainda não encontrar, buscar propina genérica da classe
+      if (!tipoServico) {
+        const propinaClasse = await prisma.tb_propina_classe.findFirst({
+          where: {
+            codigoClasse: codigoClasse
+          },
+          include: {
+            tb_tipo_servicos: {
+              select: {
+                codigo: true,
+                designacao: true,
+                preco: true
+              }
+            }
+          }
+        });
+
+        if (propinaClasse) {
+          tipoServico = {
+            tb_tipo_servicos: propinaClasse.tb_tipo_servicos
+          };
+        }
+      }
+
+      // Se ainda não encontrar, buscar qualquer tipo de serviço que contenha "propina" e a classe
+      if (!tipoServico) {
+        const classeDesignacao = alunoCompleto.dadosAcademicos.classe;
+        const tipoServicoGenerico = await prisma.tb_tipo_servicos.findFirst({
+          where: {
+            designacao: {
+              contains: 'PROPINA'
+            },
+            OR: [
+              {
+                designacao: {
+                  contains: classeDesignacao
+                }
+              },
+              {
+                designacao: {
+                  contains: classeDesignacao.replace('ª', '')
+                }
+              }
+            ]
+          },
+          select: {
+            codigo: true,
+            designacao: true,
+            preco: true
+          }
+        });
+
+        if (tipoServicoGenerico) {
+          tipoServico = {
+            tb_tipo_servicos: tipoServicoGenerico
+          };
+        }
+      }
+
+      return tipoServico ? {
+        codigo: tipoServico.tb_tipo_servicos.codigo,
+        designacao: tipoServico.tb_tipo_servicos.designacao,
+        preco: tipoServico.tb_tipo_servicos.preco
+      } : null;
+    } catch (error) {
+      console.error('Erro ao buscar tipo de serviço da turma:', error);
+      throw new AppError('Erro ao buscar tipo de serviço da turma', 500);
+    }
+  }
+
+  // Método para buscar meses pendentes de pagamento de um aluno por ano letivo
+  static async getMesesPendentesAluno(alunoId, codigoAnoLectivo = null) {
+    try {
+      console.log(`Buscando meses pendentes para aluno ${alunoId}, código ano letivo: ${codigoAnoLectivo}`);
+      
+      // Buscar dados do aluno
+      const aluno = await prisma.tb_alunos.findUnique({
+        where: { codigo: parseInt(alunoId) },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_confirmacoes: {
+                where: { codigo_Status: 1 },
+                include: {
+                  tb_turmas: {
+                    select: {
+                      codigo_AnoLectivo: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!aluno) {
+        throw new AppError('Aluno não encontrado', 404);
+      }
+
+      // Buscar ano letivo específico ou usar o atual do aluno
+      let anoLectivoSelecionado;
+      if (codigoAnoLectivo) {
+        anoLectivoSelecionado = await prisma.tb_ano_lectivo.findUnique({
+          where: { codigo: parseInt(codigoAnoLectivo) }
+        });
+      } else {
+        // Buscar o ano letivo atual (pode ser o mais recente ou baseado na data)
+        anoLectivoSelecionado = await prisma.tb_ano_lectivo.findFirst({
+          orderBy: { codigo: 'desc' }
+        });
+      }
+
+      if (!anoLectivoSelecionado) {
+        throw new AppError('Ano letivo não encontrado', 404);
+      }
+
+      console.log(`Ano letivo selecionado: ${anoLectivoSelecionado.designacao}`);
+
+      // VERIFICAR SE O ALUNO ESTAVA REALMENTE MATRICULADO NESTE ANO LETIVO
+      const confirmacaoNoAno = await prisma.tb_confirmacoes.findFirst({
+        where: {
+          codigo_Ano_lectivo: anoLectivoSelecionado.codigo,
+          tb_matriculas: {
+            codigo_Aluno: parseInt(alunoId)
+          },
+          codigo_Status: 1 // Apenas confirmações ativas
+        },
+        include: {
+          tb_matriculas: {
+            select: {
+              data_Matricula: true,
+              codigo_Aluno: true
+            }
+          }
+        }
+      });
+
+      // Se não há confirmação, verificar se há pagamentos para este ano
+      const temPagamentosEspecificos = await prisma.tb_pagamentos.findFirst({
+        where: {
+          codigo_Aluno: parseInt(alunoId),
+          OR: [
+            {
+              ano: parseInt(anoLectivoSelecionado.anoInicial),
+              mes: { in: ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'] }
+            },
+            {
+              ano: parseInt(anoLectivoSelecionado.anoFinal),
+              mes: { in: ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'] }
+            }
+          ]
+        }
+      });
+
+      // Se não há confirmação E não há pagamentos específicos, retornar mensagem apropriada
+      if (!confirmacaoNoAno && !temPagamentosEspecificos) {
+        console.log(`Aluno ${alunoId} não estava matriculado no ano ${anoLectivoSelecionado.designacao} e não tem pagamentos específicos`);
+        return {
+          mesesPendentes: [],
+          mesesPagos: [],
+          totalMeses: 0,
+          mesesPagosCount: 0,
+          mesesPendentesCount: 0,
+          proximoMes: null,
+          anoLectivo: anoLectivoSelecionado,
+          dividasAnteriores: [],
+          temDividas: false,
+          mensagem: `Nenhuma matrícula ou confirmação encontrada para o aluno no ano letivo ${anoLectivoSelecionado.designacao}`
+        };
+      }
+
+      // Converter designação do ano letivo para anos numéricos
+      // Ex: "2024/2025" -> ano inicial: 2024, anoFinal: 2025
+      const anoInicial = parseInt(anoLectivoSelecionado.anoInicial);
+      const anoFinal = parseInt(anoLectivoSelecionado.anoFinal);
+
+      // Buscar pagamentos de propina do aluno para este ano letivo específico
+      // Buscar pagamentos com lógica específica para evitar duplicações entre anos letivos
+      const pagamentos = await prisma.tb_pagamentos.findMany({
+        where: {
+          codigo_Aluno: parseInt(alunoId),
+          OR: [
+            // Meses do primeiro ano (setembro a dezembro) - APENAS do ano inicial específico
+            {
+              AND: [
+                { ano: anoInicial },
+                { mes: { in: ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'] } }
+              ]
+            },
+            // Meses do segundo ano (janeiro a julho) - APENAS do ano final específico
+            {
+              AND: [
+                { ano: anoFinal },
+                { mes: { in: ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'] } }
+              ]
+            }
+          ],
+          tipoServico: {
+            designacao: {
+              contains: 'propina'
+            }
+          }
+        },
+        include: {
+          tipoServico: {
+            select: {
+              designacao: true
+            }
+          }
+        }
+      });
+
+      // Usar apenas pagamentos da tabela principal
+      const todosPagamentos = pagamentos;
+
+      console.log(`Encontrados ${todosPagamentos.length} pagamentos de propina para o ano letivo ${anoLectivoSelecionado.designacao}`);
+      console.log(`Critério de busca: ${anoInicial} (SET-DEZ) e ${anoFinal} (JAN-JUL)`);
+      
+      // Log detalhado dos pagamentos encontrados
+      todosPagamentos.forEach(pag => {
+        console.log(`- Pagamento: ${pag.mes}/${pag.ano} (ID: ${pag.codigo})`);
+      });
+
+      // Todos os meses do ano letivo (setembro a julho)
+      const mesesAnoLectivo = [
+        'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
+        'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'
+      ];
+
+      // Identificar meses já pagos (formato: MÊS-ANO)
+      const mesesPagosSet = new Set();
+      const mesesPagosDetalhados = [];
+      const mesesPagosDetalhadosSet = new Set(); // Para evitar duplicatas
+      
+      todosPagamentos.forEach(pagamento => {
+        if (pagamento.mes && pagamento.ano) {
+          const mesSimples = pagamento.mes.toUpperCase();
+          const mesDetalhado = `${mesSimples}-${pagamento.ano}`;
+          
+          mesesPagosSet.add(mesSimples);
+          
+          // Evitar duplicatas nos meses detalhados
+          if (!mesesPagosDetalhadosSet.has(mesDetalhado)) {
+            mesesPagosDetalhadosSet.add(mesDetalhado);
+            mesesPagosDetalhados.push(mesDetalhado);
+          }
+        }
+      });
+
+      const mesesPagos = mesesPagosDetalhados;
+      const mesesPendentes = mesesAnoLectivo.filter(mes => !mesesPagosSet.has(mes));
+
+      console.log('Meses pagos:', mesesPagos);
+      console.log('Meses pendentes:', mesesPendentes);
+
+      // Determinar próximo mês a pagar
+      const proximoMes = mesesPendentes.length > 0 ? mesesPendentes[0] : null;
+
+      // Verificar se há dívidas de anos anteriores (temporariamente desabilitado)
+      // const dividasAnteriores = await this.verificarDividasAnteriores(alunoId, anoLectivoSelecionado.codigo);
+      const dividasAnteriores = [];
+
+      return {
+        mesesPendentes,
+        mesesPagos,
+        totalMeses: mesesAnoLectivo.length,
+        mesesPagosCount: mesesPagos.length,
+        mesesPendentesCount: mesesPendentes.length,
+        proximoMes,
+        anoLectivo: anoLectivoSelecionado,
+        dividasAnteriores,
+        temDividas: mesesPendentes.length > 0 || dividasAnteriores.length > 0
+      };
+    } catch (error) {
+      console.error('Erro ao buscar meses pendentes:', error);
+      throw new AppError('Erro ao buscar meses pendentes do aluno', 500);
+    }
+  }
+
+  // Método para verificar se aluno estava matriculado em um ano letivo específico
+  static async verificarMatriculaNoAno(alunoId, anoLectivo) {
+    try {
+      // Buscar confirmação do aluno no ano letivo específico
+      const confirmacao = await prisma.tb_confirmacoes.findFirst({
+        where: {
+          codigo_Ano_lectivo: anoLectivo.codigo,
+          tb_matriculas: {
+            codigo_Aluno: parseInt(alunoId)
+          },
+          codigo_Status: 1 // Apenas confirmações ativas
+        },
+        include: {
+          tb_matriculas: {
+            select: {
+              data_Matricula: true,
+              codigo_Aluno: true
+            }
+          }
+        }
+      });
+
+      return confirmacao !== null;
+    } catch (error) {
+      console.error('Erro ao verificar matrícula no ano:', error);
+      return false;
+    }
+  }
+
+  // Método para obter período de estudo do aluno no ano letivo
+  static async obterPeriodoEstudoAluno(alunoId, anoLectivo) {
+    try {
+      const confirmacao = await prisma.tb_confirmacoes.findFirst({
+        where: {
+          codigo_Ano_lectivo: anoLectivo.codigo,
+          tb_matriculas: {
+            codigo_Aluno: parseInt(alunoId)
+          },
+          codigo_Status: 1
+        },
+        select: {
+          data_Confirmacao: true,
+          mes_Comecar: true
+        }
+      });
+
+      if (!confirmacao) return null;
+
+      return {
+        dataInicio: confirmacao.mes_Comecar || confirmacao.data_Confirmacao,
+        dataConfirmacao: confirmacao.data_Confirmacao
+      };
+    } catch (error) {
+      console.error('Erro ao obter período de estudo:', error);
+      return null;
+    }
+  }
+
+  // Método para verificar dívidas de anos letivos anteriores (apenas anos em que o aluno estudou)
+  static async verificarDividasAnteriores(alunoId, codigoAnoLectivoAtual) {
+    try {
+      // Buscar todos os anos letivos anteriores ao atual
+      const anosAnteriores = await prisma.tb_ano_lectivo.findMany({
+        where: {
+          codigo: {
+            lt: parseInt(codigoAnoLectivoAtual)
+          }
+        },
+        orderBy: { codigo: 'desc' }
+      });
+
+      const dividasAnteriores = [];
+
+      for (const anoAnterior of anosAnteriores) {
+        // VERIFICAR SE O ALUNO ESTAVA REALMENTE MATRICULADO NESTE ANO
+        const estavMatriculado = await this.verificarMatriculaNoAno(alunoId, anoAnterior);
+        
+        if (!estavMatriculado) {
+          console.log(`Aluno ${alunoId} não estava matriculado no ano ${anoAnterior.designacao}, pulando...`);
+          continue; // Pular este ano se o aluno não estava matriculado
+        }
+        const anoInicial = parseInt(anoAnterior.anoInicial);
+        const anoFinal = parseInt(anoAnterior.anoFinal);
+
+        // Buscar pagamentos do aluno neste ano anterior
+        const pagamentosAnoAnterior = await prisma.tb_pagamentos.findMany({
+          where: {
+            codigo_Aluno: parseInt(alunoId),
+            OR: [
+              { ano: anoInicial },
+              { ano: anoFinal }
+            ],
+            tipoServico: {
+              designacao: {
+                contains: 'propina'
+              }
+            }
+          }
+        });
+
+        // Verificar se há meses não pagos
+        const mesesAnoLectivo = [
+          'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
+          'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'
+        ];
+
+        const mesesPagosAnoAnterior = new Set();
+        pagamentosAnoAnterior.forEach(pagamento => {
+          if (pagamento.mes) {
+            mesesPagosAnoAnterior.add(pagamento.mes.toUpperCase());
+          }
+        });
+
+        const mesesPendentesAnoAnterior = mesesAnoLectivo.filter(mes => !mesesPagosAnoAnterior.has(mes));
+
+        if (mesesPendentesAnoAnterior.length > 0) {
+          dividasAnteriores.push({
+            anoLectivo: anoAnterior,
+            mesesPendentes: mesesPendentesAnoAnterior,
+            mesesPagos: Array.from(mesesPagosAnoAnterior),
+            totalPendente: mesesPendentesAnoAnterior.length
+          });
+        }
+      }
+
+      return dividasAnteriores;
+    } catch (error) {
+      console.error('Erro ao verificar dívidas anteriores:', error);
+      return [];
+    }
+  }
+
+  // ===============================
+  // RELATÓRIOS DE VENDAS POR FUNCIONÁRIO
+  // ===============================
+
+  static async getRelatorioVendasFuncionarios(periodo = 'diario', dataInicio = null, dataFim = null) {
+    try {
+      // Definir período se não especificado
+      const hoje = new Date();
+      let startDate, endDate;
+
+      if (dataInicio && dataFim) {
+        startDate = new Date(dataInicio);
+        endDate = new Date(dataFim);
+      } else {
+        switch (periodo) {
+          case 'diario':
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+            break;
+          case 'semanal':
+            const inicioSemana = hoje.getDate() - hoje.getDay();
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), inicioSemana);
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), inicioSemana + 7);
+            break;
+          case 'mensal':
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+            break;
+          default:
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+        }
+      }
+
+      console.log(`Buscando relatório de vendas - Período: ${periodo}, De: ${startDate.toISOString()}, Até: ${endDate.toISOString()}`);
+
+      // Buscar pagamentos no período com dados do funcionário
+      const pagamentos = await prisma.tb_pagamentos.findMany({
+        where: {
+          data: {
+            gte: startDate,
+            lt: endDate
+          }
+        },
+        include: {
+          aluno: {
+            select: {
+              codigo: true,
+              nome: true
+            }
+          },
+          tipoServico: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          },
+          formaPagamento: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          },
+          utilizador: {
+            select: {
+              codigo: true,
+              nome: true,
+              user: true
+            }
+          }
+        },
+        orderBy: {
+          data: 'desc'
+        }
+      });
+
+      console.log(`Encontrados ${pagamentos.length} pagamentos no período`);
+
+      // Buscar todos os funcionários que fizeram pagamentos no período
+      const funcionariosUnicos = [...new Set(pagamentos.map(p => p.codigo_Utilizador))];
+      console.log(`Funcionários únicos encontrados: ${funcionariosUnicos.join(', ')}`);
+
+      // Buscar dados completos dos funcionários
+      const funcionarios = await prisma.tb_utilizadores.findMany({
+        where: {
+          codigo: {
+            in: funcionariosUnicos
+          }
+        },
+        select: {
+          codigo: true,
+          nome: true,
+          user: true
+        }
+      });
+
+      console.log(`Dados dos funcionários:`, funcionarios);
+
+      // Agrupar por funcionário
+      const vendasPorFuncionario = {};
+      let totalGeral = 0;
+
+      pagamentos.forEach(pagamento => {
+        const funcionarioId = pagamento.codigo_Utilizador || 1;
+        
+        // Buscar dados do funcionário na lista obtida
+        const funcionarioData = funcionarios.find(f => f.codigo === funcionarioId);
+        
+        // Priorizar sempre o nome da tabela utilizadores
+        let funcionarioNome = 'Funcionário Desconhecido';
+        let funcionarioUser = 'N/A';
+        
+        if (funcionarioData) {
+          funcionarioNome = funcionarioData.nome;
+          funcionarioUser = funcionarioData.user;
+        } else if (pagamento.utilizador?.nome) {
+          funcionarioNome = pagamento.utilizador.nome;
+          funcionarioUser = pagamento.utilizador.user || 'N/A';
+        } else {
+          funcionarioNome = `Funcionário ${funcionarioId}`;
+        }
+        
+        console.log(`Funcionário ID ${funcionarioId}: Nome="${funcionarioNome}", User="${funcionarioUser}"`);
+        
+        const valor = pagamento.preco || 0;
+
+        if (!vendasPorFuncionario[funcionarioId]) {
+          vendasPorFuncionario[funcionarioId] = {
+            funcionarioId,
+            funcionarioNome,
+            funcionarioUser,
+            totalVendas: 0,
+            quantidadePagamentos: 0,
+            pagamentos: []
+          };
+        }
+
+        vendasPorFuncionario[funcionarioId].totalVendas += valor;
+        vendasPorFuncionario[funcionarioId].quantidadePagamentos += 1;
+        vendasPorFuncionario[funcionarioId].pagamentos.push({
+          codigo: pagamento.codigo,
+          aluno: pagamento.aluno?.nome || 'Aluno não identificado',
+          tipoServico: pagamento.tipoServico?.designacao || 'Serviço',
+          valor: valor,
+          mes: pagamento.mes,
+          ano: pagamento.ano,
+          data: pagamento.data,
+          formaPagamento: pagamento.formaPagamento?.designacao || 'N/A'
+        });
+
+        totalGeral += valor;
+      });
+
+      console.log(`Total de funcionários com vendas: ${Object.keys(vendasPorFuncionario).length}`);
+
+      // Converter para array e ordenar por total de vendas (decrescente)
+      const relatorio = Object.values(vendasPorFuncionario).sort((a, b) => b.totalVendas - a.totalVendas);
+
+      return {
+        periodo,
+        dataInicio: startDate,
+        dataFim: endDate,
+        totalGeral,
+        totalPagamentos: pagamentos.length,
+        funcionarios: relatorio,
+        resumo: {
+          melhorFuncionario: relatorio[0] || null,
+          totalFuncionarios: relatorio.length,
+          mediaVendasPorFuncionario: relatorio.length > 0 ? totalGeral / relatorio.length : 0
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro ao gerar relatório de vendas por funcionário:', error);
+      throw new AppError('Erro ao gerar relatório de vendas por funcionário', 500);
+    }
+  }
+
+  static async getRelatorioVendasDetalhado(funcionarioId, periodo = 'diario', dataInicio = null, dataFim = null) {
+    try {
+      // Definir período se não especificado
+      const hoje = new Date();
+      let startDate, endDate;
+
+      if (dataInicio && dataFim) {
+        startDate = new Date(dataInicio);
+        endDate = new Date(dataFim);
+      } else {
+        switch (periodo) {
+          case 'diario':
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+            break;
+          case 'semanal':
+            const inicioSemana = hoje.getDate() - hoje.getDay();
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), inicioSemana);
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), inicioSemana + 7);
+            break;
+          case 'mensal':
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+            break;
+          default:
+            startDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            endDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+        }
+      }
+
+      // Buscar dados do funcionário
+      const funcionario = await prisma.tb_utilizadores.findUnique({
+        where: { codigo: parseInt(funcionarioId) },
+        select: {
+          codigo: true,
+          nome: true,
+          user: true
+        }
+      });
+
+      if (!funcionario) {
+        throw new AppError('Funcionário não encontrado', 404);
+      }
+
+      // Buscar pagamentos do funcionário no período
+      const pagamentos = await prisma.tb_pagamentos.findMany({
+        where: {
+          codigo_Utilizador: parseInt(funcionarioId),
+          data: {
+            gte: startDate,
+            lt: endDate
+          }
+        },
+        include: {
+          aluno: {
+            select: {
+              codigo: true,
+              nome: true
+            }
+          },
+          tipoServico: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          },
+          formaPagamento: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          }
+        },
+        orderBy: {
+          data: 'desc'
+        }
+      });
+
+      const totalVendas = pagamentos.reduce((total, pag) => total + (pag.preco || 0), 0);
+
+      return {
+        funcionario,
+        periodo,
+        dataInicio: startDate,
+        dataFim: endDate,
+        totalVendas,
+        quantidadePagamentos: pagamentos.length,
+        pagamentos: pagamentos.map(pag => ({
+          codigo: pag.codigo,
+          aluno: pag.aluno?.nome || 'Aluno não identificado',
+          tipoServico: pag.tipoServico?.designacao || 'Serviço',
+          valor: pag.preco || 0,
+          mes: pag.mes,
+          ano: pag.ano,
+          data: pag.data,
+          formaPagamento: pag.formaPagamento?.designacao || 'N/A',
+          fatura: pag.fatura
+        }))
+      };
+
+    } catch (error) {
+      console.error('Erro ao gerar relatório detalhado do funcionário:', error);
+      throw new AppError('Erro ao gerar relatório detalhado do funcionário', 500);
+    }
+  }
+
+  // Método para listar todos os funcionários (para demonstração)
+  static async getAllFuncionarios() {
+    try {
+      const funcionarios = await prisma.tb_utilizadores.findMany({
+        select: {
+          codigo: true,
+          nome: true,
+          user: true
+        },
+        orderBy: {
+          nome: 'asc'
+        }
+      });
+
+      return funcionarios;
+    } catch (error) {
+      console.error('Erro ao buscar funcionários:', error);
+      throw new AppError('Erro ao buscar funcionários', 500);
     }
   }
 }

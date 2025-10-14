@@ -1140,6 +1140,16 @@ router.get('/pagamento/:id/fatura', PaymentManagementController.gerarFaturaPDF);
 // Rotas auxiliares
 router.get('/tipos-servico', PaymentManagementController.getTiposServico);
 router.get('/formas-pagamento', PaymentManagementController.getFormasPagamento);
+router.get('/anos-lectivos', PaymentManagementController.getAnosLectivos);
 router.get('/aluno/:id/completo', PaymentManagementController.getAlunoCompleto);
+router.get('/aluno/:id/tipo-servico-turma', PaymentManagementController.getTipoServicoTurmaAluno);
+router.get('/aluno/:id/meses-pendentes', PaymentManagementController.getMesesPendentesAluno);
+router.get('/aluno/:id/propina-classe/:anoLectivoId', PaymentManagementController.getPropinaClasse);
+router.post('/validate-bordero', PaymentManagementController.validateBordero);
+
+// Rotas de relatórios de vendas por funcionário
+router.get('/relatorios/vendas-funcionarios', PaymentManagementController.getRelatorioVendasFuncionarios);
+router.get('/relatorios/vendas-funcionario/:funcionarioId', PaymentManagementController.getRelatorioVendasDetalhado);
+router.get('/funcionarios', PaymentManagementController.getAllFuncionarios);
 
 export default router;

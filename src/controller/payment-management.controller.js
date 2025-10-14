@@ -619,4 +619,152 @@ export class PaymentManagementController {
       handleControllerError(res, error, "Erro ao obter dados do aluno", 400);
     }
   }
+
+  static async getTipoServicoTurmaAluno(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const result = await PaymentManagementService.getTipoServicoTurmaAluno(id);
+      
+      res.json({
+        success: true,
+        message: "Tipo de serviço da turma obtido com sucesso",
+        data: result,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter tipo de serviço da turma", 400);
+    }
+  }
+
+  static async getMesesPendentesAluno(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const { codigoAnoLectivo } = req.query;
+      const codigoAno = codigoAnoLectivo ? parseInt(codigoAnoLectivo) : null;
+      
+      const result = await PaymentManagementService.getMesesPendentesAluno(id, codigoAno);
+      
+      res.json({
+        success: true,
+        message: "Meses pendentes obtidos com sucesso",
+        data: result,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter meses pendentes", 400);
+    }
+  }
+
+  static async getAnosLectivos(req, res) {
+    try {
+      const anosLectivos = await PaymentManagementService.getAnosLectivos();
+      
+      res.json({
+        success: true,
+        message: "Anos letivos obtidos com sucesso",
+        data: anosLectivos,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter anos letivos", 400);
+    }
+  }
+
+  static async validateBordero(req, res) {
+    try {
+      const { bordero } = req.body;
+      const { excludeId } = req.query;
+      
+      await PaymentManagementService.validateBordero(bordero, excludeId ? parseInt(excludeId) : null);
+      
+      res.json({
+        success: true,
+        message: "Número de borderô válido",
+        data: { valid: true },
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao validar borderô", 400);
+    }
+  }
+
+  // Buscar propina da classe do aluno
+  static async getPropinaClasse(req, res) {
+    try {
+      const { id: alunoId, anoLectivoId } = req.params;
+      
+      const propinaClasse = await PaymentManagementService.getPropinaClasse(alunoId, anoLectivoId);
+      
+      if (!propinaClasse) {
+        return res.status(404).json({
+          success: false,
+          message: "Propina da classe não encontrada para este aluno e ano letivo"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Propina da classe obtida com sucesso",
+        data: propinaClasse
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar propina da classe", 500);
+    }
+  }
+
+  // ===============================
+  // RELATÓRIOS DE VENDAS POR FUNCIONÁRIO
+  // ===============================
+
+  static async getRelatorioVendasFuncionarios(req, res) {
+    try {
+      const { periodo, dataInicio, dataFim } = req.query;
+      
+      const relatorio = await PaymentManagementService.getRelatorioVendasFuncionarios(
+        periodo || 'diario',
+        dataInicio,
+        dataFim
+      );
+      
+      res.json({
+        success: true,
+        message: "Relatório de vendas por funcionário obtido com sucesso",
+        data: relatorio
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao gerar relatório de vendas por funcionário", 500);
+    }
+  }
+
+  static async getRelatorioVendasDetalhado(req, res) {
+    try {
+      const { funcionarioId } = req.params;
+      const { periodo, dataInicio, dataFim } = req.query;
+      
+      const relatorio = await PaymentManagementService.getRelatorioVendasDetalhado(
+        funcionarioId,
+        periodo || 'diario',
+        dataInicio,
+        dataFim
+      );
+      
+      res.json({
+        success: true,
+        message: "Relatório detalhado do funcionário obtido com sucesso",
+        data: relatorio
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao gerar relatório detalhado do funcionário", 500);
+    }
+  }
+
+  static async getAllFuncionarios(req, res) {
+    try {
+      const funcionarios = await PaymentManagementService.getAllFuncionarios();
+      
+      res.json({
+        success: true,
+        message: "Funcionários obtidos com sucesso",
+        data: funcionarios
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar funcionários", 500);
+    }
+  }
 }

@@ -137,7 +137,13 @@ export const pagamentoCreateSchema = z.object({
   ano: z.number().int().min(1900).max(2100),
   preco: positiveNumber,
   observacao: z.string().max(100, "Observação deve ter no máximo 100 caracteres").optional().default(""),
-  codigo_FormaPagamento: positiveInt
+  codigo_FormaPagamento: positiveInt,
+  codigo_Utilizador: positiveInt.optional(), // Funcionário que processa o pagamento
+  // Campos opcionais para depósito bancário
+  tipoConta: z.enum(['BAI', 'BFA']).optional(),
+  numeroBordero: z.string()
+    .regex(/^\d{9}$/, "Número de borderô deve conter exatamente 9 dígitos")
+    .optional()
 });
 
 export const pagamentoUpdateSchema = pagamentoCreateSchema.partial();
