@@ -1508,7 +1508,10 @@ export class PaymentManagementService {
 
       // Aplicar busca local se necessário
       let alunos = allAlunos;
+      let totalFiltrado = total;
+      
       if (filters.search) {
+        console.log(`🔍 Aplicando busca local para: "${filters.search}"`);
         const searchTerm = filters.search.toLowerCase();
         // Dividir o termo de busca em palavras para busca mais flexível
         const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
@@ -1540,11 +1543,21 @@ export class PaymentManagementService {
           }
           
           // Busca simples por termo único
-          return nome.includes(normalizedSearch) ||
-                 email.includes(normalizedSearch) ||
-                 documento.includes(normalizedSearch) ||
-                 telefone.includes(normalizedSearch);
+          const match = nome.includes(normalizedSearch) ||
+                       email.includes(normalizedSearch) ||
+                       documento.includes(normalizedSearch) ||
+                       telefone.includes(normalizedSearch);
+          
+          if (match) {
+            console.log(`✅ Encontrado: ${aluno.nome}`);
+          }
+          
+          return match;
         });
+        
+        // CORREÇÃO: Atualizar total filtrado
+        totalFiltrado = alunos.length;
+        console.log(`🔍 Resultados da busca: ${totalFiltrado} alunos encontrados`);
         
         // Aplicar paginação após filtro local
         const startIndex = (page - 1) * limit;
@@ -1553,8 +1566,8 @@ export class PaymentManagementService {
 
       const pagination = {
         currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalItems: total,
+        totalPages: Math.ceil(totalFiltrado / limit),
+        totalItems: totalFiltrado,
         itemsPerPage: limit
       };
 
