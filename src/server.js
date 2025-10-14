@@ -19,6 +19,7 @@ import financialServicesRoutes from './routes/financial-services.routes.js';
 import paymentManagementRoutes from './routes/payment-management.routes.js';
 import academicStaffRoutes from './routes/academic-staff.routes.js';
 import academicEvaluationRoutes from './routes/academic-evaluation.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -55,6 +56,7 @@ app.get('/', (req, res) => {
       paymentManagement: '/api/payment-management',
       academicStaff: '/api/academic-staff',
       academicEvaluation: '/api/academic-evaluation',
+      dashboard: '/api/dashboard',
       docs: '/api/docs'
     }
   });
@@ -83,6 +85,7 @@ app.use('/api/financial-services', financialServicesRoutes);
 app.use('/api/payment-management', paymentManagementRoutes);
 app.use('/api/academic-staff', academicStaffRoutes);
 app.use('/api/academic-evaluation', academicEvaluationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);
