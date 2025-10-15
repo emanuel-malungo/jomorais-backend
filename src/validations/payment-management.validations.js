@@ -138,7 +138,7 @@ export const pagamentoCreateSchema = z.object({
   preco: positiveNumber,
   observacao: z.string().max(100, "Observação deve ter no máximo 100 caracteres").optional().default(""),
   codigo_FormaPagamento: positiveInt,
-  codigo_Utilizador: positiveInt.optional(), // Funcionário que processa o pagamento
+  codigo_Utilizador: positiveInt, // Funcionário que processa o pagamento (obrigatório)
   // Campos opcionais para depósito bancário
   tipoConta: z.enum(['BAI', 'BFA']).optional(),
   numeroBordero: z.string()

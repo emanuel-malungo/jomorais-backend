@@ -488,6 +488,24 @@ export class PaymentManagementController {
   }
 
   // ===============================
+  // FUNCIONÁRIOS
+  // ===============================
+
+  static async getAllFuncionarios(req, res) {
+    try {
+      const funcionarios = await PaymentManagementService.getAllFuncionarios();
+      
+      res.json({
+        success: true,
+        message: `${funcionarios.length} funcionários encontrados`,
+        data: funcionarios,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar funcionários", 400);
+    }
+  }
+
+  // ===============================
   // NOVA GESTÃO FINANCEIRA
   // ===============================
 

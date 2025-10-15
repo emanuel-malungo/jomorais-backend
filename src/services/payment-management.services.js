@@ -2493,11 +2493,42 @@ export class PaymentManagementService {
   }
 
   // ===============================
+  // FUNCIONÁRIOS
+  // ===============================
+
+  static async getAllFuncionarios() {
+    try {
+      const funcionarios = await prisma.tb_utilizadores.findMany({
+        select: {
+          codigo: true,
+          nome: true,
+          user: true,
+          estadoActual: true
+        },
+        where: {
+          estadoActual: 'ATIVO' // Apenas funcionários ativos
+        },
+        orderBy: {
+          nome: 'asc'
+        }
+      });
+
+      return funcionarios;
+    } catch (error) {
+      console.error('Erro ao buscar funcionários:', error);
+      throw new AppError('Erro ao buscar funcionários', 500);
+    }
+  }
+
+  // ===============================
   // RELATÓRIOS DE VENDAS POR FUNCIONÁRIO
   // ===============================
 
   static async getRelatorioVendasFuncionarios(periodo = 'diario', dataInicio = null, dataFim = null) {
     try {
+      console.log('=== INICIANDO RELATÓRIO DE VENDAS POR FUNCIONÁRIO ===');
+      console.log('Parâmetros recebidos:', { periodo, dataInicio, dataFim });
+      
       // Definir período se não especificado
       const hoje = new Date();
       let startDate, endDate;
@@ -2535,6 +2566,7 @@ export class PaymentManagementService {
             gte: startDate,
             lt: endDate
           }
+          // Remover filtro not: null pois causa erro no Prisma
         },
         include: {
           aluno: {
@@ -2546,7 +2578,8 @@ export class PaymentManagementService {
           tipoServico: {
             select: {
               codigo: true,
-              designacao: true
+              designacao: true,
+              preco: true
             }
           },
           formaPagamento: {
@@ -2559,13 +2592,15 @@ export class PaymentManagementService {
             select: {
               codigo: true,
               nome: true,
-              user: true
+              user: true,
+              estadoActual: true
             }
           }
         },
-        orderBy: {
-          data: 'desc'
-        }
+        orderBy: [
+          { data: 'desc' },
+          { codigo_Utilizador: 'asc' }
+        ]
       });
 
       console.log(`Encontrados ${pagamentos.length} pagamentos no período`);
@@ -2595,7 +2630,13 @@ export class PaymentManagementService {
       let totalGeral = 0;
 
       pagamentos.forEach(pagamento => {
-        const funcionarioId = pagamento.codigo_Utilizador || 1;
+        const funcionarioId = pagamento.codigo_Utilizador;
+        
+        // Pular pagamentos sem funcionário válido (não deveria acontecer devido ao filtro)
+        if (!funcionarioId) {
+          console.warn('Pagamento sem código de utilizador encontrado:', pagamento.codigo);
+          return;
+        }
         
         // Buscar dados do funcionário na lista obtida
         const funcionarioData = funcionarios.find(f => f.codigo === funcionarioId);
@@ -2614,9 +2655,10 @@ export class PaymentManagementService {
           funcionarioNome = `Funcionário ${funcionarioId}`;
         }
         
-        console.log(`Funcionário ID ${funcionarioId}: Nome="${funcionarioNome}", User="${funcionarioUser}"`);
+        console.log(`Processando pagamento ${pagamento.codigo} - Funcionário ID ${funcionarioId}: Nome="${funcionarioNome}", User="${funcionarioUser}"`);
         
-        const valor = pagamento.preco || 0;
+        // Usar o preço do pagamento ou do tipo de serviço como fallback
+        const valor = pagamento.preco || pagamento.tipoServico?.preco || 0;
 
         if (!vendasPorFuncionario[funcionarioId]) {
           vendasPorFuncionario[funcionarioId] = {
@@ -2646,9 +2688,16 @@ export class PaymentManagementService {
       });
 
       console.log(`Total de funcionários com vendas: ${Object.keys(vendasPorFuncionario).length}`);
+      console.log(`Total geral de vendas: ${totalGeral} Kz`);
 
       // Converter para array e ordenar por total de vendas (decrescente)
       const relatorio = Object.values(vendasPorFuncionario).sort((a, b) => b.totalVendas - a.totalVendas);
+
+      // Log do ranking final
+      console.log('=== RANKING DE FUNCIONÁRIOS ===');
+      relatorio.forEach((func, index) => {
+        console.log(`${index + 1}º - ${func.funcionarioNome} (@${func.funcionarioUser}): ${func.totalVendas} Kz (${func.quantidadePagamentos} pagamentos)`);
+      });
 
       return {
         periodo,
@@ -2656,11 +2705,14 @@ export class PaymentManagementService {
         dataFim: endDate,
         totalGeral,
         totalPagamentos: pagamentos.length,
-        funcionarios: relatorio,
+        funcionarios: relatorio.map(func => ({
+          ...func,
+          percentualDoTotal: totalGeral > 0 ? ((func.totalVendas / totalGeral) * 100).toFixed(2) : 0
+        })),
         resumo: {
           melhorFuncionario: relatorio[0] || null,
           totalFuncionarios: relatorio.length,
-          mediaVendasPorFuncionario: relatorio.length > 0 ? totalGeral / relatorio.length : 0
+          mediaVendasPorFuncionario: relatorio.length > 0 ? (totalGeral / relatorio.length).toFixed(2) : 0
         }
       };
 
