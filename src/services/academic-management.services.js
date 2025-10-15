@@ -1045,8 +1045,7 @@ export class AcademicManagementService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 

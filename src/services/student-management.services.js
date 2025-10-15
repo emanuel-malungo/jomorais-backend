@@ -1705,11 +1705,23 @@ export class StudentManagementService {
 
   static async getMatriculas(page = 1, limit = 10, search = '') {
     try {
-      console.log('getMatriculas - Parâmetros:', { page, limit, search });
       const { skip, take } = getPagination(page, limit);
 
-      // Desabilitando busca no backend - será feita no frontend
-      const where = {};
+      // Implementar busca no backend por nome do aluno ou curso
+      const where = search ? {
+        OR: [
+          {
+            tb_alunos: {
+              nome: { contains: search }
+            }
+          },
+          {
+            tb_cursos: {
+              designacao: { contains: search }
+            }
+          }
+        ]
+      } : {};
       
       console.log('getMatriculas - Where clause:', JSON.stringify(where, null, 2));
 
