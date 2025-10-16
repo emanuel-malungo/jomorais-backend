@@ -1503,25 +1503,12 @@ export class StudentManagementService {
 
   static async createMatricula(data) {
     try {
-      console.log('=== SERVICE - CRIAR MATRÍCULA ===');
-      console.log('Dados recebidos:', data);
-      
       const { codigo_Aluno, data_Matricula, codigo_Curso, codigo_Utilizador, codigoStatus } = data;
-      
-      console.log('Dados extraídos:', {
-        codigo_Aluno,
-        data_Matricula,
-        codigo_Curso,
-        codigo_Utilizador,
-        codigoStatus
-      });
 
       // Verificar se o aluno existe
-      console.log('Verificando se aluno existe:', codigo_Aluno);
       const alunoExists = await prisma.tb_alunos.findUnique({
         where: { codigo: codigo_Aluno }
       });
-      console.log('Aluno encontrado:', !!alunoExists);
 
       if (!alunoExists) {
         throw new AppError('Aluno não encontrado', 404);
@@ -1532,51 +1519,34 @@ export class StudentManagementService {
       const cursoExists = await prisma.tb_cursos.findUnique({
         where: { codigo: codigo_Curso }
       });
-      console.log('Curso encontrado:', !!cursoExists);
 
       if (!cursoExists) {
         throw new AppError('Curso não encontrado', 404);
       }
 
       // Verificar se o utilizador existe
-      console.log('Verificando se utilizador existe:', codigo_Utilizador);
       const utilizadorExists = await prisma.tb_utilizadores.findUnique({
         where: { codigo: codigo_Utilizador }
       });
-      console.log('Utilizador encontrado:', !!utilizadorExists);
 
       if (!utilizadorExists) {
         throw new AppError('Utilizador não encontrado', 404);
       }
 
       // Verificar se já existe matrícula para este aluno
-      console.log('Verificando se aluno já tem matrícula:', codigo_Aluno);
       const existingMatricula = await prisma.tb_matriculas.findUnique({
         where: { codigo_Aluno }
       });
-      console.log('Matrícula existente:', !!existingMatricula);
 
       if (existingMatricula) {
         throw new AppError('Já existe uma matrícula para este aluno', 409);
       }
-
-      console.log('Criando matrícula com dados:', {
-        codigo_Aluno,
-        data_Matricula,
-        codigo_Curso,
-        codigo_Utilizador,
-        codigoStatus: codigoStatus ?? 1
-      });
-      
-      // Verificar se o problema é de mapeamento de campos
-      console.log('Tentando criar com Prisma...');
       
       // Buscar o próximo ID disponível
       const lastMatricula = await prisma.tb_matriculas.findFirst({
         orderBy: { codigo: 'desc' }
       });
       const nextCodigo = (lastMatricula?.codigo || 0) + 1;
-      console.log('Próximo código:', nextCodigo);
       
       const matricula = await prisma.tb_matriculas.create({
         data: {
@@ -1607,16 +1577,9 @@ export class StudentManagementService {
         }
       });
       
-      console.log('Matrícula criada com sucesso:', matricula.codigo);
       return matricula;
       
     } catch (error) {
-      console.log('=== ERRO NO SERVICE ===');
-      console.log('Erro completo:', error);
-      console.log('Mensagem:', error.message);
-      console.log('Stack:', error.stack);
-      console.log('======================');
-      
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao criar matrícula', 500);
     }
@@ -1775,7 +1738,6 @@ export class StudentManagementService {
         }
       };
     } catch (error) {
-      console.error(`Erro ao buscar matrículas: ${error.message}`, error);
       throw new AppError(`Erro ao buscar matrículas: ${error.message}`, 500);
     }
   }
@@ -2154,7 +2116,6 @@ export class StudentManagementService {
 
         return confirmacaoCompleta || confirmacao;
       } catch (includeError) {
-        console.warn('Erro ao buscar dados relacionados da confirmação:', includeError.message);
         
         // Se falhar com includes complexos, tentar com includes básicos
         try {
@@ -2188,14 +2149,12 @@ export class StudentManagementService {
 
           return confirmacaoBasica || confirmacao;
         } catch (basicError) {
-          console.warn('Erro ao buscar dados básicos da confirmação:', basicError.message);
           // Retornar apenas a confirmação sem includes
           return confirmacao;
         }
       }
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao buscar confirmação:', error);
       throw new AppError('Erro ao buscar confirmação', 500);
     }
   }
@@ -2335,8 +2294,35 @@ export class StudentManagementService {
         prisma.tb_transferencias.count({ where })
       ]);
 
+      // Buscar dados relacionados manualmente (apenas utilizador, pois as outras tabelas não existem)
+      const transferenciasComDados = await Promise.all(
+        transferencias.map(async (transferencia) => {
+          // Buscar utilizador
+          let utilizador = null;
+          if (transferencia.codigoUtilizador) {
+            try {
+              utilizador = await prisma.tb_utilizadores.findUnique({
+                where: { codigo: transferencia.codigoUtilizador },
+                select: {
+                  codigo: true,
+                  nome: true,
+                  user: true
+                }
+              });
+            } catch (error) {
+              throw new AppError('Erro ao buscar dados do utilizador', 500);
+            }
+          }
+
+          return {
+            ...transferencia,
+            tb_utilizadores: utilizador
+          };
+        })
+      );
+
       return {
-        data: transferencias,
+        data: transferenciasComDados,
         pagination: {
           currentPage: page,
           totalPages: Math.ceil(total / limit),
@@ -2559,12 +2545,10 @@ export class StudentManagementService {
 
   static async getMatriculasWithoutConfirmacao() {
     try {
-      console.log('Service: Buscando matrículas...');
       
       // Primeiro, vamos verificar se há dados básicos
       const totalMatriculas = await prisma.tb_matriculas.count();
       const totalAlunos = await prisma.tb_alunos.count();
-      console.log(`Service: Total matrículas: ${totalMatriculas}, Total alunos: ${totalAlunos}`);
       
       // Retornar TODAS as matrículas ativas para permitir confirmações
       const matriculas = await prisma.tb_matriculas.findMany({
@@ -2603,16 +2587,8 @@ export class StudentManagementService {
         orderBy: { data_Matricula: 'desc' }
       });
 
-      console.log(`Service: Encontradas ${matriculas.length} matrículas ativas`);
-      console.log('Service: Primeira matrícula:', matriculas[0] ? {
-        codigo: matriculas[0].codigo,
-        aluno: matriculas[0].tb_alunos?.nome,
-        curso: matriculas[0].tb_cursos?.designacao
-      } : 'Nenhuma');
-
       return matriculas;
     } catch (error) {
-      console.error('Service: Erro ao buscar matrículas:', error);
       throw new AppError('Erro ao buscar matrículas', 500);
     }
   }

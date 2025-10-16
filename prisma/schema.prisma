@@ -610,6 +610,11 @@ model tb_transferencias {
   tb_alunos tb_alunos @relation(fields: [codigoAluno], references: [codigo])
 }
 
+model tb_motivos_anulacao {
+  codigo     Int      @id @default(autoincrement()) @map("Codigo")
+  designacao String   @db.VarChar(45) @map("Designacao")
+} 
+
 // ===============================================================
 // CONTEXTO: FINANCEIRO - SERVIÇOS E PRODUTOS
 // ===============================================================
@@ -898,10 +903,10 @@ model tb_nota_credito {
   @@map("tb_nota_credito")
 }
 
-model tb_motivos_anulacao {
-  codigo     Int      @id @default(autoincrement()) @map("Codigo")
-  designacao String   @db.VarChar(45) @map("Designacao")
-}
+// model tb_motivos_anulacao {
+//   codigo     Int      @id @default(autoincrement()) @map("Codigo")
+//   designacao String   @db.VarChar(45) @map("Designacao")
+// }
 
 // ===============================================================
 // CONTEXTO: SISTEMA DE STATUS E CONTROLE

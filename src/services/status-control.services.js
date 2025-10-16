@@ -77,7 +77,6 @@ export class StatusControlService {
       const where = search ? {
         designacao: {
           contains: search,
-          mode: 'insensitive'
         }
       } : {};
 
@@ -205,7 +204,6 @@ export class StatusControlService {
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro detalhado ao criar status:', error);
       throw new AppError('Erro ao criar status', 500);
     }
   }
@@ -267,14 +265,12 @@ export class StatusControlService {
           {
             designacao: {
               contains: search,
-              mode: 'insensitive'
             }
           },
           {
             tb_tipo_status: {
               designacao: {
                 contains: search,
-                mode: 'insensitive'
               }
             }
           }
@@ -420,7 +416,6 @@ export class StatusControlService {
         where: {
           designacao: {
             contains: designacao,
-            mode: 'insensitive'
           }
         },
         include: {
