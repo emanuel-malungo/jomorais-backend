@@ -547,6 +547,87 @@ export class AcademicStaffService {
     }
   }
 
+  static async getDisciplinaDocenteById(id) {
+    try {
+      const associacao = await prisma.tb_disciplinas_docente.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_docente: { select: { codigo: true, nome: true } },
+          tb_cursos: { select: { codigo: true, designacao: true } },
+          tb_disciplinas: { select: { codigo: true, designacao: true } }
+        }
+      });
+
+      if (!associacao) {
+        throw new AppError('Associação disciplina-docente não encontrada', 404);
+      }
+
+      return associacao;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao buscar associação disciplina-docente', 500);
+    }
+  }
+
+  static async updateDisciplinaDocente(id, data) {
+    try {
+      const { codigoDocente, codigoCurso, codigoDisciplina } = data;
+
+      // Verificar se a associação existe
+      const existingAssociation = await prisma.tb_disciplinas_docente.findUnique({
+        where: { codigo: parseInt(id) }
+      });
+
+      if (!existingAssociation) {
+        throw new AppError('Associação não encontrada', 404);
+      }
+
+      // Verificar se as entidades relacionadas existem
+      const [docenteExists, cursoExists, disciplinaExists] = await Promise.all([
+        prisma.tb_docente.findUnique({ where: { codigo: parseInt(codigoDocente) } }),
+        prisma.tb_cursos.findUnique({ where: { codigo: parseInt(codigoCurso) } }),
+        prisma.tb_disciplinas.findUnique({ where: { codigo: parseInt(codigoDisciplina) } })
+      ]);
+
+      if (!docenteExists) throw new AppError('Docente não encontrado', 404);
+      if (!cursoExists) throw new AppError('Curso não encontrado', 404);
+      if (!disciplinaExists) throw new AppError('Disciplina não encontrada', 404);
+
+      // Verificar se já existe outra associação com os mesmos dados
+      const duplicateAssociation = await prisma.tb_disciplinas_docente.findFirst({
+        where: {
+          AND: [
+            { codigo: { not: parseInt(id) } },
+            { codigoDocente: parseInt(codigoDocente) },
+            { codigoCurso: parseInt(codigoCurso) },
+            { codigoDisciplina: parseInt(codigoDisciplina) }
+          ]
+        }
+      });
+
+      if (duplicateAssociation) {
+        throw new AppError('Já existe uma associação com estes dados', 409);
+      }
+
+      return await prisma.tb_disciplinas_docente.update({
+        where: { codigo: parseInt(id) },
+        data: {
+          codigoDocente: parseInt(codigoDocente),
+          codigoCurso: parseInt(codigoCurso),
+          codigoDisciplina: parseInt(codigoDisciplina)
+        },
+        include: {
+          tb_docente: { select: { codigo: true, nome: true } },
+          tb_cursos: { select: { codigo: true, designacao: true } },
+          tb_disciplinas: { select: { codigo: true, designacao: true } }
+        }
+      });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Erro ao atualizar associação disciplina-docente', 500);
+    }
+  }
+
   static async deleteDisciplinaDocente(id) {
     try {
       const existingAssociation = await prisma.tb_disciplinas_docente.findUnique({

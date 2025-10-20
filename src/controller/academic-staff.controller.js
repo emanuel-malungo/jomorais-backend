@@ -220,6 +220,37 @@ export class AcademicStaffController {
     }
   }
 
+  static async getDisciplinaDocenteById(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const associacao = await AcademicStaffService.getDisciplinaDocenteById(id);
+      
+      res.json({
+        success: true,
+        message: "Associação disciplina-docente encontrada",
+        data: associacao
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar associação disciplina-docente", 400);
+    }
+  }
+
+  static async updateDisciplinaDocente(req, res) {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const validatedData = disciplinaDocenteCreateSchema.parse(req.body);
+      const associacao = await AcademicStaffService.updateDisciplinaDocente(id, validatedData);
+      
+      res.json({
+        success: true,
+        message: "Associação disciplina-docente atualizada com sucesso",
+        data: associacao
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao atualizar associação disciplina-docente", 400);
+    }
+  }
+
   static async deleteDisciplinaDocente(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);

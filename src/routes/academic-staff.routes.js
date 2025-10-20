@@ -411,6 +411,63 @@ router.get('/disciplinas-docente', AcademicStaffController.getDisciplinasDocente
 /**
  * @swagger
  * /api/academic-staff/disciplinas-docente/{id}:
+ *   get:
+ *     summary: Buscar associação disciplina-docente por ID
+ *     tags: [Disciplinas Docente]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Associação encontrada com sucesso
+ */
+router.get('/disciplinas-docente/:id', AcademicStaffController.getDisciplinaDocenteById);
+
+/**
+ * @swagger
+ * /api/academic-staff/disciplinas-docente/{id}:
+ *   put:
+ *     summary: Atualizar associação disciplina-docente
+ *     tags: [Disciplinas Docente]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - codigoDocente
+ *               - codigoCurso
+ *               - codigoDisciplina
+ *             properties:
+ *               codigoDocente:
+ *                 type: integer
+ *               codigoCurso:
+ *                 type: integer
+ *               codigoDisciplina:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Associação atualizada com sucesso
+ */
+router.put('/disciplinas-docente/:id', AcademicStaffController.updateDisciplinaDocente);
+
+/**
+ * @swagger
+ * /api/academic-staff/disciplinas-docente/{id}:
  *   delete:
  *     summary: Excluir associação disciplina-docente
  *     tags: [Disciplinas Docente]
