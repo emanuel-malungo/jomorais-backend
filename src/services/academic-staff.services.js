@@ -71,8 +71,7 @@ export class AcademicStaffService {
       
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -290,24 +289,22 @@ export class AcademicStaffService {
     try {
       const skip = (page - 1) * limit;
       
+      // MySQL não suporta mode: 'insensitive', então removemos
       const where = search ? {
         OR: [
           {
             nome: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           },
           {
             email: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           },
           {
             contacto: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           }
         ]
@@ -317,10 +314,10 @@ export class AcademicStaffService {
         prisma.tb_docente.findMany({
           where,
           skip,
-          take: limit,
+          take: parseInt(limit),
           include: {
-            tb_disciplinas: { select: { codigo: true, designacao: true } },
-            tb_especialidade: { select: { codigo: true, designacao: true } },
+            tb_disciplinas: true,
+            tb_especialidade: true,
             _count: {
               select: { 
                 tb_disciplinas_docente: true,
@@ -348,7 +345,9 @@ export class AcademicStaffService {
         }
       };
     } catch (error) {
-      throw new AppError('Erro ao buscar docentes', 500);
+      console.error('Erro detalhado ao buscar docentes:', error);
+      console.error('Parâmetros de busca:', { page, limit, search });
+      throw new AppError(`Erro ao buscar docentes: ${error.message}`, 500);
     }
   }
 
@@ -752,15 +751,13 @@ export class AcademicStaffService {
         OR: [
           {
             designacao: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           },
           {
             tb_docente: {
               nome: {
-                contains: search,
-                mode: 'insensitive'
+                contains: search
               }
             }
           }
