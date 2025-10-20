@@ -315,11 +315,6 @@ export const turmaCreateSchema = z.object({
     .refine(val => Number.isInteger(val) && val > 0, {
       message: "Código do período deve ser um número inteiro positivo"
     }),
-  status: z
-    .string()
-    .max(45, "Status deve ter no máximo 45 caracteres")
-    .trim()
-    .optional(),
   codigo_AnoLectivo: z
     .union([
       z.string().transform(val => parseInt(val)),
@@ -327,8 +322,7 @@ export const turmaCreateSchema = z.object({
     ])
     .refine(val => Number.isInteger(val) && val > 0, {
       message: "Código do ano letivo deve ser um número inteiro positivo"
-    })
-    .optional(),
+    }),
   max_Alunos: z
     .union([
       z.string().transform(val => parseInt(val)),
@@ -336,9 +330,12 @@ export const turmaCreateSchema = z.object({
     ])
     .refine(val => Number.isInteger(val) && val > 0, {
       message: "Máximo de alunos deve ser um número inteiro positivo"
-    })
-    .optional()
-}).strict();
+    }),
+  status: z
+    .string()
+    .max(45, "Status deve ter no máximo 45 caracteres")
+    .trim()
+});
 
 export const turmaUpdateSchema = turmaCreateSchema.partial();
 
@@ -364,12 +361,16 @@ export const turmaFlexibleCreateSchema = z.object({
   periodo_id: z.union([z.string(), z.number()]).optional(),
   id_periodo: z.union([z.string(), z.number()]).optional(),
   
-  status: z.string().max(45).trim().optional(),
-  codigo_AnoLectivo: z.union([z.string(), z.number()]).optional(),
+  codigo_AnoLectivo: z.union([z.string(), z.number()]),
   ano_lectivo_id: z.union([z.string(), z.number()]).optional(),
-  max_Alunos: z.union([z.string(), z.number()]).optional(),
+  anoLectivo: z.union([z.string(), z.number()]).optional(),
+  
+  max_Alunos: z.union([z.string(), z.number()]),
   maximo_alunos: z.union([z.string(), z.number()]).optional(),
-  capacidade: z.union([z.string(), z.number()]).optional()
+  capacidade: z.union([z.string(), z.number()]).optional(),
+  maxAlunos: z.union([z.string(), z.number()]).optional(),
+  
+  status: z.string().max(45).trim()
 })
 .transform(data => {
   return {
@@ -378,9 +379,9 @@ export const turmaFlexibleCreateSchema = z.object({
     codigo_Curso: parseInt(data.codigo_Curso || data.curso_id || data.id_curso),
     codigo_Sala: parseInt(data.codigo_Sala || data.sala_id || data.id_sala),
     codigo_Periodo: parseInt(data.codigo_Periodo || data.periodo_id || data.id_periodo),
-    status: (data.status || "Activo").trim(),
-    codigo_AnoLectivo: parseInt(data.codigo_AnoLectivo || data.ano_lectivo_id || 1),
-    max_Alunos: parseInt(data.max_Alunos || data.maximo_alunos || data.capacidade || 30)
+    codigo_AnoLectivo: parseInt(data.codigo_AnoLectivo || data.ano_lectivo_id || data.anoLectivo),
+    max_Alunos: parseInt(data.max_Alunos || data.maximo_alunos || data.capacidade || data.maxAlunos),
+    status: data.status.trim()
   };
 });
 

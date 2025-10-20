@@ -949,7 +949,7 @@ export class AcademicManagementService {
 
       const existingTurma = await prisma.tb_turmas.findFirst({
         where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+          designacao: designacao.trim()
         }
       });
 
@@ -977,7 +977,8 @@ export class AcademicManagementService {
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao criar turma', 500);
+      console.error('Erro detalhado ao criar turma:', error);
+      throw new AppError(`Erro ao criar turma: ${error.message}`, 500);
     }
   }
 
