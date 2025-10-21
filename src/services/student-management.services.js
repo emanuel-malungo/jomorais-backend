@@ -2917,4 +2917,206 @@ export class StudentManagementService {
       throw new AppError('Erro ao gerar estatísticas de alunos', 500);
     }
   }
+
+  static async getConfirmacoesStatistics(statusFilter = null, anoLectivoFilter = null) {
+    try {
+      console.log('[getConfirmacoesStatistics] Gerando estatísticas de confirmações com filtros:', { statusFilter, anoLectivoFilter });
+
+      // Construir filtro base
+      const baseWhere = {};
+      
+      // Filtro por status (se fornecido)
+      if (statusFilter !== null && statusFilter !== 'all') {
+        baseWhere.codigo_Status = parseInt(statusFilter);
+      }
+      
+      // Filtro por ano letivo (se fornecido)
+      if (anoLectivoFilter !== null && anoLectivoFilter !== 'all') {
+        baseWhere.codigo_Ano_lectivo = parseInt(anoLectivoFilter);
+      }
+
+      // Executar queries em paralelo para melhor performance
+      const [
+        totalConfirmacoes,
+        confirmacoesAtivas,
+        confirmacoesInativas,
+        aprovados,
+        reprovados,
+        pendentes,
+        distribuicaoPorAnoLectivo,
+        distribuicaoPorClassificacao,
+        distribuicaoPorTurma
+      ] = await Promise.all([
+        // Total de confirmações (com filtros aplicados)
+        prisma.tb_confirmacoes.count({ where: baseWhere }),
+
+        // Confirmações ativas (codigo_Status = 1)
+        prisma.tb_confirmacoes.count({ 
+          where: { 
+            ...baseWhere,
+            codigo_Status: 1 
+          } 
+        }),
+
+        // Confirmações inativas (codigo_Status != 1)
+        prisma.tb_confirmacoes.count({ 
+          where: { 
+            ...baseWhere,
+            codigo_Status: { not: 1 }
+          } 
+        }),
+
+        // Aprovados
+        prisma.tb_confirmacoes.count({
+          where: {
+            ...baseWhere,
+            classificacao: { contains: 'Aprovado' }
+          }
+        }),
+
+        // Reprovados
+        prisma.tb_confirmacoes.count({
+          where: {
+            ...baseWhere,
+            classificacao: { contains: 'Reprovado' }
+          }
+        }),
+
+        // Pendentes
+        prisma.tb_confirmacoes.count({
+          where: {
+            ...baseWhere,
+            classificacao: { contains: 'Pendente' }
+          }
+        }),
+
+        // Distribuição por ano letivo (top 5)
+        prisma.tb_confirmacoes.groupBy({
+          by: ['codigo_Ano_lectivo'],
+          where: baseWhere,
+          _count: {
+            codigo: true
+          },
+          orderBy: {
+            _count: {
+              codigo: 'desc'
+            }
+          },
+          take: 5
+        }),
+
+        // Distribuição por classificação
+        prisma.tb_confirmacoes.groupBy({
+          by: ['classificacao'],
+          where: baseWhere,
+          _count: {
+            codigo: true
+          },
+          orderBy: {
+            _count: {
+              codigo: 'desc'
+            }
+          }
+        }),
+
+        // Distribuição por turma (top 10)
+        prisma.tb_confirmacoes.groupBy({
+          by: ['codigo_Turma'],
+          where: baseWhere,
+          _count: {
+            codigo: true
+          },
+          orderBy: {
+            _count: {
+              codigo: 'desc'
+            }
+          },
+          take: 10
+        })
+      ]);
+
+      // Buscar detalhes dos anos letivos
+      const anosLectivosIds = distribuicaoPorAnoLectivo.map(item => item.codigo_Ano_lectivo);
+      const anosLectivosDetalhes = await prisma.tb_ano_lectivo.findMany({
+        where: {
+          codigo: { in: anosLectivosIds }
+        },
+        select: {
+          codigo: true,
+          designacao: true
+        }
+      });
+
+      // Buscar detalhes das turmas
+      const turmasIds = distribuicaoPorTurma.map(item => item.codigo_Turma);
+      const turmasDetalhes = await prisma.tb_turmas.findMany({
+        where: {
+          codigo: { in: turmasIds }
+        },
+        select: {
+          codigo: true,
+          designacao: true,
+          tb_classes: {
+            select: {
+              codigo: true,
+              designacao: true
+            }
+          }
+        }
+      });
+
+      // Mapear distribuição por ano letivo com detalhes
+      const anosLectivosComDetalhes = distribuicaoPorAnoLectivo.map(item => {
+        const anoLectivo = anosLectivosDetalhes.find(al => al.codigo === item.codigo_Ano_lectivo);
+        return {
+          codigo_Ano_lectivo: item.codigo_Ano_lectivo,
+          designacao: anoLectivo?.designacao || 'Ano Letivo Desconhecido',
+          total: item._count.codigo
+        };
+      });
+
+      // Mapear distribuição por turma com detalhes
+      const turmasComDetalhes = distribuicaoPorTurma.map(item => {
+        const turma = turmasDetalhes.find(t => t.codigo === item.codigo_Turma);
+        return {
+          codigo_Turma: item.codigo_Turma,
+          designacao_Turma: turma?.designacao || 'Turma Desconhecida',
+          designacao_Classe: turma?.tb_classes?.designacao || 'Classe Desconhecida',
+          total: item._count.codigo
+        };
+      });
+
+      // Processar distribuição por classificação
+      const classificacaoStats = distribuicaoPorClassificacao.map(item => ({
+        classificacao: item.classificacao || 'Não Definido',
+        total: item._count.codigo
+      }));
+
+      const statistics = {
+        totalConfirmacoes,
+        confirmacoesAtivas,
+        confirmacoesInativas,
+        aprovados,
+        reprovados,
+        pendentes,
+        distribuicaoPorAnoLectivo: anosLectivosComDetalhes,
+        distribuicaoPorClassificacao: classificacaoStats,
+        distribuicaoPorTurma: turmasComDetalhes,
+        percentuais: {
+          ativas: totalConfirmacoes > 0 ? ((confirmacoesAtivas / totalConfirmacoes) * 100).toFixed(2) : '0.00',
+          inativas: totalConfirmacoes > 0 ? ((confirmacoesInativas / totalConfirmacoes) * 100).toFixed(2) : '0.00',
+          aprovados: totalConfirmacoes > 0 ? ((aprovados / totalConfirmacoes) * 100).toFixed(2) : '0.00',
+          reprovados: totalConfirmacoes > 0 ? ((reprovados / totalConfirmacoes) * 100).toFixed(2) : '0.00',
+          pendentes: totalConfirmacoes > 0 ? ((pendentes / totalConfirmacoes) * 100).toFixed(2) : '0.00'
+        }
+      };
+
+      console.log('[getConfirmacoesStatistics] Estatísticas geradas:', statistics);
+
+      return statistics;
+    } catch (error) {
+      console.error('Erro ao gerar estatísticas de confirmações:', error);
+      throw new AppError('Erro ao gerar estatísticas de confirmações', 500);
+    }
+  }
 }

@@ -779,6 +779,23 @@ export class StudentManagementController {
     }
   }
 
+  static async getConfirmacoesStatistics(req, res) {
+    try {
+      const statusFilter = req.query.status || null;
+      const anoLectivoFilter = req.query.anoLectivo || null;
+
+      const statistics = await StudentManagementService.getConfirmacoesStatistics(statusFilter, anoLectivoFilter);
+      
+      res.json({
+        success: true,
+        message: "Estatísticas de confirmações obtidas com sucesso",
+        data: statistics,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter estatísticas de confirmações", 400);
+    }
+  }
+
   // ===============================
   // OPERAÇÕES EM LOTE (BATCH)
   // ===============================

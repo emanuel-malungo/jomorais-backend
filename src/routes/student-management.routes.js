@@ -2221,4 +2221,112 @@ router.get('/statistics/alunos', StudentManagementController.getAlunosStatistics
  */
 router.get('/statistics/matriculas', StudentManagementController.getMatriculasStatistics);
 
+/**
+ * @swagger
+ * /api/student-management/statistics/confirmacoes:
+ *   get:
+ *     summary: Obter estatísticas de confirmações
+ *     tags: [Estatísticas]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filtrar por status (1 para ativas, outro para inativas)
+ *       - in: query
+ *         name: anoLectivo
+ *         schema:
+ *           type: integer
+ *         description: Filtrar por código do ano letivo
+ *     responses:
+ *       200:
+ *         description: Estatísticas obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Estatísticas de confirmações obtidas com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalConfirmacoes:
+ *                       type: integer
+ *                       example: 150
+ *                     confirmacoesAtivas:
+ *                       type: integer
+ *                       example: 140
+ *                     confirmacoesInativas:
+ *                       type: integer
+ *                       example: 10
+ *                     aprovados:
+ *                       type: integer
+ *                       example: 120
+ *                     reprovados:
+ *                       type: integer
+ *                       example: 15
+ *                     pendentes:
+ *                       type: integer
+ *                       example: 15
+ *                     distribuicaoPorAnoLectivo:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           codigo_Ano_lectivo:
+ *                             type: integer
+ *                           designacao:
+ *                             type: string
+ *                           total:
+ *                             type: integer
+ *                     distribuicaoPorClassificacao:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           classificacao:
+ *                             type: string
+ *                           total:
+ *                             type: integer
+ *                     distribuicaoPorTurma:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           codigo_Turma:
+ *                             type: integer
+ *                           designacao_Turma:
+ *                             type: string
+ *                           designacao_Classe:
+ *                             type: string
+ *                           total:
+ *                             type: integer
+ *                     percentuais:
+ *                       type: object
+ *                       properties:
+ *                         ativas:
+ *                           type: string
+ *                           example: "93.33"
+ *                         inativas:
+ *                           type: string
+ *                           example: "6.67"
+ *                         aprovados:
+ *                           type: string
+ *                           example: "80.00"
+ *                         reprovados:
+ *                           type: string
+ *                           example: "10.00"
+ *                         pendentes:
+ *                           type: string
+ *                           example: "10.00"
+ *       400:
+ *         description: Erro ao gerar estatísticas
+ */
+router.get('/statistics/confirmacoes', StudentManagementController.getConfirmacoesStatistics);
+
 export default router;
