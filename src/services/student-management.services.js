@@ -2025,12 +2025,55 @@ export class StudentManagementService {
     }
   }
 
-  static async getConfirmacoes(page = 1, limit = 10, search = '') {
+  static async getConfirmacoes(page = 1, limit = 10, search = '', statusFilter = null, anoLectivoFilter = null) {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      // Desabilitando busca no backend - será feita no frontend
+      // Construir filtro dinâmico
       const where = {};
+      const andConditions = [];
+
+      // Filtro de busca por texto (nome do aluno, turma ou ano letivo)
+      if (search) {
+        andConditions.push({
+          OR: [
+            {
+              tb_matriculas: {
+                tb_alunos: {
+                  nome: { contains: search }
+                }
+              }
+            },
+            {
+              tb_turmas: {
+                designacao: { contains: search }
+              }
+            },
+            {
+              classificacao: { contains: search }
+            }
+          ]
+        });
+      }
+
+      // Filtro por status
+      if (statusFilter !== null && statusFilter !== 'all') {
+        andConditions.push({
+          codigo_Status: parseInt(statusFilter)
+        });
+      }
+
+      // Filtro por ano letivo
+      if (anoLectivoFilter !== null && anoLectivoFilter !== 'all') {
+        andConditions.push({
+          codigo_Ano_lectivo: parseInt(anoLectivoFilter)
+        });
+      }
+
+      // Aplicar condições AND se houver filtros
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
 
       const [confirmacoes, total] = await Promise.all([
         prisma.tb_confirmacoes.findMany({
