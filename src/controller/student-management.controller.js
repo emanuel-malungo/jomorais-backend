@@ -743,6 +743,23 @@ export class StudentManagementController {
   // ESTATÍSTICAS
   // ===============================
 
+  static async getMatriculasStatistics(req, res) {
+    try {
+      const statusFilter = req.query.status || null;
+      const cursoFilter = req.query.curso || null;
+
+      const statistics = await StudentManagementService.getMatriculasStatistics(statusFilter, cursoFilter);
+      
+      res.json({
+        success: true,
+        message: "Estatísticas de matrículas obtidas com sucesso",
+        data: statistics,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter estatísticas de matrículas", 400);
+    }
+  }
+
   static async getAlunosStatistics(req, res) {
     try {
       const statusFilter = req.query.status || null;

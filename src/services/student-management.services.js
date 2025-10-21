@@ -2640,6 +2640,122 @@ export class StudentManagementService {
   // ESTATÍSTICAS
   // ===============================
 
+  static async getMatriculasStatistics(statusFilter = null, cursoFilter = null) {
+    try {
+      console.log('[getMatriculasStatistics] Gerando estatísticas de matrículas com filtros:', { statusFilter, cursoFilter });
+
+      // Construir filtro base
+      const baseWhere = {};
+      
+      // Filtro por status (se fornecido)
+      if (statusFilter !== null && statusFilter !== 'all') {
+        baseWhere.codigoStatus = parseInt(statusFilter);
+      }
+      
+      // Filtro por curso (se fornecido)
+      if (cursoFilter !== null && cursoFilter !== 'all') {
+        baseWhere.codigo_Curso = parseInt(cursoFilter);
+      }
+
+      // Executar queries em paralelo para melhor performance
+      const [
+        totalMatriculas,
+        matriculasAtivas,
+        matriculasInativas,
+        matriculasComConfirmacao,
+        matriculasSemConfirmacao,
+        distribuicaoPorCurso
+      ] = await Promise.all([
+        // Total de matrículas (com filtros aplicados)
+        prisma.tb_matriculas.count({ where: baseWhere }),
+
+        // Matrículas ativas (codigoStatus = 1)
+        prisma.tb_matriculas.count({ 
+          where: { 
+            ...baseWhere,
+            codigoStatus: 1 
+          } 
+        }),
+
+        // Matrículas inativas (codigoStatus != 1)
+        prisma.tb_matriculas.count({ 
+          where: { 
+            ...baseWhere,
+            codigoStatus: { not: 1 }
+          } 
+        }),
+
+        // Matrículas com confirmação
+        prisma.tb_matriculas.count({
+          where: {
+            ...baseWhere,
+            tb_confirmacoes: { 
+              some: {} 
+            }
+          }
+        }),
+
+        // Matrículas sem confirmação
+        prisma.tb_matriculas.count({
+          where: {
+            ...baseWhere,
+            tb_confirmacoes: { 
+              none: {} 
+            }
+          }
+        }),
+
+        // Distribuição por curso (top 5)
+        prisma.tb_matriculas.groupBy({
+          by: ['codigo_Curso'],
+          where: baseWhere,
+          _count: {
+            codigo: true
+          },
+          orderBy: {
+            _count: {
+              codigo: 'desc'
+            }
+          },
+          take: 5
+        })
+      ]);
+
+      // Buscar informações dos cursos para a distribuição
+      const cursosIds = distribuicaoPorCurso.map(item => item.codigo_Curso);
+      const cursos = await prisma.tb_cursos.findMany({
+        where: {
+          codigo: { in: cursosIds }
+        },
+        select: {
+          codigo: true,
+          designacao: true
+        }
+      });
+
+      // Mapear cursos com suas contagens
+      const cursosMap = new Map(cursos.map(c => [c.codigo, c.designacao]));
+      const distribuicaoCursos = distribuicaoPorCurso.map(item => ({
+        curso: cursosMap.get(item.codigo_Curso) || 'Desconhecido',
+        total: item._count.codigo
+      }));
+
+      return {
+        total: totalMatriculas,
+        ativas: matriculasAtivas,
+        inativas: matriculasInativas,
+        comConfirmacao: matriculasComConfirmacao,
+        semConfirmacao: matriculasSemConfirmacao,
+        percentualAtivas: totalMatriculas > 0 ? ((matriculasAtivas / totalMatriculas) * 100).toFixed(2) : '0',
+        percentualComConfirmacao: totalMatriculas > 0 ? ((matriculasComConfirmacao / totalMatriculas) * 100).toFixed(2) : '0',
+        distribuicaoPorCurso: distribuicaoCursos
+      };
+    } catch (error) {
+      console.error('Erro ao gerar estatísticas de matrículas:', error);
+      throw new AppError('Erro ao gerar estatísticas de matrículas', 500);
+    }
+  }
+
   static async getAlunosStatistics(statusFilter = null, cursoFilter = null) {
     try {
       console.log('[getAlunosStatistics] Gerando estatísticas com filtros:', { statusFilter, cursoFilter });

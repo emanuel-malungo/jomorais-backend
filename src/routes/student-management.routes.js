@@ -2124,4 +2124,101 @@ router.delete('/transferencias/:id', StudentManagementController.deleteTransfere
  */
 router.get('/statistics/alunos', StudentManagementController.getAlunosStatistics);
 
+/**
+ * @swagger
+ * /api/student-management/statistics/matriculas:
+ *   get:
+ *     summary: Obter estatísticas das matrículas
+ *     description: |
+ *       Retorna estatísticas completas das matrículas, incluindo:
+ *       - Total de matrículas
+ *       - Matrículas ativas (codigoStatus = 1)
+ *       - Matrículas inativas (codigoStatus != 1)
+ *       - Matrículas com confirmação
+ *       - Matrículas sem confirmação
+ *       - Distribuição por curso (top 5)
+ *       - Percentuais calculados
+ *       
+ *       Suporta filtros opcionais por status e curso.
+ *     tags: [Gestão de Estudantes - Estatísticas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, '1', '0']
+ *         description: Filtro por status da matrícula (opcional)
+ *         example: '1'
+ *       - in: query
+ *         name: curso
+ *         schema:
+ *           type: string
+ *         description: Filtro por código do curso (opcional)
+ *         example: '5'
+ *     responses:
+ *       200:
+ *         description: Estatísticas obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Estatísticas de matrículas obtidas com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Número total de matrículas
+ *                       example: 200
+ *                     ativas:
+ *                       type: integer
+ *                       description: Número de matrículas ativas
+ *                       example: 195
+ *                     inativas:
+ *                       type: integer
+ *                       description: Número de matrículas inativas
+ *                       example: 5
+ *                     comConfirmacao:
+ *                       type: integer
+ *                       description: Número de matrículas com confirmação
+ *                       example: 180
+ *                     semConfirmacao:
+ *                       type: integer
+ *                       description: Número de matrículas sem confirmação
+ *                       example: 20
+ *                     percentualAtivas:
+ *                       type: string
+ *                       description: Percentual de matrículas ativas
+ *                       example: "97.50"
+ *                     percentualComConfirmacao:
+ *                       type: string
+ *                       description: Percentual de matrículas com confirmação
+ *                       example: "90.00"
+ *                     distribuicaoPorCurso:
+ *                       type: array
+ *                       description: Top 5 cursos com mais matrículas
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           curso:
+ *                             type: string
+ *                             example: "Informática de Gestão"
+ *                           total:
+ *                             type: integer
+ *                             example: 85
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Erro ao gerar estatísticas
+ */
+router.get('/statistics/matriculas', StudentManagementController.getMatriculasStatistics);
+
 export default router;
