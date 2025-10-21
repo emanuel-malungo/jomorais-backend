@@ -909,10 +909,13 @@ export class StudentManagementService {
       }
       
       // Filtro por curso (via matrícula)
+      // Usar abordagem diferente para garantir que a contagem funcione corretamente
       if (cursoFilter !== null && cursoFilter !== 'all') {
         where.tb_matriculas = {
-          tb_cursos: {
-            codigo: parseInt(cursoFilter)
+          is: {
+            tb_cursos: {
+              codigo: parseInt(cursoFilter)
+            }
           }
         };
       }
@@ -921,6 +924,7 @@ export class StudentManagementService {
       let alunos, total;
       
       try {
+        
         
         // Tentativa com includes complexos
         [alunos, total] = await Promise.all([
@@ -974,7 +978,7 @@ export class StudentManagementService {
           prisma.tb_alunos.count({ where })
         ]);
 
-        // console.log(`[getAlunos] Encontrados ${total} alunos, retornando ${alunos.length} nesta página`);
+        console.log(`[getAlunos] Resultados: ${alunos.length} alunos nesta página, ${total} total com filtros aplicados`);
 
         // Buscar dados relacionados adicionais para cada aluno
         const alunosComDadosCompletos = await Promise.all(
