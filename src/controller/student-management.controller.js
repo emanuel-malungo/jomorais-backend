@@ -422,8 +422,10 @@ export class StudentManagementController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const search = req.query.search || '';
+      const statusFilter = req.query.status || null;
+      const cursoFilter = req.query.curso || null;
 
-      const result = await StudentManagementService.getMatriculas(page, limit, search);
+      const result = await StudentManagementService.getMatriculas(page, limit, search, statusFilter, cursoFilter);
       
       res.json({
         success: true,

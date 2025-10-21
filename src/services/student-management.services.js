@@ -1686,27 +1686,50 @@ export class StudentManagementService {
     }
   }
 
-  static async getMatriculas(page = 1, limit = 10, search = '') {
+  static async getMatriculas(page = 1, limit = 10, search = '', statusFilter = null, cursoFilter = null) {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      // Implementar busca no backend por nome do aluno ou curso
-      const where = search ? {
-        OR: [
-          {
-            tb_alunos: {
-              nome: { contains: search }
+      // Construir filtro dinâmico
+      const where = {};
+      const andConditions = [];
+
+      // Filtro de busca por texto (nome do aluno ou designação do curso)
+      if (search) {
+        andConditions.push({
+          OR: [
+            {
+              tb_alunos: {
+                nome: { contains: search }
+              }
+            },
+            {
+              tb_cursos: {
+                designacao: { contains: search }
+              }
             }
-          },
-          {
-            tb_cursos: {
-              designacao: { contains: search }
-            }
-          }
-        ]
-      } : {};
-      
-      console.log('getMatriculas - Where clause:', JSON.stringify(where, null, 2));
+          ]
+        });
+      }
+
+      // Filtro por status
+      if (statusFilter !== null && statusFilter !== 'all') {
+        andConditions.push({
+          codigoStatus: parseInt(statusFilter)
+        });
+      }
+
+      // Filtro por curso
+      if (cursoFilter !== null && cursoFilter !== 'all') {
+        andConditions.push({
+          codigo_Curso: parseInt(cursoFilter)
+        });
+      }
+
+      // Aplicar condições AND se houver filtros
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
 
       const [matriculas, total] = await Promise.all([
         prisma.tb_matriculas.findMany({
