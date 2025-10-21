@@ -882,29 +882,45 @@ export class StudentManagementService {
     }
   }
 
-  static async getAlunos(page = 1, limit = 10, search = '') {
+  static async getAlunos(page = 1, limit = 10, search = '', statusFilter = null, cursoFilter = null) {
     try {
       const { skip, take } = getPagination(page, limit);
 
       // Construir filtro de busca
       // Nota: Para MySQL, removemos o 'mode: insensitive' pois não é suportado
       // O MySQL já faz buscas case-insensitive por padrão (dependendo da collation)
-      const where = search ? {
-        OR: [
+      const where = {};
+      
+      // Filtro de busca por texto
+      if (search) {
+        where.OR = [
           { nome: { contains: search } },
           { email: { contains: search } },
           { telefone: { contains: search } },
           { n_documento_identificacao: { contains: search } },
           { pai: { contains: search } },
           { mae: { contains: search } }
-        ]
-      } : {};
+        ];
+      }
+      
+      // Filtro por status
+      if (statusFilter !== null && statusFilter !== 'all') {
+        where.codigo_Status = parseInt(statusFilter);
+      }
+      
+      // Filtro por curso (via matrícula)
+      if (cursoFilter !== null && cursoFilter !== 'all') {
+        where.tb_matriculas = {
+          tb_cursos: {
+            codigo: parseInt(cursoFilter)
+          }
+        };
+      }
 
       // Implementação robusta baseada na memória - step-by-step query approach
       let alunos, total;
       
       try {
-        console.log(`[getAlunos] Buscando alunos - página ${page}, limite ${limit}, busca: ${search}`);
         
         // Tentativa com includes complexos
         [alunos, total] = await Promise.all([
