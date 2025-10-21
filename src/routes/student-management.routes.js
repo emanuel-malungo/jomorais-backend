@@ -2012,4 +2012,116 @@ router.put('/transferencias/:id', StudentManagementController.updateTransferenci
  */
 router.delete('/transferencias/:id', StudentManagementController.deleteTransferencia);
 
+// ===============================
+// ROTAS PARA ESTATÍSTICAS
+// ===============================
+
+/**
+ * @swagger
+ * /api/student-management/statistics/alunos:
+ *   get:
+ *     summary: Obter estatísticas dos alunos
+ *     description: |
+ *       Retorna estatísticas completas dos alunos, incluindo:
+ *       - Total de alunos
+ *       - Alunos ativos (status = 1)
+ *       - Alunos inativos (status != 1)
+ *       - Alunos com matrícula
+ *       - Alunos sem matrícula
+ *       - Distribuição por sexo
+ *       - Percentuais calculados
+ *       
+ *       Suporta filtros opcionais por status e curso.
+ *     tags: [Gestão de Estudantes - Estatísticas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, '1', '2', '3']
+ *         description: Filtro por status (opcional)
+ *         example: '1'
+ *       - in: query
+ *         name: curso
+ *         schema:
+ *           type: string
+ *         description: Filtro por código do curso (opcional)
+ *         example: '5'
+ *     responses:
+ *       200:
+ *         description: Estatísticas obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Estatísticas obtidas com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalAlunos:
+ *                       type: integer
+ *                       description: Número total de alunos
+ *                       example: 150
+ *                     alunosAtivos:
+ *                       type: integer
+ *                       description: Número de alunos ativos
+ *                       example: 145
+ *                     alunosInativos:
+ *                       type: integer
+ *                       description: Número de alunos inativos
+ *                       example: 5
+ *                     alunosComMatricula:
+ *                       type: integer
+ *                       description: Número de alunos com matrícula
+ *                       example: 140
+ *                     alunosSemMatricula:
+ *                       type: integer
+ *                       description: Número de alunos sem matrícula
+ *                       example: 10
+ *                     distribuicaoPorSexo:
+ *                       type: object
+ *                       properties:
+ *                         masculino:
+ *                           type: integer
+ *                           example: 80
+ *                         feminino:
+ *                           type: integer
+ *                           example: 70
+ *                         outro:
+ *                           type: integer
+ *                           example: 0
+ *                     percentuais:
+ *                       type: object
+ *                       properties:
+ *                         ativos:
+ *                           type: string
+ *                           description: Percentual de alunos ativos
+ *                           example: "96.67"
+ *                         inativos:
+ *                           type: string
+ *                           description: Percentual de alunos inativos
+ *                           example: "3.33"
+ *                         comMatricula:
+ *                           type: string
+ *                           description: Percentual de alunos com matrícula
+ *                           example: "93.33"
+ *                         semMatricula:
+ *                           type: string
+ *                           description: Percentual de alunos sem matrícula
+ *                           example: "6.67"
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         description: Erro ao gerar estatísticas
+ */
+router.get('/statistics/alunos', StudentManagementController.getAlunosStatistics);
+
 export default router;

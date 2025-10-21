@@ -738,6 +738,27 @@ export class StudentManagementController {
   }
 
   // ===============================
+  // ESTATÍSTICAS
+  // ===============================
+
+  static async getAlunosStatistics(req, res) {
+    try {
+      const statusFilter = req.query.status || null;
+      const cursoFilter = req.query.curso || null;
+
+      const statistics = await StudentManagementService.getAlunosStatistics(statusFilter, cursoFilter);
+      
+      res.json({
+        success: true,
+        message: "Estatísticas obtidas com sucesso",
+        data: statistics,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter estatísticas", 400);
+    }
+  }
+
+  // ===============================
   // OPERAÇÕES EM LOTE (BATCH)
   // ===============================
 

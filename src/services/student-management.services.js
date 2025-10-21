@@ -2612,4 +2612,127 @@ export class StudentManagementService {
       throw new AppError('Erro ao buscar matrículas', 500);
     }
   }
+
+  // ===============================
+  // ESTATÍSTICAS
+  // ===============================
+
+  static async getAlunosStatistics(statusFilter = null, cursoFilter = null) {
+    try {
+      console.log('[getAlunosStatistics] Gerando estatísticas com filtros:', { statusFilter, cursoFilter });
+
+      // Construir filtro base
+      const baseWhere = {};
+      
+      // Filtro por status (se fornecido)
+      if (statusFilter !== null && statusFilter !== 'all') {
+        baseWhere.codigo_Status = parseInt(statusFilter);
+      }
+      
+      // Filtro por curso (se fornecido)
+      if (cursoFilter !== null && cursoFilter !== 'all') {
+        baseWhere.tb_matriculas = {
+          is: {
+            tb_cursos: {
+              codigo: parseInt(cursoFilter)
+            }
+          }
+        };
+      }
+
+      // Executar queries em paralelo para melhor performance
+      const [
+        totalAlunos,
+        alunosAtivos,
+        alunosInativos,
+        alunosComMatricula,
+        alunosSemMatricula,
+        distribuicaoPorSexo
+      ] = await Promise.all([
+        // Total de alunos (com filtros aplicados)
+        prisma.tb_alunos.count({ where: baseWhere }),
+
+        // Alunos ativos (status = 1)
+        prisma.tb_alunos.count({ 
+          where: { 
+            ...baseWhere,
+            codigo_Status: 1 
+          } 
+        }),
+
+        // Alunos inativos (status != 1)
+        prisma.tb_alunos.count({ 
+          where: { 
+            ...baseWhere,
+            codigo_Status: { not: 1 }
+          } 
+        }),
+
+        // Alunos com matrícula
+        prisma.tb_alunos.count({
+          where: {
+            ...baseWhere,
+            tb_matriculas: { isNot: null }
+          }
+        }),
+
+        // Alunos sem matrícula
+        prisma.tb_alunos.count({
+          where: {
+            ...baseWhere,
+            tb_matriculas: null
+          }
+        }),
+
+        // Distribuição por sexo
+        prisma.tb_alunos.groupBy({
+          by: ['sexo'],
+          where: baseWhere,
+          _count: {
+            codigo: true
+          }
+        })
+      ]);
+
+      // Processar distribuição por sexo
+      const sexoStats = {
+        masculino: 0,
+        feminino: 0,
+        outro: 0
+      };
+
+      distribuicaoPorSexo.forEach(item => {
+        const sexo = item.sexo?.toLowerCase() || '';
+        if (sexo === 'm' || sexo === 'masculino') {
+          sexoStats.masculino = item._count.codigo;
+        } else if (sexo === 'f' || sexo === 'feminino') {
+          sexoStats.feminino = item._count.codigo;
+        } else {
+          sexoStats.outro = item._count.codigo;
+        }
+      });
+
+      const statistics = {
+        totalAlunos,
+        alunosAtivos,
+        alunosInativos,
+        alunosComMatricula,
+        alunosSemMatricula,
+        distribuicaoPorSexo: sexoStats,
+        percentuais: {
+          ativos: totalAlunos > 0 ? ((alunosAtivos / totalAlunos) * 100).toFixed(2) : '0.00',
+          inativos: totalAlunos > 0 ? ((alunosInativos / totalAlunos) * 100).toFixed(2) : '0.00',
+          comMatricula: totalAlunos > 0 ? ((alunosComMatricula / totalAlunos) * 100).toFixed(2) : '0.00',
+          semMatricula: totalAlunos > 0 ? ((alunosSemMatricula / totalAlunos) * 100).toFixed(2) : '0.00',
+        }
+      };
+
+      console.log('[getAlunosStatistics] Estatísticas geradas:', statistics);
+
+      return statistics;
+    } catch (error) {
+      console.error('Erro ao gerar estatísticas de alunos:', error);
+      throw new AppError('Erro ao gerar estatísticas de alunos', 500);
+    }
+  }
 }
