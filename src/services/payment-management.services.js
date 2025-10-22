@@ -1432,46 +1432,62 @@ export class PaymentManagementService {
     }
   }
 
-  static async getAlunosConfirmados(page = 1, limit = 10, filters = {}) {
+  static async getAlunosConfirmados(page = 1, limit = 100, filters = {}) {
     try {
       const { skip, take } = getPagination(page, limit);
       
-      // Construir filtros
+      // ABORDAGEM SIMPLES E DIRETA: Buscar alunos que têm confirmações ativas
       let whereClause = {
         tb_matriculas: {
-          tb_confirmacoes: {
-            some: {
-              codigo_Status: 1 // Apenas confirmações ativas
+          some: {
+            tb_confirmacoes: {
+              some: {
+                codigo_Status: 1 // Apenas confirmações ativas
+              }
             }
           }
         }
       };
 
-      // Nota: Busca será feita localmente após carregar os dados
-      // devido a problemas com o Prisma mode: 'insensitive'
-
-      // Filtro por turma
-      if (filters.turma) {
-        whereClause.tb_matriculas.tb_confirmacoes.some.codigo_Turma = parseInt(filters.turma);
+      // Busca por nome (case-insensitive)
+      if (filters.search) {
+        whereClause.nome = {
+          contains: filters.search,
+          mode: 'insensitive'
+        };
       }
 
       // Filtro por curso
       if (filters.curso) {
-        whereClause.tb_matriculas.codigo_Curso = parseInt(filters.curso);
+        whereClause.tb_matriculas.some.codigo_Curso = parseInt(filters.curso);
       }
 
-      // Se há busca, carregar muito mais dados para filtrar localmente
-      const searchLimit = filters.search ? Math.max(take * 100, 1000) : take;
-      const searchSkip = filters.search ? 0 : skip;
+      // Filtro por turma
+      if (filters.turma) {
+        whereClause.tb_matriculas.some.tb_confirmacoes.some.codigo_Turma = parseInt(filters.turma);
+      }
       
-      const [allAlunos, total] = await Promise.all([
+      const [alunos, total] = await Promise.all([
         prisma.tb_alunos.findMany({
           where: whereClause,
-          skip: searchSkip,
-          take: searchLimit,
-          include: {
+          skip,
+          take,
+          select: {
+            codigo: true,
+            nome: true,
+            n_documento_identificacao: true,
+            email: true,
+            telefone: true,
             tb_matriculas: {
-              include: {
+              where: {
+                tb_confirmacoes: {
+                  some: {
+                    codigo_Status: 1
+                  }
+                }
+              },
+              select: {
+                codigo: true,
                 tb_cursos: {
                   select: {
                     codigo: true,
@@ -1482,7 +1498,7 @@ export class PaymentManagementService {
                   where: {
                     codigo_Status: 1
                   },
-                  include: {
+                  select: {
                     tb_turmas: {
                       select: {
                         codigo: true,
@@ -1494,9 +1510,14 @@ export class PaymentManagementService {
                         }
                       }
                     }
+                  },
+                  take: 1,
+                  orderBy: {
+                    data_Confirmacao: 'desc'
                   }
                 }
-              }
+              },
+              take: 1
             }
           },
           orderBy: {
@@ -1506,68 +1527,10 @@ export class PaymentManagementService {
         prisma.tb_alunos.count({ where: whereClause })
       ]);
 
-      // Aplicar busca local se necessário
-      let alunos = allAlunos;
-      let totalFiltrado = total;
-      
-      if (filters.search) {
-        console.log(`🔍 Aplicando busca local para: "${filters.search}"`);
-        const searchTerm = filters.search.toLowerCase();
-        // Dividir o termo de busca em palavras para busca mais flexível
-        const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
-        
-        // Função para normalizar texto (remover acentos)
-        const normalizeText = (text) => {
-          return text.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9\s]/g, '');
-        };
-        
-        alunos = allAlunos.filter(aluno => {
-          const nome = normalizeText(aluno.nome || '');
-          const email = normalizeText(aluno.email || '');
-          const documento = normalizeText(aluno.n_documento_identificacao || '');
-          const telefone = normalizeText(aluno.telefone || '');
-          const normalizedSearch = normalizeText(searchTerm);
-          
-          // Se é uma busca por palavras, verificar se todas as palavras estão presentes
-          if (searchWords.length > 1) {
-            const normalizedWords = searchWords.map(word => normalizeText(word));
-            return normalizedWords.every(word => 
-              nome.includes(word) || 
-              email.includes(word) || 
-              documento.includes(word) ||
-              telefone.includes(word)
-            );
-          }
-          
-          // Busca simples por termo único
-          const match = nome.includes(normalizedSearch) ||
-                       email.includes(normalizedSearch) ||
-                       documento.includes(normalizedSearch) ||
-                       telefone.includes(normalizedSearch);
-          
-          if (match) {
-            console.log(`✅ Encontrado: ${aluno.nome}`);
-          }
-          
-          return match;
-        });
-        
-        // CORREÇÃO: Atualizar total filtrado
-        totalFiltrado = alunos.length;
-        console.log(`🔍 Resultados da busca: ${totalFiltrado} alunos encontrados`);
-        
-        // Aplicar paginação após filtro local
-        const startIndex = (page - 1) * limit;
-        alunos = alunos.slice(startIndex, startIndex + limit);
-      }
-
       const pagination = {
         currentPage: page,
-        totalPages: Math.ceil(totalFiltrado / limit),
-        totalItems: totalFiltrado,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
         itemsPerPage: limit
       };
 
@@ -1583,15 +1546,19 @@ export class PaymentManagementService {
 
   static async getDadosFinanceirosAluno(alunoId, anoLectivoId = null) {
     try {
-      // Buscar dados do aluno
+      // Buscar dados do aluno (otimizado - apenas dados essenciais)
       const aluno = await prisma.tb_alunos.findUnique({
         where: { codigo: alunoId },
-        include: {
+        select: {
+          codigo: true,
+          nome: true,
+          n_documento_identificacao: true,
+          email: true,
+          telefone: true,
           tb_matriculas: {
-            include: {
+            select: {
               tb_cursos: {
                 select: {
-                  codigo: true,
                   designacao: true
                 }
               },
@@ -1599,10 +1566,9 @@ export class PaymentManagementService {
                 where: {
                   codigo_Status: 1
                 },
-                include: {
+                select: {
                   tb_turmas: {
                     select: {
-                      codigo: true,
                       designacao: true,
                       codigo_AnoLectivo: true,
                       tb_classes: {
@@ -1612,9 +1578,11 @@ export class PaymentManagementService {
                       }
                     }
                   }
-                }
+                },
+                take: 1 // Apenas a confirmação mais recente
               }
-            }
+            },
+            take: 1 // Apenas a matrícula mais recente
           }
         }
       });
@@ -1628,41 +1596,19 @@ export class PaymentManagementService {
         aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.codigo_AnoLectivo || 
         new Date().getFullYear(); // Usar ano atual como padrão
 
-      // Buscar pagamentos do aluno
-      console.log(`Buscando pagamentos para aluno ${alunoId}, ano lectivo: ${anoLectivo}`);
-      
-      // Primeiro buscar todos os pagamentos do aluno para debug
-      const todosPagamentos = await prisma.tb_pagamentos.findMany({
-        where: {
-          codigo_Aluno: alunoId
-        },
-        include: {
-          tipoServico: {
-            select: {
-              designacao: true
-            }
-          }
-        },
-        orderBy: {
-          data: 'desc'
-        }
-      });
-      
-      console.log(`Total de pagamentos do aluno ${alunoId}: ${todosPagamentos.length}`);
-      if (todosPagamentos.length > 0) {
-        console.log('Anos dos pagamentos:', todosPagamentos.map(p => p.ano));
-        console.log('Tipos de serviço:', todosPagamentos.map(p => p.tipoServico?.designacao));
-      }
-      
-      // Filtrar pagamentos por ano letivo
+      // Buscar pagamentos do aluno (super otimizado - apenas dados necessários)
       const pagamentos = await prisma.tb_pagamentos.findMany({
         where: {
           codigo_Aluno: alunoId,
-          ano: {
-            in: [anoLectivo - 1, anoLectivo, anoLectivo + 1] // Incluir ano anterior, atual e próximo
-          }
+          ano: anoLectivo // Apenas ano atual para acelerar
         },
-        include: {
+        select: {
+          codigo: true,
+          mes: true,
+          preco: true,
+          data: true,
+          observacao: true,
+          fatura: true,
           tipoServico: {
             select: {
               designacao: true
@@ -1673,11 +1619,6 @@ export class PaymentManagementService {
           data: 'desc'
         }
       });
-      
-      console.log(`Encontrados ${pagamentos.length} pagamentos para o aluno ${alunoId}`);
-      if (pagamentos.length > 0) {
-        console.log('Primeiro pagamento:', pagamentos[0]);
-      }
 
       // Meses do ano letivo (Setembro a Julho)
       const mesesAnoLectivo = [
