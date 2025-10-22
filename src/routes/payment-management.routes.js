@@ -687,6 +687,29 @@ router.get('/pagamentos', PaymentManagementController.getPagamentos);
 
 /**
  * @swagger
+ * /api/payment-management/faturas:
+ *   get:
+ *     summary: Lista faturas (alias para pagamentos)
+ *     tags: [Payment Management]
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Lista de faturas
+ */
+router.get('/faturas', PaymentManagementController.getPagamentos);
+
+/**
+ * @swagger
  * /api/payment-management/pagamentos/{id}:
  *   get:
  *     summary: Buscar detalhe de pagamento por ID
