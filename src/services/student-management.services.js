@@ -2029,70 +2029,134 @@ export class StudentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      // Construir filtro dinâmico
-      const where = {};
-      const andConditions = [];
-
-      // Filtro de busca por texto (nome do aluno, turma ou ano letivo) - Case insensitive
-      if (search) {
+      // Se houver busca, buscar em turmas E alunos
+      if (search && search.trim()) {
         const searchLower = search.toLowerCase();
-        andConditions.push({
-          OR: [
-            {
-              tb_matriculas: {
-                tb_alunos: {
-                  nome: { 
-                    contains: searchLower,
-                    mode: 'insensitive'
-                  }
-                }
-              }
-            },
-            {
-              tb_turmas: {
-                designacao: { 
-                  contains: searchLower,
-                  mode: 'insensitive'
-                }
-              }
-            },
-            {
-              tb_matriculas: {
-                tb_cursos: {
-                  designacao: { 
-                    contains: searchLower,
-                    mode: 'insensitive'
-                  }
-                }
-              }
-            },
-            {
-              classificacao: { 
-                contains: searchLower,
-                mode: 'insensitive'
-              }
+        
+        // Buscar turmas e alunos em paralelo
+        const [todasTurmas, todosAlunos] = await Promise.all([
+          prisma.tb_turmas.findMany({
+            select: { codigo: true, designacao: true }
+          }),
+          prisma.tb_alunos.findMany({
+            select: { codigo: true, nome: true }
+          })
+        ]);
+
+        // Filtrar turmas (case-insensitive)
+        const turmasFiltradas = todasTurmas.filter(t => 
+          t.designacao && t.designacao.toLowerCase().includes(searchLower)
+        );
+        const turmaIds = turmasFiltradas.map(t => t.codigo);
+
+        // Filtrar alunos (case-insensitive)
+        const alunosFiltrados = todosAlunos.filter(a => 
+          a.nome && a.nome.toLowerCase().includes(searchLower)
+        );
+        const alunoIds = alunosFiltrados.map(a => a.codigo);
+
+        // Construir condições OR
+        const orConditions = [];
+
+        if (turmaIds.length > 0) {
+          orConditions.push({ codigo_Turma: { in: turmaIds } });
+        }
+
+        if (alunoIds.length > 0) {
+          orConditions.push({
+            tb_matriculas: {
+              codigo_Aluno: { in: alunoIds }
             }
-          ]
-        });
+          });
+        }
+
+        // Se não encontrou nada, retornar vazio
+        if (orConditions.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: limit
+            }
+          };
+        }
+
+        // Construir filtro principal
+        const where = {
+          OR: orConditions
+        };
+
+        // Adicionar filtros adicionais
+        if (statusFilter !== null && statusFilter !== 'all') {
+          where.codigo_Status = parseInt(statusFilter);
+        }
+
+        if (anoLectivoFilter !== null && anoLectivoFilter !== 'all') {
+          where.codigo_Ano_lectivo = parseInt(anoLectivoFilter);
+        }
+
+        const [confirmacoes, total] = await Promise.all([
+          prisma.tb_confirmacoes.findMany({
+            where,
+            skip,
+            take,
+            include: {
+              tb_matriculas: {
+                include: {
+                  tb_alunos: {
+                    select: {
+                      codigo: true,
+                      nome: true,
+                      dataNascimento: true,
+                      sexo: true,
+                      url_Foto: true
+                    }
+                  },
+                  tb_cursos: true
+                }
+              },
+              tb_turmas: {
+                include: {
+                  tb_classes: true,
+                  tb_salas: true,
+                  tb_periodos: true
+                }
+              },
+              tb_utilizadores: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                  user: true
+                }
+              }
+            },
+            orderBy: { data_Confirmacao: 'desc' }
+          }),
+          prisma.tb_confirmacoes.count({ where })
+        ]);
+
+        return {
+          data: confirmacoes,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalItems: total,
+            itemsPerPage: limit
+          }
+        };
       }
 
-      // Filtro por status
+      // Sem busca - filtro simples
+      const where = {};
+
       if (statusFilter !== null && statusFilter !== 'all') {
-        andConditions.push({
-          codigo_Status: parseInt(statusFilter)
-        });
+        where.codigo_Status = parseInt(statusFilter);
       }
 
-      // Filtro por ano letivo
       if (anoLectivoFilter !== null && anoLectivoFilter !== 'all') {
-        andConditions.push({
-          codigo_Ano_lectivo: parseInt(anoLectivoFilter)
-        });
-      }
-
-      // Aplicar condições AND se houver filtros
-      if (andConditions.length > 0) {
-        where.AND = andConditions;
+        where.codigo_Ano_lectivo = parseInt(anoLectivoFilter);
       }
 
       const [confirmacoes, total] = await Promise.all([
@@ -2145,6 +2209,9 @@ export class StudentManagementService {
         }
       };
     } catch (error) {
+      if (error.code === 'P2025') {
+        throw new AppError('Registro não encontrado', 404);
+      }
       throw new AppError('Erro ao buscar confirmações', 500);
     }
   }
