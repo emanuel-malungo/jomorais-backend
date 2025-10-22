@@ -1441,7 +1441,7 @@ export class PaymentManagementService {
       // BUSCA SIMPLES - sempre buscar todas as confirmações e filtrar depois
       const confirmacoes = await prisma.tb_confirmacoes.findMany({
         where: {
-          codigo_Status: 1
+          codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
         },
         include: {
           tb_matriculas: {
@@ -1493,14 +1493,127 @@ export class PaymentManagementService {
 
       let todosAlunos = Array.from(alunosMap.values());
       console.log(`📊 Alunos únicos: ${todosAlunos.length}`);
-
-      // Aplicar filtro de busca (case-insensitive)
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        todosAlunos = todosAlunos.filter(aluno => 
-          aluno.nome.toLowerCase().includes(searchTerm)
+      
+      // Debug: verificar se CLEMENTE está na lista inicial
+      const clementeInicial = todosAlunos.find(aluno => 
+        aluno.nome.toLowerCase().includes('clemente') || 
+        aluno.nome.toLowerCase().includes('thamba') ||
+        aluno.nome.toLowerCase().includes('mabiala') ||
+        aluno.nome.toLowerCase().includes('sibi')
+      );
+      
+      if (clementeInicial) {
+        console.log(`🎯 CLEMENTE encontrado na lista inicial: ${clementeInicial.nome}`);
+        console.log(`   - Código: ${clementeInicial.codigo}`);
+        console.log(`   - Documento: ${clementeInicial.n_documento_identificacao}`);
+        console.log(`   - Curso: ${clementeInicial.tb_matriculas?.tb_cursos?.designacao}`);
+        console.log(`   - Turma: ${clementeInicial.tb_matriculas?.tb_confirmacoes?.[0]?.tb_turmas?.designacao}`);
+      } else {
+        console.log(`❌ CLEMENTE NÃO encontrado na lista inicial`);
+        console.log(`📋 Verificando se há confirmações para CLEMENTE...`);
+        
+        // Verificar se há confirmações com esse nome
+        const confirmacaoClemente = confirmacoes.find(conf => 
+          conf.tb_matriculas?.tb_alunos?.nome?.toLowerCase().includes('clemente') ||
+          conf.tb_matriculas?.tb_alunos?.nome?.toLowerCase().includes('thamba')
         );
+        
+        if (confirmacaoClemente) {
+          console.log(`🔍 Confirmação encontrada para: ${confirmacaoClemente.tb_matriculas.tb_alunos.nome}`);
+          console.log(`   - Status confirmação: ${confirmacaoClemente.codigo_Status}`);
+          console.log(`   - Data confirmação: ${confirmacaoClemente.data_Confirmacao}`);
+        } else {
+          console.log(`❌ Nenhuma confirmação encontrada para CLEMENTE`);
+          
+          // Busca alternativa diretamente na tabela de alunos
+          console.log(`🔍 Buscando CLEMENTE diretamente na tabela de alunos...`);
+          const alunoClemente = await prisma.tb_alunos.findFirst({
+            where: {
+              OR: [
+                { nome: { contains: 'CLEMENTE', mode: 'insensitive' } },
+                { nome: { contains: 'THAMBA', mode: 'insensitive' } },
+                { nome: { contains: 'MABIALA', mode: 'insensitive' } },
+                { nome: { contains: 'SIBI', mode: 'insensitive' } }
+              ]
+            },
+            include: {
+              tb_matriculas: {
+                include: {
+                  tb_cursos: true,
+                  tb_confirmacoes: {
+                    include: {
+                      tb_turmas: {
+                        include: {
+                          tb_classes: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          });
+          
+          if (alunoClemente) {
+            console.log(`✅ CLEMENTE encontrado na tabela de alunos: ${alunoClemente.nome}`);
+            console.log(`   - Código: ${alunoClemente.codigo}`);
+            console.log(`   - Tem matrícula: ${!!alunoClemente.tb_matriculas}`);
+            console.log(`   - Confirmações: ${alunoClemente.tb_matriculas?.tb_confirmacoes?.length || 0}`);
+            
+            if (alunoClemente.tb_matriculas?.tb_confirmacoes?.length > 0) {
+              alunoClemente.tb_matriculas.tb_confirmacoes.forEach((conf, index) => {
+                console.log(`   - Confirmação ${index + 1}: Status ${conf.codigo_Status}, Turma: ${conf.tb_turmas?.designacao}`);
+              });
+            }
+          } else {
+            console.log(`❌ CLEMENTE não encontrado nem na tabela de alunos`);
+          }
+        }
+      }
+
+      // Aplicar filtro de busca (case-insensitive e mais abrangente)
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase().trim();
+        console.log(`🔍 Termo de busca: "${searchTerm}"`);
+        
+        // Debug: mostrar alguns nomes antes do filtro
+        console.log('📋 Primeiros 5 nomes antes do filtro:', 
+          todosAlunos.slice(0, 5).map(a => a.nome)
+        );
+        
+        todosAlunos = todosAlunos.filter(aluno => {
+          const nome = (aluno.nome || '').toLowerCase();
+          const documento = (aluno.n_documento_identificacao || '').toLowerCase();
+          
+          // Buscar por nome completo, partes do nome ou documento
+          const matchNome = nome.includes(searchTerm);
+          const matchDocumento = documento.includes(searchTerm);
+          const matchPalavras = searchTerm.split(' ').every(palavra => 
+            palavra.length > 0 && nome.includes(palavra)
+          );
+          
+          const match = matchNome || matchDocumento || matchPalavras;
+          
+          // Debug específico para CLEMENTE
+          if (nome.includes('clemente') || nome.includes('thamba') || nome.includes('mabiala') || nome.includes('sibi')) {
+            console.log(`🎯 ENCONTRADO CLEMENTE: ${aluno.nome}`);
+            console.log(`   - Nome: "${nome}"`);
+            console.log(`   - Documento: "${documento}"`);
+            console.log(`   - Termo busca: "${searchTerm}"`);
+            console.log(`   - Match nome: ${matchNome}`);
+            console.log(`   - Match documento: ${matchDocumento}`);
+            console.log(`   - Match palavras: ${matchPalavras}`);
+            console.log(`   - Match final: ${match}`);
+          }
+          
+          return match;
+        });
         console.log(`🔍 Após filtro de busca "${filters.search}": ${todosAlunos.length}`);
+        
+        // Debug: mostrar resultados se poucos
+        if (todosAlunos.length <= 10) {
+          console.log('📋 Resultados da busca:', todosAlunos.map(a => a.nome));
+        }
       }
 
       // Aplicar outros filtros
@@ -1547,9 +1660,25 @@ export class PaymentManagementService {
     try {
       console.log(`🔍 Buscando dados financeiros do aluno ${alunoId}`);
       
-      // TESTE SUPER SIMPLES - apenas retornar dados básicos
+      // Buscar dados completos do aluno
       const aluno = await prisma.tb_alunos.findUnique({
-        where: { codigo: alunoId }
+        where: { codigo: alunoId },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_cursos: true,
+              tb_confirmacoes: {
+                include: {
+                  tb_turmas: {
+                    include: {
+                      tb_classes: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       });
 
       if (!aluno) {
@@ -1559,7 +1688,52 @@ export class PaymentManagementService {
 
       console.log(`✅ Aluno encontrado: ${aluno.nome}`);
 
-      // Retornar dados mínimos para testar
+      // Buscar todos os pagamentos do aluno
+      const pagamentos = await prisma.tb_pagamentos.findMany({
+        where: { 
+          codigo_Aluno: alunoId,
+          ...(anoLectivoId && { ano: anoLectivoId })
+        },
+        include: {
+          tipoServico: true
+        },
+        orderBy: { data: 'desc' }
+      });
+
+      console.log(`💰 Encontrados ${pagamentos.length} pagamentos para o aluno`);
+
+      // Separar pagamentos por tipo
+      const pagamentosPropina = pagamentos.filter(p => p.tipoServico?.designacao?.toLowerCase().includes('propina'));
+      const outrosPagamentos = pagamentos.filter(p => !p.tipoServico?.designacao?.toLowerCase().includes('propina'));
+
+      // Calcular total pago APENAS de propinas do ano letivo específico
+      const totalPagoPropinas = pagamentosPropina.reduce((sum, pagamento) => sum + (pagamento.preco || 0), 0);
+      
+      console.log(`📊 Resumo de pagamentos:`, {
+        totalPagamentos: pagamentos.length,
+        pagamentosPropina: pagamentosPropina.length,
+        outrosPagamentos: outrosPagamentos.length,
+        totalPagoPropinas,
+        anoLectivoId
+      });
+
+      // Buscar dados acadêmicos
+      const matricula = aluno.tb_matriculas;
+      const confirmacao = matricula?.tb_confirmacoes?.[0];
+      const curso = matricula?.tb_cursos?.designacao || 'N/A';
+      const turma = confirmacao?.tb_turmas?.designacao || 'N/A';
+      const classe = confirmacao?.tb_turmas?.tb_classes?.designacao || 'N/A';
+
+      // Preparar histórico financeiro (outros serviços)
+      const historicoFinanceiro = outrosPagamentos.map(pagamento => ({
+        codigo: pagamento.codigo,
+        data: pagamento.data,
+        servico: pagamento.tipoServico?.designacao || 'Serviço',
+        valor: pagamento.preco || 0,
+        observacao: pagamento.observacao || '',
+        fatura: pagamento.fatura || `FAT_${pagamento.codigo}`
+      }));
+
       return {
         aluno: {
           codigo: aluno.codigo,
@@ -1567,19 +1741,19 @@ export class PaymentManagementService {
           documento: aluno.n_documento_identificacao,
           email: aluno.email,
           telefone: aluno.telefone,
-          curso: 'Teste',
-          turma: 'Teste',
-          classe: 'Teste'
+          curso,
+          turma,
+          classe
         },
-        mesesPropina: [],
-        historicoFinanceiro: [],
+        mesesPropina: [], // Será preenchido pelo hook useMesesPendentesAluno
+        historicoFinanceiro,
         resumo: {
-          totalMeses: 11,
-          mesesPagos: 0,
-          mesesPendentes: 11,
-          valorMensal: 0,
-          totalPago: 0,
-          totalPendente: 0
+          totalMeses: 11, // Padrão para ano letivo
+          mesesPagos: pagamentosPropina.length,
+          mesesPendentes: Math.max(0, 11 - pagamentosPropina.length),
+          valorMensal: pagamentosPropina.length > 0 ? (pagamentosPropina[0].preco || 0) : 0,
+          totalPago: totalPagoPropinas, // ✅ Apenas propinas do ano letivo
+          totalPendente: 0 // Será calculado dinamicamente
         }
       };
     } catch (error) {
