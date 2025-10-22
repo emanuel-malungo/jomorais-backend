@@ -1467,7 +1467,9 @@ export class AcademicManagementService {
                   nome: true,
                   n_documento_identificacao: true,
                   email: true,
-                  telefone: true
+                  telefone: true,
+                  dataNascimento: true,
+                  sexo: true
                 }
               }
             }
@@ -1485,7 +1487,9 @@ export class AcademicManagementService {
             nome: aluno.nome,
             numero_documento: aluno.n_documento_identificacao,
             email: aluno.email,
-            telefone: aluno.telefone
+            telefone: aluno.telefone,
+            data_nascimento: aluno.dataNascimento,
+            genero: aluno.sexo
           });
         }
       });
