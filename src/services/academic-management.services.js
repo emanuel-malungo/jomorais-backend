@@ -678,6 +678,53 @@ export class AcademicManagementService {
     }
   }
 
+  static async getDisciplineStatistics() {
+    try {
+      const [
+        totalDisciplinas,
+        disciplinasAtivas,
+        disciplinasInativas,
+        disciplinasEspecificas,
+        disciplinasNaGrade
+      ] = await Promise.all([
+        // Total de disciplinas
+        prisma.tb_disciplinas.count(),
+        
+        // Disciplinas ativas (status = 1)
+        prisma.tb_disciplinas.count({
+          where: { status: 1 }
+        }),
+        
+        // Disciplinas inativas (status = 0 ou 4)
+        prisma.tb_disciplinas.count({
+          where: { 
+            OR: [
+              { status: 0 },
+              { status: 4 }
+            ]
+          }
+        }),
+        
+        // Disciplinas específicas (cadeiraEspecifica = 1)
+        prisma.tb_disciplinas.count({
+          where: { cadeiraEspecifica: 1 }
+        }),
+        
+
+      ]);
+
+      return {
+        totalDisciplinas,
+        disciplinasAtivas,
+        disciplinasInativas,
+        disciplinasEspecificas,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas de disciplinas:', error);
+      throw new AppError('Erro ao buscar estatísticas de disciplinas', 500);
+    }
+  }
+
   // ===============================
   // SALAS - CRUD COMPLETO
   // ===============================

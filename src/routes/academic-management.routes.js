@@ -1126,6 +1126,52 @@ router.get('/disciplinas', AcademicManagementController.getDisciplinas);
 
 /**
  * @swagger
+ * /api/academic-management/disciplinas/stats:
+ *   get:
+ *     summary: Obter estatísticas de disciplinas
+ *     tags: [Disciplinas]
+ *     responses:
+ *       200:
+ *         description: Estatísticas de disciplinas obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Estatísticas de disciplinas obtidas com sucesso"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalDisciplinas:
+ *                       type: integer
+ *                       example: 45
+ *                       description: Total de disciplinas cadastradas
+ *                     disciplinasAtivas:
+ *                       type: integer
+ *                       example: 40
+ *                       description: Disciplinas com status ativo
+ *                     disciplinasInativas:
+ *                       type: integer
+ *                       example: 5
+ *                       description: Disciplinas com status inativo
+ *                     disciplinasEspecificas:
+ *                       type: integer
+ *                       example: 12
+ *                       description: Disciplinas marcadas como específicas
+ *                     naGradeCurricular:
+ *                       type: integer
+ *                       example: 38
+ *                       description: Disciplinas que estão na grade curricular
+ */
+router.get('/disciplinas/stats', AcademicManagementController.getDisciplineStatistics);
+
+/**
+ * @swagger
  * /api/academic-management/disciplinas/{id}:
  *   get:
  *     summary: Obter disciplina por ID

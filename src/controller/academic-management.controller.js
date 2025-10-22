@@ -393,6 +393,20 @@ export class AcademicManagementController {
     }
   }
 
+  static async getDisciplineStatistics(req, res) {
+    try {
+      const statistics = await AcademicManagementService.getDisciplineStatistics();
+      
+      res.json({
+        success: true,
+        message: "Estatísticas de disciplinas obtidas com sucesso",
+        data: statistics,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar estatísticas de disciplinas", 400);
+    }
+  }
+
   // ===============================
   // SALAS - CRUD COMPLETO
   // ===============================
