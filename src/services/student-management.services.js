@@ -2033,24 +2033,44 @@ export class StudentManagementService {
       const where = {};
       const andConditions = [];
 
-      // Filtro de busca por texto (nome do aluno, turma ou ano letivo)
+      // Filtro de busca por texto (nome do aluno, turma ou ano letivo) - Case insensitive
       if (search) {
+        const searchLower = search.toLowerCase();
         andConditions.push({
           OR: [
             {
               tb_matriculas: {
                 tb_alunos: {
-                  nome: { contains: search }
+                  nome: { 
+                    contains: searchLower,
+                    mode: 'insensitive'
+                  }
                 }
               }
             },
             {
               tb_turmas: {
-                designacao: { contains: search }
+                designacao: { 
+                  contains: searchLower,
+                  mode: 'insensitive'
+                }
               }
             },
             {
-              classificacao: { contains: search }
+              tb_matriculas: {
+                tb_cursos: {
+                  designacao: { 
+                    contains: searchLower,
+                    mode: 'insensitive'
+                  }
+                }
+              }
+            },
+            {
+              classificacao: { 
+                contains: searchLower,
+                mode: 'insensitive'
+              }
             }
           ]
         });
