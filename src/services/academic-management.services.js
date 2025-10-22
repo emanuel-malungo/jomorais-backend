@@ -275,6 +275,19 @@ export class AcademicManagementService {
     }
   }
 
+  // Estatísticas simples dos cursos
+  static async getCourseStatistics() {
+    try {
+      const total = await prisma.tb_cursos.count();
+      const active = await prisma.tb_cursos.count({ where: { codigo_Status: 1 } });
+      const inactive = await prisma.tb_cursos.count({ where: { codigo_Status: 0 } });
+
+      return { total, active, inactive };
+    } catch (error) {
+      throw new AppError('Erro ao obter estatísticas de cursos', 500);
+    }
+  }
+
   static async getCursoById(id) {
     try {
       const curso = await prisma.tb_cursos.findUnique({

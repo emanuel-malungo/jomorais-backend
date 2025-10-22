@@ -725,6 +725,8 @@ router.post('/cursos', AcademicManagementController.createCurso);
  *                   $ref: '#/components/schemas/Pagination'
  */
 router.get('/cursos', AcademicManagementController.getCursos);
+// Estatísticas de cursos
+router.get('/cursos/stats', AcademicManagementController.getCourseStatistics);
 
 /**
  * @swagger

@@ -779,6 +779,21 @@ export class AcademicManagementController {
     }
   }
 
+  // Estatísticas de cursos
+  static async getCourseStatistics(req, res) {
+    try {
+      const stats = await AcademicManagementService.getCourseStatistics();
+
+      res.json({
+        success: true,
+        message: "Estatísticas de cursos obtidas com sucesso",
+        data: stats,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter estatísticas de cursos", 400);
+    }
+  }
+
   // ===============================
   // OPERAÇÕES EM LOTE (BATCH)
   // ===============================
