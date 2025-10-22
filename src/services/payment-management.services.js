@@ -1436,96 +1436,125 @@ export class PaymentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
       
-      // ABORDAGEM SIMPLES E DIRETA: Buscar alunos que têm confirmações ativas
-      let whereClause = {
-        tb_matriculas: {
-          some: {
-            tb_confirmacoes: {
-              some: {
-                codigo_Status: 1 // Apenas confirmações ativas
-              }
-            }
-          }
-        }
-      };
+      // VOLTAR À ABORDAGEM ORIGINAL QUE FUNCIONAVA
+      let whereClause = {};
 
-      // Busca por nome (case-insensitive)
+      // Busca por nome (case-insensitive) - aplicar depois
+      let searchTerm = null;
       if (filters.search) {
-        whereClause.nome = {
-          contains: filters.search,
-          mode: 'insensitive'
-        };
+        searchTerm = filters.search.toLowerCase();
       }
 
-      // Filtro por curso
+      // Filtro por curso - aplicar depois
+      let cursoFilter = null;
       if (filters.curso) {
-        whereClause.tb_matriculas.some.codigo_Curso = parseInt(filters.curso);
+        cursoFilter = parseInt(filters.curso);
       }
 
-      // Filtro por turma
+      // Filtro por turma - aplicar depois  
+      let turmaFilter = null;
       if (filters.turma) {
-        whereClause.tb_matriculas.some.tb_confirmacoes.some.codigo_Turma = parseInt(filters.turma);
+        turmaFilter = parseInt(filters.turma);
       }
       
-      const [alunos, total] = await Promise.all([
-        prisma.tb_alunos.findMany({
-          where: whereClause,
-          skip,
-          take,
-          select: {
-            codigo: true,
-            nome: true,
-            n_documento_identificacao: true,
-            email: true,
-            telefone: true,
-            tb_matriculas: {
-              where: {
-                tb_confirmacoes: {
-                  some: {
-                    codigo_Status: 1
-                  }
+      // ABORDAGEM SUPER SIMPLES - apenas buscar alunos básicos
+      const alunos = await prisma.tb_alunos.findMany({
+        take: 100,
+        select: {
+          codigo: true,
+          nome: true,
+          n_documento_identificacao: true,
+          email: true,
+          telefone: true
+        },
+        orderBy: {
+          nome: 'asc'
+        }
+      });
+
+      // Para cada aluno, buscar sua matrícula e confirmações separadamente
+      const alunosComDados = [];
+      
+      for (const aluno of alunos) {
+        try {
+          const matricula = await prisma.tb_matriculas.findFirst({
+            where: {
+              codigo_Aluno: aluno.codigo
+            },
+            include: {
+              tb_cursos: {
+                select: {
+                  codigo: true,
+                  designacao: true
                 }
               },
-              select: {
-                codigo: true,
-                tb_cursos: {
-                  select: {
-                    codigo: true,
-                    designacao: true
-                  }
+              tb_confirmacoes: {
+                where: {
+                  codigo_Status: 1
                 },
-                tb_confirmacoes: {
-                  where: {
-                    codigo_Status: 1
-                  },
-                  select: {
-                    tb_turmas: {
-                      select: {
-                        codigo: true,
-                        designacao: true,
-                        tb_classes: {
-                          select: {
-                            designacao: true
-                          }
+                include: {
+                  tb_turmas: {
+                    select: {
+                      codigo: true,
+                      designacao: true,
+                      tb_classes: {
+                        select: {
+                          designacao: true
                         }
                       }
                     }
-                  },
-                  take: 1,
-                  orderBy: {
-                    data_Confirmacao: 'desc'
                   }
                 }
-              },
-              take: 1
+              }
             }
-          },
-          orderBy: {
-            nome: 'asc'
+          });
+
+          // Só incluir se tem confirmação ativa
+          if (matricula && matricula.tb_confirmacoes && matricula.tb_confirmacoes.length > 0) {
+            alunosComDados.push({
+              ...aluno,
+              tb_matriculas: matricula
+            });
           }
-        }),
-        prisma.tb_alunos.count({ where: whereClause })
-      ]);
+        } catch (error) {
+          console.log(`Erro ao buscar dados do aluno ${aluno.codigo}:`, error.message);
+        }
+      }
+
+      console.log(`📊 Total de alunos carregados: ${alunos.length}`);
+      console.log(`📊 Alunos com confirmações: ${alunosComDados.length}`);
+      
+      if (alunosComDados.length > 0) {
+        console.log('Primeiro aluno com dados:', {
+          nome: alunosComDados[0].nome,
+          tb_matriculas: alunosComDados[0].tb_matriculas ? 'existe' : 'não existe',
+          confirmacoes: alunosComDados[0].tb_matriculas?.tb_confirmacoes?.length || 0
+        });
+      }
+
+      // Filtrar alunos com base nos filtros (já sabemos que todos têm confirmações)
+      let alunosFiltrados = alunosComDados.filter(aluno => {
+        // Filtro por nome
+        if (searchTerm && !aluno.nome.toLowerCase().includes(searchTerm)) {
+          return false;
+        }
+
+        // Filtro por curso
+        if (cursoFilter && aluno.tb_matriculas?.tb_cursos?.codigo !== cursoFilter) {
+          return false;
+        }
+
+        // Filtro por turma
+        if (turmaFilter && !aluno.tb_matriculas?.tb_confirmacoes?.some(c => c.tb_turmas?.codigo === turmaFilter)) {
+          return false;
+        }
+
+        return true;
+      });
+
+      // Aplicar paginação
+      const total = alunosFiltrados.length;
+      const alunosPaginados = alunosFiltrados.slice(skip, skip + take);
 
       const pagination = {
         currentPage: page,
@@ -1535,7 +1564,7 @@ export class PaymentManagementService {
       };
 
       return {
-        data: alunos,
+        data: alunosPaginados,
         pagination
       };
     } catch (error) {
