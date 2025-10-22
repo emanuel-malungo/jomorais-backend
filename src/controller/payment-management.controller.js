@@ -551,13 +551,17 @@ export class PaymentManagementController {
       const { id } = req.params;
       const { ano_lectivo } = req.query;
       
+      console.log(`🎯 Controller - ID recebido: ${id}, Ano: ${ano_lectivo}`);
+      
       if (!id || isNaN(parseInt(id))) {
+        console.log(`❌ ID inválido: ${id}`);
         return res.status(400).json({
           success: false,
           message: "ID do aluno deve ser um número válido",
         });
       }
 
+      console.log(`🚀 Chamando service com ID: ${parseInt(id)}`);
       const dadosFinanceiros = await PaymentManagementService.getDadosFinanceirosAluno(
         parseInt(id),
         ano_lectivo ? parseInt(ano_lectivo) : null

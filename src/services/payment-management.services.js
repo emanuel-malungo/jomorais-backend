@@ -1436,125 +1436,95 @@ export class PaymentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
       
-      // VOLTAR À ABORDAGEM ORIGINAL QUE FUNCIONAVA
-      let whereClause = {};
-
-      // Busca por nome (case-insensitive) - aplicar depois
-      let searchTerm = null;
-      if (filters.search) {
-        searchTerm = filters.search.toLowerCase();
-      }
-
-      // Filtro por curso - aplicar depois
-      let cursoFilter = null;
-      if (filters.curso) {
-        cursoFilter = parseInt(filters.curso);
-      }
-
-      // Filtro por turma - aplicar depois  
-      let turmaFilter = null;
-      if (filters.turma) {
-        turmaFilter = parseInt(filters.turma);
-      }
+      console.log('🔍 Iniciando busca de alunos confirmados...');
       
-      // ABORDAGEM SUPER SIMPLES - apenas buscar alunos básicos
-      const alunos = await prisma.tb_alunos.findMany({
-        take: 100,
-        select: {
-          codigo: true,
-          nome: true,
-          n_documento_identificacao: true,
-          email: true,
-          telefone: true
+      // BUSCA SIMPLES - sempre buscar todas as confirmações e filtrar depois
+      const confirmacoes = await prisma.tb_confirmacoes.findMany({
+        where: {
+          codigo_Status: 1
         },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_alunos: true,
+              tb_cursos: true
+            }
+          },
+          tb_turmas: {
+            include: {
+              tb_classes: true
+            }
+          }
+        },
+        take: filters.search ? 2000 : 500, // Mais resultados se há busca
         orderBy: {
-          nome: 'asc'
+          data_Confirmacao: 'desc'
         }
       });
 
-      // Para cada aluno, buscar sua matrícula e confirmações separadamente
-      const alunosComDados = [];
-      
-      for (const aluno of alunos) {
-        try {
-          const matricula = await prisma.tb_matriculas.findFirst({
-            where: {
-              codigo_Aluno: aluno.codigo
-            },
-            include: {
-              tb_cursos: {
-                select: {
-                  codigo: true,
-                  designacao: true
-                }
-              },
-              tb_confirmacoes: {
-                where: {
-                  codigo_Status: 1
-                },
-                include: {
-                  tb_turmas: {
-                    select: {
-                      codigo: true,
-                      designacao: true,
-                      tb_classes: {
-                        select: {
-                          designacao: true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          });
+      console.log(`📊 Confirmações encontradas: ${confirmacoes.length}`);
 
-          // Só incluir se tem confirmação ativa
-          if (matricula && matricula.tb_confirmacoes && matricula.tb_confirmacoes.length > 0) {
-            alunosComDados.push({
-              ...aluno,
-              tb_matriculas: matricula
+      // Converter para alunos únicos
+      const alunosMap = new Map();
+      
+      confirmacoes.forEach(confirmacao => {
+        if (confirmacao.tb_matriculas?.tb_alunos) {
+          const aluno = confirmacao.tb_matriculas.tb_alunos;
+          const alunoId = aluno.codigo;
+          
+          if (!alunosMap.has(alunoId)) {
+            alunosMap.set(alunoId, {
+              codigo: aluno.codigo,
+              nome: aluno.nome,
+              n_documento_identificacao: aluno.n_documento_identificacao,
+              email: aluno.email,
+              telefone: aluno.telefone,
+              tb_matriculas: {
+                codigo: confirmacao.tb_matriculas.codigo,
+                tb_cursos: confirmacao.tb_matriculas.tb_cursos,
+                tb_confirmacoes: [{
+                  tb_turmas: confirmacao.tb_turmas
+                }]
+              }
             });
           }
-        } catch (error) {
-          console.log(`Erro ao buscar dados do aluno ${aluno.codigo}:`, error.message);
         }
-      }
-
-      console.log(`📊 Total de alunos carregados: ${alunos.length}`);
-      console.log(`📊 Alunos com confirmações: ${alunosComDados.length}`);
-      
-      if (alunosComDados.length > 0) {
-        console.log('Primeiro aluno com dados:', {
-          nome: alunosComDados[0].nome,
-          tb_matriculas: alunosComDados[0].tb_matriculas ? 'existe' : 'não existe',
-          confirmacoes: alunosComDados[0].tb_matriculas?.tb_confirmacoes?.length || 0
-        });
-      }
-
-      // Filtrar alunos com base nos filtros (já sabemos que todos têm confirmações)
-      let alunosFiltrados = alunosComDados.filter(aluno => {
-        // Filtro por nome
-        if (searchTerm && !aluno.nome.toLowerCase().includes(searchTerm)) {
-          return false;
-        }
-
-        // Filtro por curso
-        if (cursoFilter && aluno.tb_matriculas?.tb_cursos?.codigo !== cursoFilter) {
-          return false;
-        }
-
-        // Filtro por turma
-        if (turmaFilter && !aluno.tb_matriculas?.tb_confirmacoes?.some(c => c.tb_turmas?.codigo === turmaFilter)) {
-          return false;
-        }
-
-        return true;
       });
 
+      let todosAlunos = Array.from(alunosMap.values());
+      console.log(`📊 Alunos únicos: ${todosAlunos.length}`);
+
+      // Aplicar filtro de busca (case-insensitive)
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        todosAlunos = todosAlunos.filter(aluno => 
+          aluno.nome.toLowerCase().includes(searchTerm)
+        );
+        console.log(`🔍 Após filtro de busca "${filters.search}": ${todosAlunos.length}`);
+      }
+
+      // Aplicar outros filtros
+      if (filters.curso) {
+        const cursoId = parseInt(filters.curso);
+        todosAlunos = todosAlunos.filter(aluno => 
+          aluno.tb_matriculas?.tb_cursos?.codigo === cursoId
+        );
+        console.log(`🎓 Após filtro de curso: ${todosAlunos.length}`);
+      }
+
+      if (filters.turma) {
+        const turmaId = parseInt(filters.turma);
+        todosAlunos = todosAlunos.filter(aluno => 
+          aluno.tb_matriculas?.tb_confirmacoes?.some(c => c.tb_turmas?.codigo === turmaId)
+        );
+        console.log(`🏫 Após filtro de turma: ${todosAlunos.length}`);
+      }
+
       // Aplicar paginação
-      const total = alunosFiltrados.length;
-      const alunosPaginados = alunosFiltrados.slice(skip, skip + take);
+      const total = todosAlunos.length;
+      const alunos = todosAlunos.slice(skip, skip + take);
+
+      console.log(`📄 Página ${page}: ${alunos.length} alunos`);
 
       const pagination = {
         currentPage: page,
@@ -1564,7 +1534,7 @@ export class PaymentManagementService {
       };
 
       return {
-        data: alunosPaginados,
+        data: alunos,
         pagination
       };
     } catch (error) {
@@ -1575,117 +1545,21 @@ export class PaymentManagementService {
 
   static async getDadosFinanceirosAluno(alunoId, anoLectivoId = null) {
     try {
-      // Buscar dados do aluno (otimizado - apenas dados essenciais)
+      console.log(`🔍 Buscando dados financeiros do aluno ${alunoId}`);
+      
+      // TESTE SUPER SIMPLES - apenas retornar dados básicos
       const aluno = await prisma.tb_alunos.findUnique({
-        where: { codigo: alunoId },
-        select: {
-          codigo: true,
-          nome: true,
-          n_documento_identificacao: true,
-          email: true,
-          telefone: true,
-          tb_matriculas: {
-            select: {
-              tb_cursos: {
-                select: {
-                  designacao: true
-                }
-              },
-              tb_confirmacoes: {
-                where: {
-                  codigo_Status: 1
-                },
-                select: {
-                  tb_turmas: {
-                    select: {
-                      designacao: true,
-                      codigo_AnoLectivo: true,
-                      tb_classes: {
-                        select: {
-                          designacao: true
-                        }
-                      }
-                    }
-                  }
-                },
-                take: 1 // Apenas a confirmação mais recente
-              }
-            },
-            take: 1 // Apenas a matrícula mais recente
-          }
-        }
+        where: { codigo: alunoId }
       });
 
       if (!aluno) {
+        console.log(`❌ Aluno ${alunoId} não encontrado`);
         throw new AppError('Aluno não encontrado', 404);
       }
 
-      // Determinar ano letivo (usar o da confirmação ativa ou o fornecido)
-      const anoLectivo = anoLectivoId || 
-        aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.codigo_AnoLectivo || 
-        new Date().getFullYear(); // Usar ano atual como padrão
+      console.log(`✅ Aluno encontrado: ${aluno.nome}`);
 
-      // Buscar pagamentos do aluno (super otimizado - apenas dados necessários)
-      const pagamentos = await prisma.tb_pagamentos.findMany({
-        where: {
-          codigo_Aluno: alunoId,
-          ano: anoLectivo // Apenas ano atual para acelerar
-        },
-        select: {
-          codigo: true,
-          mes: true,
-          preco: true,
-          data: true,
-          observacao: true,
-          fatura: true,
-          tipoServico: {
-            select: {
-              designacao: true
-            }
-          }
-        },
-        orderBy: {
-          data: 'desc'
-        }
-      });
-
-      // Meses do ano letivo (Setembro a Julho)
-      const mesesAnoLectivo = [
-        'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
-        'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'
-      ];
-
-      // Valor da propina (valor padrão - pode ser configurado posteriormente)
-      const valorPropina = 0; // Valor padrão em Kz - inicia com 0 quando pendente
-
-      // Criar status dos meses
-      const mesesPropina = mesesAnoLectivo.map(mes => {
-        const pagamentoMes = pagamentos.find(p => 
-          p.mes === mes && 
-          p.tipoServico?.designacao?.toLowerCase().includes('propina')
-        );
-
-        return {
-          mes,
-          status: pagamentoMes ? 'PAGO' : 'NÃO_PAGO',
-          valor: pagamentoMes ? pagamentoMes.preco : valorPropina, // Usar valor real se pago, senão valor padrão
-          dataPagamento: pagamentoMes?.data || null,
-          codigoPagamento: pagamentoMes?.codigo || null
-        };
-      });
-
-      // Histórico financeiro (outros serviços)
-      const historicoFinanceiro = pagamentos
-        .filter(p => !p.tipoServico?.designacao?.toLowerCase().includes('propina'))
-        .map(p => ({
-          codigo: p.codigo,
-          data: p.data,
-          servico: p.tipoServico?.designacao || 'Serviço',
-          valor: p.preco,
-          observacao: p.observacao,
-          fatura: p.fatura
-        }));
-
+      // Retornar dados mínimos para testar
       return {
         aluno: {
           codigo: aluno.codigo,
@@ -1693,22 +1567,24 @@ export class PaymentManagementService {
           documento: aluno.n_documento_identificacao,
           email: aluno.email,
           telefone: aluno.telefone,
-          curso: aluno.tb_matriculas[0]?.tb_cursos?.designacao,
-          turma: aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.designacao,
-          classe: aluno.tb_matriculas[0]?.tb_confirmacoes[0]?.tb_turmas?.tb_classes?.designacao
+          curso: 'Teste',
+          turma: 'Teste',
+          classe: 'Teste'
         },
-        mesesPropina,
-        historicoFinanceiro,
+        mesesPropina: [],
+        historicoFinanceiro: [],
         resumo: {
-          totalMeses: mesesAnoLectivo.length,
-          mesesPagos: mesesPropina.filter(m => m.status === 'PAGO').length,
-          mesesPendentes: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length,
-          valorMensal: valorPropina, // Valor padrão (0 para pendentes)
-          totalPago: mesesPropina.filter(m => m.status === 'PAGO').reduce((total, mes) => total + (mes.valor || 0), 0),
-          totalPendente: mesesPropina.filter(m => m.status === 'NÃO_PAGO').length * valorPropina // 0 para pendentes
+          totalMeses: 11,
+          mesesPagos: 0,
+          mesesPendentes: 11,
+          valorMensal: 0,
+          totalPago: 0,
+          totalPendente: 0
         }
       };
     } catch (error) {
+      console.error('❌ ERRO COMPLETO:', error);
+      console.error('❌ STACK:', error.stack);
       if (error instanceof AppError) {
         throw error;
       }
