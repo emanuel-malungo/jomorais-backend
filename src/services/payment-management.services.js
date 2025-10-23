@@ -1438,53 +1438,12 @@ export class PaymentManagementService {
       
       console.log('🔍 Iniciando busca de alunos confirmados...');
       
-      // BUSCA OTIMIZADA - filtrar no banco de dados quando há busca
+      // BUSCA DIRETA NA TABELA DE CONFIRMAÇÕES
       let whereClause = {
         codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
       };
 
-      // Se há busca, filtrar diretamente no banco
-      if (filters.search) {
-        const searchTerm = filters.search.trim();
-        console.log(`🔍 Termo de busca original: "${searchTerm}"`);
-        
-        // Criar múltiplas condições para busca mais flexível
-        const searchConditions = [];
-        
-        // Busca pelo termo completo (case-insensitive usando ILIKE no PostgreSQL ou LIKE no SQLite)
-        searchConditions.push({ nome: { contains: searchTerm } });
-        searchConditions.push({ n_documento_identificacao: { contains: searchTerm } });
-        
-        // Busca por palavras individuais se o termo tem espaços
-        if (searchTerm.includes(' ')) {
-          const palavras = searchTerm.split(' ').filter(p => p.length > 0);
-          palavras.forEach(palavra => {
-            searchConditions.push({ nome: { contains: palavra } });
-          });
-        }
-        
-        // Adicionar variações com case diferentes para garantir que encontre
-        const searchTermUpper = searchTerm.toUpperCase();
-        const searchTermLower = searchTerm.toLowerCase();
-        
-        if (searchTerm !== searchTermUpper) {
-          searchConditions.push({ nome: { contains: searchTermUpper } });
-        }
-        if (searchTerm !== searchTermLower) {
-          searchConditions.push({ nome: { contains: searchTermLower } });
-        }
-        
-        whereClause = {
-          ...whereClause,
-          tb_matriculas: {
-            tb_alunos: {
-              OR: searchConditions
-            }
-          }
-        };
-        
-        console.log(`🔍 Condições de busca criadas: ${searchConditions.length}`);
-      }
+      console.log(`🔍 Buscando confirmações com filtros:`, filters);
 
       const confirmacoes = await prisma.tb_confirmacoes.findMany({
         where: whereClause,
@@ -1501,14 +1460,29 @@ export class PaymentManagementService {
             }
           }
         },
-        // Sem limite quando há busca para garantir que todos os alunos sejam encontrados
-        ...(filters.search ? {} : { take: 500 }),
+        // Sem limite para garantir que todos os alunos sejam carregados
+        // ...(filters.search ? {} : { take: 500 }),
         orderBy: {
           data_Confirmacao: 'desc'
         }
       });
 
       console.log(`📊 Confirmações encontradas: ${confirmacoes.length}`);
+      
+      // Debug específico para os alunos problemáticos
+      if (filters.search) {
+        const termoBusca = filters.search.toLowerCase();
+        const alunosProblematicos = ['clemente', 'alice', 'alda'];
+        
+        if (alunosProblematicos.some(nome => termoBusca.includes(nome))) {
+          console.log(`🎯 Busca por aluno problemático detectada: "${filters.search}"`);
+          console.log(`📋 Primeiras 10 confirmações encontradas:`);
+          confirmacoes.slice(0, 10).forEach((conf, index) => {
+            const nomeAluno = conf.tb_matriculas?.tb_alunos?.nome || 'SEM NOME';
+            console.log(`   ${index + 1}. ${nomeAluno}`);
+          });
+        }
+      }
 
       // Converter para alunos únicos
       const alunosMap = new Map();
@@ -1618,30 +1592,54 @@ export class PaymentManagementService {
       }
 
 
-      // A busca já foi feita no banco de dados, não precisa filtrar novamente
+      // APLICAR FILTRO DE BUSCA NA LISTA DE ALUNOS CONFIRMADOS
       if (filters.search) {
-        console.log(`🔍 Busca realizada no banco de dados para: "${filters.search}"`);
-        console.log(`📊 Alunos encontrados: ${todosAlunos.length}`);
+        const searchTerm = filters.search.toLowerCase().trim();
+        console.log(`🔍 Aplicando filtro de busca para: "${searchTerm}"`);
+        console.log(`📊 Total de alunos antes do filtro: ${todosAlunos.length}`);
+        
+        todosAlunos = todosAlunos.filter(aluno => {
+          const nome = (aluno.nome || '').toLowerCase();
+          const documento = (aluno.n_documento_identificacao || '').toLowerCase();
+          
+          let match = false;
+          
+          // BUSCA EXATA LETRA POR LETRA
+          if (searchTerm.includes(' ')) {
+            // Se tem espaços, todas as palavras devem ser exatas
+            const palavras = searchTerm.split(' ').filter(p => p.length > 0);
+            const palavrasNome = nome.split(' ');
+            
+            match = palavras.every(palavra => 
+              palavrasNome.some(palavraNome => palavraNome === palavra)
+            ) || documento.includes(searchTerm);
+          } else {
+            // Se é uma palavra só, buscar palavra exata
+            const palavrasNome = nome.split(' ');
+            match = palavrasNome.some(palavraNome => palavraNome === searchTerm) || 
+                   documento.includes(searchTerm);
+          }
+          
+          // Debug específico para ABEL
+          if (searchTerm.includes('abel') && nome.includes('abel')) {
+            const palavrasNome = nome.split(' ');
+            const temAbelExato = palavrasNome.some(palavra => palavra === 'abel');
+            console.log(`🎯 ABEL ENCONTRADO: ${aluno.nome}`);
+            console.log(`   - Nome: "${nome}"`);
+            console.log(`   - Palavras do nome: [${palavrasNome.join(', ')}]`);
+            console.log(`   - Termo busca: "${searchTerm}"`);
+            console.log(`   - Tem ABEL exato: ${temAbelExato}`);
+            console.log(`   - Match: ${match}`);
+          }
+          
+          return match;
+        });
+        
+        console.log(`📊 Alunos encontrados após filtro: ${todosAlunos.length}`);
         
         // Debug: mostrar resultados se poucos
         if (todosAlunos.length <= 10) {
           console.log('📋 Resultados da busca:', todosAlunos.map(a => a.nome));
-        }
-        
-        // Debug específico para CLEMENTE
-        const clemente = todosAlunos.find(aluno => 
-          aluno.nome.toLowerCase().includes('clemente') || 
-          aluno.nome.toLowerCase().includes('thamba') ||
-          aluno.nome.toLowerCase().includes('mabiala') ||
-          aluno.nome.toLowerCase().includes('sibi')
-        );
-        
-        if (clemente) {
-          console.log(`🎯 CLEMENTE ENCONTRADO: ${clemente.nome}`);
-          console.log(`   - Código: ${clemente.codigo}`);
-          console.log(`   - Documento: ${clemente.n_documento_identificacao}`);
-        } else {
-          console.log(`❌ CLEMENTE NÃO ENCONTRADO na busca`);
         }
       }
 
