@@ -1604,32 +1604,46 @@ export class PaymentManagementService {
           
           let match = false;
           
-          // BUSCA EXATA LETRA POR LETRA
+          // BUSCA PROGRESSIVA E INTELIGENTE
           if (searchTerm.includes(' ')) {
-            // Se tem espaços, todas as palavras devem ser exatas
+            // Se tem espaços, busca progressiva por palavras
             const palavras = searchTerm.split(' ').filter(p => p.length > 0);
             const palavrasNome = nome.split(' ');
             
-            match = palavras.every(palavra => 
-              palavrasNome.some(palavraNome => palavraNome === palavra)
-            ) || documento.includes(searchTerm);
+            // Cada palavra da busca deve ter uma palavra correspondente no nome que COMECE com ela
+            match = palavras.every((palavra, index) => {
+              // Para a primeira palavra, deve começar com ela
+              if (index === 0) {
+                return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
+              }
+              // Para palavras seguintes, deve haver uma palavra que comece com ela
+              return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
+            }) || documento.includes(searchTerm);
           } else {
-            // Se é uma palavra só, buscar palavra exata
+            // Se é uma palavra só, buscar palavra que COMECE com o termo
             const palavrasNome = nome.split(' ');
-            match = palavrasNome.some(palavraNome => palavraNome === searchTerm) || 
+            match = palavrasNome.some(palavraNome => palavraNome.startsWith(searchTerm)) || 
                    documento.includes(searchTerm);
           }
           
-          // Debug específico para ABEL
-          if (searchTerm.includes('abel') && nome.includes('abel')) {
+          // Debug específico para busca progressiva
+          if ((searchTerm.includes('abel') || searchTerm.includes('c')) && nome.includes('abel')) {
             const palavrasNome = nome.split(' ');
-            const temAbelExato = palavrasNome.some(palavra => palavra === 'abel');
-            console.log(`🎯 ABEL ENCONTRADO: ${aluno.nome}`);
+            console.log(`🎯 BUSCA PROGRESSIVA: ${aluno.nome}`);
             console.log(`   - Nome: "${nome}"`);
             console.log(`   - Palavras do nome: [${palavrasNome.join(', ')}]`);
             console.log(`   - Termo busca: "${searchTerm}"`);
-            console.log(`   - Tem ABEL exato: ${temAbelExato}`);
-            console.log(`   - Match: ${match}`);
+            
+            if (searchTerm.includes(' ')) {
+              const palavras = searchTerm.split(' ').filter(p => p.length > 0);
+              console.log(`   - Palavras da busca: [${palavras.join(', ')}]`);
+              palavras.forEach((palavra, index) => {
+                const encontrou = palavrasNome.some(pn => pn.startsWith(palavra));
+                console.log(`   - "${palavra}" encontrada: ${encontrou}`);
+              });
+            }
+            
+            console.log(`   - Match final: ${match}`);
           }
           
           return match;
