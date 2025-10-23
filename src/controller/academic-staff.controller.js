@@ -206,9 +206,10 @@ export class AcademicStaffController {
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
       const docenteId = req.query.docenteId || null;
 
-      const result = await AcademicStaffService.getDisciplinasDocente(page, limit, docenteId);
+      const result = await AcademicStaffService.getDisciplinasDocente(page, limit, search, docenteId);
       
       res.json({
         success: true,
@@ -311,6 +312,20 @@ export class AcademicStaffController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao gerar relatório acadêmico", 400);
+    }
+  }
+
+  static async getEstatisticasDisciplinasDocente(req, res) {
+    try {
+      const estatisticas = await AcademicStaffService.getEstatisticasDisciplinasDocente();
+      
+      res.json({
+        success: true,
+        message: "Estatísticas de disciplinas-docente geradas",
+        data: estatisticas,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao gerar estatísticas de disciplinas-docente", 400);
     }
   }
 

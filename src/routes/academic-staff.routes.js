@@ -381,6 +381,20 @@ router.post('/disciplinas-docente', AcademicStaffController.createDisciplinaDoce
 
 /**
  * @swagger
+ * /api/academic-staff/disciplinas-docente/estatisticas:
+ *   get:
+ *     summary: Obter estatísticas de disciplinas-docente
+ *     tags: [Consultas Acadêmicas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estatísticas geradas com sucesso
+ */
+router.get('/disciplinas-docente/estatisticas', AcademicStaffController.getEstatisticasDisciplinasDocente);
+
+/**
+ * @swagger
  * /api/academic-staff/disciplinas-docente:
  *   get:
  *     summary: Listar disciplinas-docente
@@ -398,6 +412,11 @@ router.post('/disciplinas-docente', AcademicStaffController.createDisciplinaDoce
  *         schema:
  *           type: integer
  *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Buscar por nome do docente, disciplina ou curso
  *       - in: query
  *         name: docenteId
  *         schema:

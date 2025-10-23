@@ -506,13 +506,44 @@ export class AcademicStaffService {
     }
   }
 
-  static async getDisciplinasDocente(page = 1, limit = 10, docenteId = null) {
+  static async getDisciplinasDocente(page = 1, limit = 10, search = '', docenteId = null) {
     try {
       const skip = (page - 1) * limit;
       
-      const where = docenteId ? {
-        codigoDocente: parseInt(docenteId)
-      } : {};
+      // Construir filtros
+      const where = {};
+      
+      // Filtro por docente específico
+      if (docenteId) {
+        where.codigoDocente = parseInt(docenteId);
+      }
+
+      // Filtro de busca por nome do docente, disciplina ou curso
+      if (search && search.trim() !== '') {
+        where.OR = [
+          {
+            tb_docente: {
+              nome: {
+                contains: search.trim()
+              }
+            }
+          },
+          {
+            tb_disciplinas: {
+              designacao: {
+                contains: search.trim()
+              }
+            }
+          },
+          {
+            tb_cursos: {
+              designacao: {
+                contains: search.trim()
+              }
+            }
+          }
+        ];
+      }
 
       const [associacoes, total] = await Promise.all([
         prisma.tb_disciplinas_docente.findMany({
@@ -543,6 +574,7 @@ export class AcademicStaffService {
         }
       };
     } catch (error) {
+      console.error('Erro detalhado ao buscar disciplinas-docente:', error);
       throw new AppError('Erro ao buscar disciplinas-docente', 500);
     }
   }
@@ -719,6 +751,107 @@ export class AcademicStaffService {
       };
     } catch (error) {
       throw new AppError('Erro ao gerar relatório acadêmico', 500);
+    }
+  }
+
+  static async getEstatisticasDisciplinasDocente() {
+    try {
+      const [
+        totalAtribuicoes,
+        professoresAtivos,
+        cursosUnicos,
+        disciplinasUnicas,
+        atribuicoesPorDocente,
+        atribuicoesPorCurso
+      ] = await Promise.all([
+        // Total de atribuições
+        prisma.tb_disciplinas_docente.count(),
+        
+        // Professores com atribuições (únicos e ativos)
+        prisma.tb_disciplinas_docente.findMany({
+          distinct: ['codigoDocente'],
+          select: {
+            codigoDocente: true,
+            tb_docente: {
+              select: { status: true }
+            }
+          }
+        }).then(result => result.filter(r => r.tb_docente.status === 1).length),
+        
+        // Cursos únicos com atribuições
+        prisma.tb_disciplinas_docente.findMany({
+          distinct: ['codigoCurso'],
+          select: { codigoCurso: true }
+        }).then(result => result.length),
+        
+        // Disciplinas únicas atribuídas
+        prisma.tb_disciplinas_docente.findMany({
+          distinct: ['codigoDisciplina'],
+          select: { codigoDisciplina: true }
+        }).then(result => result.length),
+        
+        // Top 5 docentes com mais atribuições
+        prisma.tb_disciplinas_docente.groupBy({
+          by: ['codigoDocente'],
+          _count: { codigo: true },
+          orderBy: { _count: { codigo: 'desc' } },
+          take: 5
+        }),
+        
+        // Top 5 cursos com mais atribuições
+        prisma.tb_disciplinas_docente.groupBy({
+          by: ['codigoCurso'],
+          _count: { codigo: true },
+          orderBy: { _count: { codigo: 'desc' } },
+          take: 5
+        })
+      ]);
+
+      // Buscar nomes dos docentes do top 5
+      const topDocentes = await Promise.all(
+        atribuicoesPorDocente.map(async (item) => {
+          const docente = await prisma.tb_docente.findUnique({
+            where: { codigo: item.codigoDocente },
+            select: { nome: true, codigo: true }
+          });
+          return {
+            codigo: item.codigoDocente,
+            nome: docente?.nome || 'N/A',
+            totalAtribuicoes: item._count.codigo
+          };
+        })
+      );
+
+      // Buscar nomes dos cursos do top 5
+      const topCursos = await Promise.all(
+        atribuicoesPorCurso.map(async (item) => {
+          const curso = await prisma.tb_cursos.findUnique({
+            where: { codigo: item.codigoCurso },
+            select: { designacao: true, codigo: true }
+          });
+          return {
+            codigo: item.codigoCurso,
+            nome: curso?.designacao || 'N/A',
+            totalAtribuicoes: item._count.codigo
+          };
+        })
+      );
+
+      return {
+        resumo: {
+          totalAtribuicoes,
+          professoresAtivos,
+          cursosUnicos,
+          disciplinasUnicas
+        },
+        rankings: {
+          topDocentes,
+          topCursos
+        }
+      };
+    } catch (error) {
+      console.error('Erro ao gerar estatísticas de disciplinas-docente:', error);
+      throw new AppError('Erro ao gerar estatísticas de disciplinas-docente', 500);
     }
   }
 
