@@ -1438,11 +1438,56 @@ export class PaymentManagementService {
       
       console.log('🔍 Iniciando busca de alunos confirmados...');
       
-      // BUSCA SIMPLES - sempre buscar todas as confirmações e filtrar depois
+      // BUSCA OTIMIZADA - filtrar no banco de dados quando há busca
+      let whereClause = {
+        codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
+      };
+
+      // Se há busca, filtrar diretamente no banco
+      if (filters.search) {
+        const searchTerm = filters.search.trim();
+        console.log(`🔍 Termo de busca original: "${searchTerm}"`);
+        
+        // Criar múltiplas condições para busca mais flexível
+        const searchConditions = [];
+        
+        // Busca pelo termo completo (case-insensitive usando ILIKE no PostgreSQL ou LIKE no SQLite)
+        searchConditions.push({ nome: { contains: searchTerm } });
+        searchConditions.push({ n_documento_identificacao: { contains: searchTerm } });
+        
+        // Busca por palavras individuais se o termo tem espaços
+        if (searchTerm.includes(' ')) {
+          const palavras = searchTerm.split(' ').filter(p => p.length > 0);
+          palavras.forEach(palavra => {
+            searchConditions.push({ nome: { contains: palavra } });
+          });
+        }
+        
+        // Adicionar variações com case diferentes para garantir que encontre
+        const searchTermUpper = searchTerm.toUpperCase();
+        const searchTermLower = searchTerm.toLowerCase();
+        
+        if (searchTerm !== searchTermUpper) {
+          searchConditions.push({ nome: { contains: searchTermUpper } });
+        }
+        if (searchTerm !== searchTermLower) {
+          searchConditions.push({ nome: { contains: searchTermLower } });
+        }
+        
+        whereClause = {
+          ...whereClause,
+          tb_matriculas: {
+            tb_alunos: {
+              OR: searchConditions
+            }
+          }
+        };
+        
+        console.log(`🔍 Condições de busca criadas: ${searchConditions.length}`);
+      }
+
       const confirmacoes = await prisma.tb_confirmacoes.findMany({
-        where: {
-          codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
-        },
+        where: whereClause,
         include: {
           tb_matriculas: {
             include: {
@@ -1456,7 +1501,8 @@ export class PaymentManagementService {
             }
           }
         },
-        take: filters.search ? 2000 : 500, // Mais resultados se há busca
+        // Sem limite quando há busca para garantir que todos os alunos sejam encontrados
+        ...(filters.search ? {} : { take: 500 }),
         orderBy: {
           data_Confirmacao: 'desc'
         }
@@ -1571,48 +1617,31 @@ export class PaymentManagementService {
         }
       }
 
-      // Aplicar filtro de busca (case-insensitive e mais abrangente)
+
+      // A busca já foi feita no banco de dados, não precisa filtrar novamente
       if (filters.search) {
-        const searchTerm = filters.search.toLowerCase().trim();
-        console.log(`🔍 Termo de busca: "${searchTerm}"`);
-        
-        // Debug: mostrar alguns nomes antes do filtro
-        console.log('📋 Primeiros 5 nomes antes do filtro:', 
-          todosAlunos.slice(0, 5).map(a => a.nome)
-        );
-        
-        todosAlunos = todosAlunos.filter(aluno => {
-          const nome = (aluno.nome || '').toLowerCase();
-          const documento = (aluno.n_documento_identificacao || '').toLowerCase();
-          
-          // Buscar por nome completo, partes do nome ou documento
-          const matchNome = nome.includes(searchTerm);
-          const matchDocumento = documento.includes(searchTerm);
-          const matchPalavras = searchTerm.split(' ').every(palavra => 
-            palavra.length > 0 && nome.includes(palavra)
-          );
-          
-          const match = matchNome || matchDocumento || matchPalavras;
-          
-          // Debug específico para CLEMENTE
-          if (nome.includes('clemente') || nome.includes('thamba') || nome.includes('mabiala') || nome.includes('sibi')) {
-            console.log(`🎯 ENCONTRADO CLEMENTE: ${aluno.nome}`);
-            console.log(`   - Nome: "${nome}"`);
-            console.log(`   - Documento: "${documento}"`);
-            console.log(`   - Termo busca: "${searchTerm}"`);
-            console.log(`   - Match nome: ${matchNome}`);
-            console.log(`   - Match documento: ${matchDocumento}`);
-            console.log(`   - Match palavras: ${matchPalavras}`);
-            console.log(`   - Match final: ${match}`);
-          }
-          
-          return match;
-        });
-        console.log(`🔍 Após filtro de busca "${filters.search}": ${todosAlunos.length}`);
+        console.log(`🔍 Busca realizada no banco de dados para: "${filters.search}"`);
+        console.log(`📊 Alunos encontrados: ${todosAlunos.length}`);
         
         // Debug: mostrar resultados se poucos
         if (todosAlunos.length <= 10) {
           console.log('📋 Resultados da busca:', todosAlunos.map(a => a.nome));
+        }
+        
+        // Debug específico para CLEMENTE
+        const clemente = todosAlunos.find(aluno => 
+          aluno.nome.toLowerCase().includes('clemente') || 
+          aluno.nome.toLowerCase().includes('thamba') ||
+          aluno.nome.toLowerCase().includes('mabiala') ||
+          aluno.nome.toLowerCase().includes('sibi')
+        );
+        
+        if (clemente) {
+          console.log(`🎯 CLEMENTE ENCONTRADO: ${clemente.nome}`);
+          console.log(`   - Código: ${clemente.codigo}`);
+          console.log(`   - Documento: ${clemente.n_documento_identificacao}`);
+        } else {
+          console.log(`❌ CLEMENTE NÃO ENCONTRADO na busca`);
         }
       }
 
@@ -1766,6 +1795,7 @@ export class PaymentManagementService {
       throw new AppError('Erro ao obter dados financeiros do aluno', 500);
     }
   }
+
 
   static async gerarFaturaPDF(pagamentoId) {
     try {

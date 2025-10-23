@@ -552,7 +552,6 @@ export class PaymentManagementController {
       const { ano_lectivo } = req.query;
       
       console.log(`🎯 Controller - ID recebido: ${id}, Ano: ${ano_lectivo}`);
-      
       if (!id || isNaN(parseInt(id))) {
         console.log(`❌ ID inválido: ${id}`);
         return res.status(400).json({
@@ -560,10 +559,9 @@ export class PaymentManagementController {
           message: "ID do aluno deve ser um número válido",
         });
       }
-
-      console.log(`🚀 Chamando service com ID: ${parseInt(id)}`);
+      
       const dadosFinanceiros = await PaymentManagementService.getDadosFinanceirosAluno(
-        parseInt(id),
+        parseInt(id), 
         ano_lectivo ? parseInt(ano_lectivo) : null
       );
       
@@ -577,11 +575,13 @@ export class PaymentManagementController {
     }
   }
 
+
   static async gerarFaturaPDF(req, res) {
     try {
       const { id } = req.params;
       
       if (!id || isNaN(parseInt(id))) {
+        console.log(`❌ ID inválido: ${id}`);
         return res.status(400).json({
           success: false,
           message: "ID do pagamento deve ser um número válido",
