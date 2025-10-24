@@ -1436,113 +1436,38 @@ export class PaymentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
       
-      console.log('🔍 Iniciando busca OTIMIZADA de alunos confirmados...');
+      console.log('🔍 Iniciando busca de alunos confirmados...');
       
-      // BUSCA OTIMIZADA - FILTRAR NO BANCO DE DADOS
+      // BUSCA DIRETA NA TABELA DE CONFIRMAÇÕES
       let whereClause = {
         codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
       };
 
-      // FILTRO HÍBRIDO: BANCO + MEMÓRIA PARA VELOCIDADE + PRECISÃO
-      if (filters.search) {
-        const searchTerm = filters.search.trim();
-        console.log(`🔍 BUSCA HÍBRIDA (Banco + Memória) para: "${searchTerm}"`);
-        
-        // Extrair primeira palavra para filtro inicial no banco
-        const primeiraPalavra = searchTerm.toLowerCase().split(' ')[0];
-        console.log(`🎯 Filtro inicial no banco com primeira palavra: "${primeiraPalavra}"`);
-        
-        // Aplicar filtro inicial no banco para reduzir dataset
-        whereClause = {
-          codigo_Status: { in: [1, 2] },
+      console.log(`🔍 Buscando confirmações com filtros:`, filters);
+
+      const confirmacoes = await prisma.tb_confirmacoes.findMany({
+        where: whereClause,
+        include: {
           tb_matriculas: {
-            tb_alunos: {
-              OR: [
-                // Buscar por primeira palavra em diferentes casos
-                { nome: { contains: primeiraPalavra.toUpperCase() } },
-                { nome: { contains: primeiraPalavra.toLowerCase() } },
-                { nome: { contains: primeiraPalavra } },
-                // Também buscar por documento
-                { n_documento_identificacao: { contains: searchTerm } }
-              ]
+            include: {
+              tb_alunos: true,
+              tb_cursos: true
+            }
+          },
+          tb_turmas: {
+            include: {
+              tb_classes: true
             }
           }
-        };
-      }
+        },
+        // Sem limite para garantir que todos os alunos sejam carregados
+        // ...(filters.search ? {} : { take: 500 }),
+        orderBy: {
+          data_Confirmacao: 'desc'
+        }
+      });
 
-      let confirmacoes;
-      try {
-        console.log('🔍 Executando query otimizada...', JSON.stringify(whereClause, null, 2));
-        
-        confirmacoes = await prisma.tb_confirmacoes.findMany({
-          where: whereClause,
-          include: {
-            tb_matriculas: {
-              include: {
-                tb_alunos: true,
-                tb_cursos: true
-              }
-            },
-            tb_turmas: {
-              include: {
-                tb_classes: true
-              }
-            }
-          },
-          // Limite inteligente baseado na busca
-          ...(filters.search ? { 
-            take: filters.search.split(' ')[0].length >= 4 ? 1000 : 2000 // Mais específico = mais resultados
-          } : { take: 500 }),
-          orderBy: {
-            data_Confirmacao: 'desc'
-          }
-        });
-      } catch (queryError) {
-        console.error('❌ Erro na query otimizada:', queryError);
-        console.log('🔄 Fazendo fallback para busca simples...');
-        
-        // Fallback: busca simples sem filtros complexos - SEM LIMITE
-        confirmacoes = await prisma.tb_confirmacoes.findMany({
-          where: {
-            codigo_Status: { in: [1, 2] }
-          },
-          include: {
-            tb_matriculas: {
-              include: {
-                tb_alunos: true,
-                tb_cursos: true
-              }
-            },
-            tb_turmas: {
-              include: {
-                tb_classes: true
-              }
-            }
-          },
-          // take: 500, // Removido para cobrir toda a tabela
-          orderBy: {
-            data_Confirmacao: 'desc'
-          }
-        });
-      }
-
-      if (filters.search) {
-        console.log(`📊 Confirmações pré-filtradas no banco: ${confirmacoes.length} (filtro híbrido)`);
-      } else {
-        console.log(`📊 Confirmações encontradas: ${confirmacoes.length} (sem busca)`);
-      }
-      
-      // Debug específico para JUSTINA
-      if (filters.search && filters.search.toLowerCase().includes('justina')) {
-        console.log(`🔍 Procurando por JUSTINA nas ${confirmacoes.length} confirmações pré-filtradas...`);
-        const justinas = confirmacoes.filter(conf => 
-          conf.tb_matriculas?.tb_alunos?.nome?.toLowerCase().includes('justina')
-        );
-        console.log(`👥 JUSTINAs encontradas nas confirmações pré-filtradas: ${justinas.length}`);
-        justinas.forEach((conf, index) => {
-          console.log(`   ${index + 1}. ${conf.tb_matriculas?.tb_alunos?.nome}`);
-        });
-      }
+      console.log(`📊 Confirmações encontradas: ${confirmacoes.length}`);
       
       // Debug específico para os alunos problemáticos
       if (filters.search) {
@@ -1667,12 +1592,11 @@ export class PaymentManagementService {
       }
 
 
-      // APLICAR FILTRO DE BUSCA PROGRESSIVA INTELIGENTE (2ª FASE)
+      // APLICAR FILTRO DE BUSCA NA LISTA DE ALUNOS CONFIRMADOS
       if (filters.search) {
-        console.log('🔄 Aplicando filtro PROGRESSIVO em memória (2ª fase)...');
         const searchTerm = filters.search.toLowerCase().trim();
-        const totalAntesDoFiltro = todosAlunos.length;
-        console.log(`📊 Alunos únicos antes do filtro progressivo: ${totalAntesDoFiltro}`);
+        console.log(`🔍 Aplicando filtro de busca para: "${searchTerm}"`);
+        console.log(`📊 Total de alunos antes do filtro: ${todosAlunos.length}`);
         
         todosAlunos = todosAlunos.filter(aluno => {
           const nome = (aluno.nome || '').toLowerCase();
@@ -1680,7 +1604,7 @@ export class PaymentManagementService {
           
           let match = false;
           
-          // BUSCA PROGRESSIVA E INTELIGENTE - RESTAURADA
+          // BUSCA PROGRESSIVA E INTELIGENTE
           if (searchTerm.includes(' ')) {
             // Se tem espaços, busca progressiva por palavras
             const palavras = searchTerm.split(' ').filter(p => p.length > 0);
@@ -1703,10 +1627,9 @@ export class PaymentManagementService {
           }
           
           // Debug específico para busca progressiva
-          if ((searchTerm.includes('abel') || searchTerm.includes('justina')) && 
-              (nome.includes('abel') || nome.includes('justina'))) {
+          if ((searchTerm.includes('abel') || searchTerm.includes('c')) && nome.includes('abel')) {
             const palavrasNome = nome.split(' ');
-            console.log(`🎯 BUSCA PROGRESSIVA DEBUG: ${aluno.nome}`);
+            console.log(`🎯 BUSCA PROGRESSIVA: ${aluno.nome}`);
             console.log(`   - Nome: "${nome}"`);
             console.log(`   - Palavras do nome: [${palavrasNome.join(', ')}]`);
             console.log(`   - Termo busca: "${searchTerm}"`);
@@ -1726,21 +1649,12 @@ export class PaymentManagementService {
           return match;
         });
         
-        console.log(`🎯 Filtro PROGRESSIVO aplicado: ${todosAlunos.length} resultados (de ${totalAntesDoFiltro} total)`);
-      }
-      
-      console.log(`📊 Alunos únicos processados: ${todosAlunos.length}`);
-      
-      // Debug final para JUSTINA
-      if (filters.search && filters.search.toLowerCase().includes('justina')) {
-        console.log(`🔍 Verificação final - JUSTINAs nos alunos únicos:`);
-        const justinasFinais = todosAlunos.filter(aluno => 
-          aluno.nome?.toLowerCase().includes('justina')
-        );
-        console.log(`👥 JUSTINAs nos alunos únicos: ${justinasFinais.length}`);
-        justinasFinais.forEach((aluno, index) => {
-          console.log(`   ${index + 1}. ${aluno.nome}`);
-        });
+        console.log(`📊 Alunos encontrados após filtro: ${todosAlunos.length}`);
+        
+        // Debug: mostrar resultados se poucos
+        if (todosAlunos.length <= 10) {
+          console.log('📋 Resultados da busca:', todosAlunos.map(a => a.nome));
+        }
       }
 
       // Aplicar outros filtros
@@ -1778,26 +1692,8 @@ export class PaymentManagementService {
         pagination
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar alunos confirmados:', {
-        message: error.message,
-        stack: error.stack,
-        filters: filters
-      });
-      
-      // Tentar retornar uma resposta vazia em vez de erro
-      try {
-        return {
-          data: [],
-          pagination: {
-            currentPage: page,
-            totalPages: 0,
-            totalItems: 0,
-            itemsPerPage: limit
-          }
-        };
-      } catch (fallbackError) {
-        throw new AppError(`Erro ao buscar alunos confirmados: ${error.message}`, 500);
-      }
+      console.error('Erro ao buscar alunos confirmados:', error);
+      throw new AppError('Erro ao buscar alunos confirmados', 500);
     }
   }
 
