@@ -790,5 +790,3 @@ export class PaymentManagementController {
     }
   }
 }
-
-export default PaymentManagementController;
