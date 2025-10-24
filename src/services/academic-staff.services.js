@@ -436,20 +436,43 @@ export class AcademicStaffService {
         throw new AppError('Docente não encontrado', 404);
       }
 
-      const dependencies = [];
-      if (existingDocente.tb_disciplinas_docente.length > 0) dependencies.push('disciplinas');
-      if (existingDocente.tb_directores_turmas.length > 0) dependencies.push('direção de turmas');
-      if (existingDocente.tb_docente_turma.length > 0) dependencies.push('turmas');
+      // Implementação CASCADE DELETE com transação
+      const result = await prisma.$transaction(async (tx) => {
+        // Passo 1: Excluir registros de tb_disciplinas_docente
+        const disciplinasDocenteDeleteCount = await tx.tb_disciplinas_docente.deleteMany({
+          where: { codigoDocente: parseInt(id) }
+        });
 
-      if (dependencies.length > 0) {
-        throw new AppError(`Não é possível excluir este docente pois possui ${dependencies.join(', ')} associadas`, 400);
-      }
+        // Passo 2: Excluir registros de tb_directores_turmas
+        const diretoresTurmasDeleteCount = await tx.tb_directores_turmas.deleteMany({
+          where: { codigoDocente: parseInt(id) }
+        });
 
-      await prisma.tb_docente.delete({
-        where: { codigo: parseInt(id) }
+        // Passo 3: Excluir registros de tb_docente_turma
+        const docenteTurmaDeleteCount = await tx.tb_docente_turma.deleteMany({
+          where: { codigo_Docente: parseInt(id) }
+        });
+
+        // Passo 4: Excluir o docente
+        await tx.tb_docente.delete({
+          where: { codigo: parseInt(id) }
+        });
+
+        return {
+          tipo: 'cascade_delete',
+          detalhes: {
+            docenteNome: existingDocente.nome,
+            disciplinasDocente: disciplinasDocenteDeleteCount.count,
+            diretoresTurma: diretoresTurmasDeleteCount.count,
+            docenteTurma: docenteTurmaDeleteCount.count
+          }
+        };
+      }, {
+        maxWait: 30000,
+        timeout: 30000
       });
 
-      return { message: 'Docente excluído com sucesso' };
+      return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao excluir docente', 500);
