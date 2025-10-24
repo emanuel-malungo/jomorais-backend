@@ -145,14 +145,14 @@ router.post('/export', async (req, res) => {
     <CompanyID>AO123456789</CompanyID>
     <TaxRegistrationNumber>123456789</TaxRegistrationNumber>
     <TaxAccountingBasis>F</TaxAccountingBasis>
-    <CompanyName>INSTITUTO MÉDIO POLITÉCNICO JO MORAIS</CompanyName>
-    <BusinessName>INSTITUTO MÉDIO POLITÉCNICO JO MORAIS</BusinessName>
+    <CompanyName>COMPLEXO ESCOLAR PRIVADO JOMORAIS</CompanyName>
+    <BusinessName>COMPLEXO ESCOLAR PRIVADO JOMORAIS</BusinessName>
     <CompanyAddress>
-      <AddressDetail>Luanda, Angola</AddressDetail>
-      <City>Luanda</City>
+      <AddressDetail>Cabinda, Angola</AddressDetail>
+      <City>Cabinda</City>
       <PostalCode>1000</PostalCode>
       <Country>AO</Country>
-      <Region>Luanda</Region>
+      <Region>Cabinda</Region>
     </CompanyAddress>
     <FiscalYear>${startDate.getFullYear()}</FiscalYear>
     <StartDate>${config.startDate}</StartDate>
@@ -184,11 +184,11 @@ router.post('/export', async (req, res) => {
         <CustomerTaxID>999999999</CustomerTaxID>
         <CompanyName>${aluno.nome.replace(/[&<>"']/g, '')}</CompanyName>
         <BillingAddress>
-          <AddressDetail>Luanda</AddressDetail>
-          <City>Luanda</City>
+          <AddressDetail>Cabinda</AddressDetail>
+          <City>Cabinda</City>
           <PostalCode>1000</PostalCode>
           <Country>AO</Country>
-          <Region>Luanda</Region>
+          <Region>Cabinda</Region>
         </BillingAddress>
         <SelfBillingIndicator>0</SelfBillingIndicator>
       </Customer>`).join('')}
@@ -326,13 +326,13 @@ router.get('/company-info', async (req, res) => {
     const companyInfo = {
       companyID: 'AO123456789',
       registrationNumber: '123456789',
-      name: 'INSTITUTO MÉDIO POLITÉCNICO JO MORAIS',
-      businessName: 'INSTITUTO MÉDIO POLITÉCNICO JO MORAIS',
+      name: 'COMPLEXO ESCOLAR PRIVADO JOMORAIS',
+      businessName: 'COMPLEXO ESCOLAR PRIVADO JOMORAIS',
       address: {
-        addressDetail: 'Luanda, Angola',
-        city: 'Luanda',
+        addressDetail: 'Cabinda, Angola',
+        city: 'Cabinda',
         postalCode: '1000',
-        region: 'Luanda',
+        region: 'Cabinda',
         country: 'AO'
       },
       contacts: {
@@ -344,10 +344,10 @@ router.get('/company-info', async (req, res) => {
       taxRegistrationNumber: '123456789',
       taxAccountingBasis: 'F',
       companyAddress: {
-        addressDetail: 'Luanda, Angola',
-        city: 'Luanda',
+        addressDetail: 'Cabinda, Angola',
+        city: 'Cabinda',
         postalCode: '1000',
-        region: 'Luanda', 
+        region: 'Cabinda', 
         country: 'AO'
       }
     };
