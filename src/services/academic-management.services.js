@@ -507,7 +507,15 @@ export class AcademicManagementService {
       const existingClasse = await prisma.tb_classes.findUnique({
         where: { codigo: parseInt(id) },
         include: { 
-          tb_turmas: true, 
+          tb_turmas: {
+            include: {
+              tb_confirmacoes: {
+                include: {
+                  tb_matriculas: true
+                }
+              }
+            }
+          }, 
           tb_grade_curricular: true 
         }
       });
@@ -516,34 +524,185 @@ export class AcademicManagementService {
         throw new AppError('Classe não encontrada', 404);
       }
 
-      // TÉCNICA: VALIDAÇÃO COM DETALHES
-      const temDependencias = existingClasse.tb_turmas.length > 0 || 
-                              existingClasse.tb_grade_curricular.length > 0;
-
-      if (temDependencias) {
-        throw new AppError(
-          `Não é possível excluir esta classe pois possui ${existingClasse.tb_turmas.length} turma(s) ` +
-          `e ${existingClasse.tb_grade_curricular.length} item(ns) na grade curricular`, 
-          400
-        );
-      }
-
-      // TÉCNICA: HARD DELETE (Exclusão Física)
-      await prisma.tb_classes.delete({
-        where: { codigo: parseInt(id) }
-      });
-
-      return { 
-        message: 'Classe excluída com sucesso',
-        tipo: 'hard_delete',
-        detalhes: {
-          classeNome: existingClasse.designacao
+      // TÉCNICA: CASCADE DELETE (Exclusão em Cascata)
+      // Excluir a classe e todas as suas dependências em uma transação
+      const result = await prisma.$transaction(async (tx) => {
+        console.log(`[DELETE CLASSE] Iniciando exclusão em cascata da classe ${id} - ${existingClasse.designacao}`);
+        
+        // ===================================
+        // PASSO 1: EXCLUIR CONFIRMAÇÕES (via turmas)
+        // ===================================
+        let confirmacoesCount = 0;
+        if (existingClasse.tb_turmas.length > 0) {
+          const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
+          const confirmacoesResult = await tx.tb_confirmacoes.deleteMany({
+            where: { codigo_Turma: { in: turmaIds } }
+          });
+          confirmacoesCount = confirmacoesResult.count;
+          if (confirmacoesCount > 0) {
+            console.log(`[DELETE CLASSE] ✓ Excluídas ${confirmacoesCount} confirmações`);
+          }
         }
-      };
+        
+        // ===================================
+        // PASSO 2: EXCLUIR SERVIÇOS DOS ALUNOS (via turmas)
+        // ===================================
+        let servicosCount = 0;
+        if (existingClasse.tb_turmas.length > 0) {
+          const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
+          const servicosResult = await tx.tb_servico_aluno.deleteMany({
+            where: { codigo_Turma: { in: turmaIds } }
+          });
+          servicosCount = servicosResult.count;
+          if (servicosCount > 0) {
+            console.log(`[DELETE CLASSE] ✓ Excluídos ${servicosCount} serviços de alunos`);
+          }
+        }
+        
+        // ===================================
+        // PASSO 3: EXCLUIR RELAÇÕES DOCENTE-TURMA
+        // ===================================
+        let docenteTurmaCount = 0;
+        if (existingClasse.tb_turmas.length > 0) {
+          const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
+          const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
+            where: { codigo_turma: { in: turmaIds } }
+          });
+          docenteTurmaCount = docenteTurmaResult.count;
+          if (docenteTurmaCount > 0) {
+            console.log(`[DELETE CLASSE] ✓ Excluídas ${docenteTurmaCount} relações docente-turma`);
+          }
+        }
+        
+        // ===================================
+        // PASSO 4: EXCLUIR SERVIÇOS DE TURMA
+        // ===================================
+        let servicosTurmaCount = 0;
+        if (existingClasse.tb_turmas.length > 0) {
+          const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
+          const servicosTurmaResult = await tx.tb_servicos_turma.deleteMany({
+            where: { codigoTurma: { in: turmaIds } }
+          });
+          servicosTurmaCount = servicosTurmaResult.count;
+          if (servicosTurmaCount > 0) {
+            console.log(`[DELETE CLASSE] ✓ Excluídos ${servicosTurmaCount} serviços de turma`);
+          }
+        }
+        
+        // ===================================
+        // PASSO 5: EXCLUIR DIRETORES DE TURMA
+        // ===================================
+        let diretoresTurmaCount = 0;
+        if (existingClasse.tb_turmas.length > 0) {
+          const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
+          const diretoresTurmaResult = await tx.tb_directores_turmas.deleteMany({
+            where: { codigoTurma: { in: turmaIds } }
+          });
+          diretoresTurmaCount = diretoresTurmaResult.count;
+          if (diretoresTurmaCount > 0) {
+            console.log(`[DELETE CLASSE] ✓ Excluídos ${diretoresTurmaCount} diretores de turma`);
+          }
+        }
+        
+        // ===================================
+        // PASSO 6: EXCLUIR GRADE CURRICULAR
+        // ===================================
+        // ===================================
+        // PASSO 6: EXCLUIR GRADE CURRICULAR
+        // ===================================
+        const gradeCurricularCount = existingClasse.tb_grade_curricular.length;
+        if (gradeCurricularCount > 0) {
+          await tx.tb_grade_curricular.deleteMany({
+            where: { codigo_Classe: parseInt(id) }
+          });
+          console.log(`[DELETE CLASSE] ✓ Excluídos ${gradeCurricularCount} itens da grade curricular`);
+        }
+        
+        // ===================================
+        // PASSO 7: EXCLUIR TURMAS
+        // ===================================
+        const turmasCount = existingClasse.tb_turmas.length;
+        if (turmasCount > 0) {
+          await tx.tb_turmas.deleteMany({
+            where: { codigo_Classe: parseInt(id) }
+          });
+          console.log(`[DELETE CLASSE] ✓ Excluídas ${turmasCount} turmas`);
+        }
+        
+        // ===================================
+        // PASSO 8: EXCLUIR PROPINAS DA CLASSE
+        // ===================================
+        const propinaClasseResult = await tx.tb_propina_classe.deleteMany({
+          where: { codigoClasse: parseInt(id) }
+        });
+        const propinaClasseCount = propinaClasseResult.count;
+        if (propinaClasseCount > 0) {
+          console.log(`[DELETE CLASSE] ✓ Excluídas ${propinaClasseCount} propinas da classe`);
+        }
+        
+        // ===================================
+        // PASSO 9: EXCLUIR LIMITES DE PAGAMENTO DA CLASSE
+        // ===================================
+        const limitePagamentoResult = await tx.tb_limite_pagamento_propina.deleteMany({
+          where: { codigoClasse: parseInt(id) }
+        });
+        const limitePagamentoCount = limitePagamentoResult.count;
+        if (limitePagamentoCount > 0) {
+          console.log(`[DELETE CLASSE] ✓ Excluídos ${limitePagamentoCount} limites de pagamento`);
+        }
+        
+        // ===================================
+        // PASSO 10: EXCLUIR MESES DA CLASSE
+        // ===================================
+        // ===================================
+        // PASSO 10: EXCLUIR MESES DA CLASSE
+        // ===================================
+        const mesesClasseResult = await tx.tb_meses_classe.deleteMany({
+          where: { codigoClasse: parseInt(id) }
+        });
+        const mesesClasseCount = mesesClasseResult.count;
+        if (mesesClasseCount > 0) {
+          console.log(`[DELETE CLASSE] ✓ Excluídos ${mesesClasseCount} meses da classe`);
+        }
+        
+        // ===================================
+        // PASSO 11: EXCLUIR A CLASSE
+        // ===================================
+        await tx.tb_classes.delete({
+          where: { codigo: parseInt(id) }
+        });
+        console.log('[DELETE CLASSE] ✓ Classe excluída');
+        
+        console.log('[DELETE CLASSE] ✓ Exclusão em cascata concluída com sucesso');
+        
+        return { 
+          message: 'Classe e todas as dependências excluídas com sucesso',
+          tipo: 'cascade_delete',
+          detalhes: {
+            classeNome: existingClasse.designacao,
+            confirmacoes: confirmacoesCount,
+            servicos: servicosCount,
+            docenteTurma: docenteTurmaCount,
+            servicosTurma: servicosTurmaCount,
+            diretoresTurma: diretoresTurmaCount,
+            gradeCurricular: gradeCurricularCount,
+            turmas: turmasCount,
+            propinaClasse: propinaClasseCount,
+            limitePagamento: limitePagamentoCount,
+            mesesClasse: mesesClasseCount
+          }
+        };
+      }, {
+        maxWait: 30000,
+        timeout: 30000,
+      });
+      
+      return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao excluir classe:', error);
-      throw new AppError('Erro ao excluir classe', 500);
+      console.error('[DELETE CLASSE] ✗ Erro ao excluir classe em cascata:', error);
+      console.error('Stack trace:', error.stack);
+      throw new AppError(`Erro ao excluir classe e dependências: ${error.message}`, 500);
     }
   }
 
@@ -647,41 +806,52 @@ export class AcademicManagementService {
         throw new AppError('Disciplina não encontrada', 404);
       }
 
-      // TÉCNICA: VALIDAÇÃO COM DETALHES
-      if (existingDisciplina.tb_grade_curricular.length > 0) {
-        const count = existingDisciplina.tb_grade_curricular.length;
-        const gradeInfo = existingDisciplina.tb_grade_curricular.map(gc => ({
-          classe: gc.tb_classes?.designacao || `Classe ${gc.codigo_Classe}`,
-          curso: gc.tb_cursos?.designacao || `Curso ${gc.codigo_Curso}`
-        }));
+      // TÉCNICA: CASCADE DELETE (Exclusão em Cascata)
+      // Excluir a disciplina e todas as suas dependências em uma transação
+      const result = await prisma.$transaction(async (tx) => {
+        console.log(`[DELETE DISCIPLINA] Iniciando exclusão em cascata da disciplina ${id} - ${existingDisciplina.designacao}`);
         
-        const details = gradeInfo.length > 0 
-          ? ` Está sendo usada nas seguintes grades: ${gradeInfo.map(info => `${info.classe} - ${info.curso}`).join(', ')}.`
-          : '';
-          
-        throw new AppError(
-          `Não é possível excluir esta disciplina pois ela está sendo usada em ${count} item(ns) da grade curricular.${details} Remova-a da grade curricular primeiro.`, 
-          400
-        );
-      }
-
-      // TÉCNICA: HARD DELETE (Exclusão Física)
-      await prisma.tb_disciplinas.delete({
-        where: { codigo: parseInt(id) }
-      });
-
-      return { 
-        message: 'Disciplina excluída com sucesso',
-        tipo: 'hard_delete',
-        detalhes: {
-          disciplinaNome: existingDisciplina.designacao,
-          cursoNome: existingDisciplina.tb_cursos?.designacao || 'N/A'
+        // ===================================
+        // PASSO 1: EXCLUIR GRADE CURRICULAR
+        // ===================================
+        const gradeCurricularCount = existingDisciplina.tb_grade_curricular.length;
+        if (gradeCurricularCount > 0) {
+          await tx.tb_grade_curricular.deleteMany({
+            where: { codigo_disciplina: parseInt(id) }
+          });
+          console.log(`[DELETE DISCIPLINA] ✓ Excluídos ${gradeCurricularCount} itens da grade curricular`);
         }
-      };
+        
+        // ===================================
+        // PASSO 2: EXCLUIR A DISCIPLINA
+        // ===================================
+        await tx.tb_disciplinas.delete({
+          where: { codigo: parseInt(id) }
+        });
+        console.log('[DELETE DISCIPLINA] ✓ Disciplina excluída');
+        
+        console.log('[DELETE DISCIPLINA] ✓ Exclusão em cascata concluída com sucesso');
+        
+        return { 
+          message: 'Disciplina e todas as dependências excluídas com sucesso',
+          tipo: 'cascade_delete',
+          detalhes: {
+            disciplinaNome: existingDisciplina.designacao,
+            cursoNome: existingDisciplina.tb_cursos?.designacao || 'N/A',
+            gradeCurricular: gradeCurricularCount
+          }
+        };
+      }, {
+        maxWait: 30000,
+        timeout: 30000,
+      });
+      
+      return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao excluir disciplina:', error);
-      throw new AppError('Erro ao excluir disciplina', 500);
+      console.error('[DELETE DISCIPLINA] ✗ Erro ao excluir disciplina em cascata:', error);
+      console.error('Stack trace:', error.stack);
+      throw new AppError(`Erro ao excluir disciplina e dependências: ${error.message}`, 500);
     }
   }
 
