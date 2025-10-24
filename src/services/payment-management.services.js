@@ -1445,18 +1445,20 @@ export class PaymentManagementService {
 
       // Se há busca, usar abordagem mais simples e confiável
       if (filters.search) {
-        const searchTerm = filters.search.toLowerCase().trim();
+        const searchTerm = filters.search.trim(); // Não converter para lowercase
         console.log(`🔍 Aplicando busca SIMPLES no banco para: "${searchTerm}"`);
         
-        // Abordagem mais simples - buscar por nome do aluno
+        // Usar busca case-insensitive com ILIKE (PostgreSQL) ou contains (SQLite)
         whereClause = {
           codigo_Status: { in: [1, 2] },
           tb_matriculas: {
             tb_alunos: {
-              nome: { 
-                contains: searchTerm,
-                mode: 'insensitive'
-              }
+              OR: [
+                { nome: { contains: searchTerm.toUpperCase() } },
+                { nome: { contains: searchTerm.toLowerCase() } },
+                { nome: { contains: searchTerm } },
+                { n_documento_identificacao: { contains: searchTerm } }
+              ]
             }
           }
         };
@@ -1481,8 +1483,8 @@ export class PaymentManagementService {
               }
             }
           },
-          // Aplicar limite otimizado para busca rápida
-          ...(filters.search ? { take: Math.min(take * 3, 150) } : { take: 500 }),
+          // Remover limite para cobrir toda a tabela na busca
+          // ...(filters.search ? { take: Math.min(take * 3, 150) } : { take: 500 }),
           orderBy: {
             data_Confirmacao: 'desc'
           }
@@ -1491,7 +1493,7 @@ export class PaymentManagementService {
         console.error('❌ Erro na query otimizada:', queryError);
         console.log('🔄 Fazendo fallback para busca simples...');
         
-        // Fallback: busca simples sem filtros complexos
+        // Fallback: busca simples sem filtros complexos - SEM LIMITE
         confirmacoes = await prisma.tb_confirmacoes.findMany({
           where: {
             codigo_Status: { in: [1, 2] }
@@ -1509,14 +1511,14 @@ export class PaymentManagementService {
               }
             }
           },
-          take: 500,
+          // take: 500, // Removido para cobrir toda a tabela
           orderBy: {
             data_Confirmacao: 'desc'
           }
         });
       }
 
-      console.log(`📊 Confirmações encontradas: ${confirmacoes.length}`);
+      console.log(`📊 Confirmações encontradas: ${confirmacoes.length} (SEM LIMITE - cobrindo toda a tabela)`);
       
       // Debug específico para os alunos problemáticos
       if (filters.search) {
@@ -1641,10 +1643,11 @@ export class PaymentManagementService {
       }
 
 
-      // Se há busca e muitos resultados, aplicar filtro refinado em memória
-      if (filters.search && todosAlunos.length > 10) {
+      // Se há busca, aplicar filtro refinado em memória para garantir precisão
+      if (filters.search) {
         console.log('🔄 Aplicando filtro refinado em memória...');
         const searchTerm = filters.search.toLowerCase().trim();
+        const totalAntesDoFiltro = todosAlunos.length;
         
         todosAlunos = todosAlunos.filter(aluno => {
           const nome = (aluno.nome || '').toLowerCase();
@@ -1665,7 +1668,7 @@ export class PaymentManagementService {
           }
         });
         
-        console.log(`🎯 Filtro refinado aplicado: ${todosAlunos.length} resultados`);
+        console.log(`🎯 Filtro refinado aplicado: ${todosAlunos.length} resultados (de ${totalAntesDoFiltro} total)`);
       }
       
       console.log(`📊 Alunos únicos processados: ${todosAlunos.length}`);
