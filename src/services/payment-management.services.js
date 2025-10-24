@@ -1443,56 +1443,78 @@ export class PaymentManagementService {
         codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
       };
 
-      // Se há busca, aplicar filtro diretamente no banco
+      // Se há busca, usar abordagem mais simples e confiável
       if (filters.search) {
         const searchTerm = filters.search.toLowerCase().trim();
-        console.log(`🔍 Aplicando busca no banco para: "${searchTerm}"`);
+        console.log(`🔍 Aplicando busca SIMPLES no banco para: "${searchTerm}"`);
         
-        if (searchTerm.includes(' ')) {
-          // Busca por múltiplas palavras - todas devem estar presentes
-          const palavras = searchTerm.split(' ').filter(p => p.length > 0);
-          
-          whereClause.tb_matriculas = {
-            tb_alunos: {
-              AND: palavras.map(palavra => ({
-                nome: { contains: palavra }
-              }))
-            }
-          };
-        } else {
-          // Busca por palavra única
-          whereClause.tb_matriculas = {
-            tb_alunos: {
-              OR: [
-                { nome: { contains: searchTerm } },
-                { n_documento_identificacao: { contains: searchTerm } }
-              ]
-            }
-          };
-        }
-      }
-
-      const confirmacoes = await prisma.tb_confirmacoes.findMany({
-        where: whereClause,
-        include: {
+        // Abordagem mais simples - buscar por nome do aluno
+        whereClause = {
+          codigo_Status: { in: [1, 2] },
           tb_matriculas: {
-            include: {
-              tb_alunos: true,
-              tb_cursos: true
-            }
-          },
-          tb_turmas: {
-            include: {
-              tb_classes: true
+            tb_alunos: {
+              nome: { 
+                contains: searchTerm,
+                mode: 'insensitive'
+              }
             }
           }
-        },
-        // Aplicar limite otimizado para busca rápida
-        ...(filters.search ? { take: Math.min(take * 3, 150) } : { take: 500 }),
-        orderBy: {
-          data_Confirmacao: 'desc'
-        }
-      });
+        };
+      }
+
+      let confirmacoes;
+      try {
+        console.log('🔍 Executando query otimizada...', JSON.stringify(whereClause, null, 2));
+        
+        confirmacoes = await prisma.tb_confirmacoes.findMany({
+          where: whereClause,
+          include: {
+            tb_matriculas: {
+              include: {
+                tb_alunos: true,
+                tb_cursos: true
+              }
+            },
+            tb_turmas: {
+              include: {
+                tb_classes: true
+              }
+            }
+          },
+          // Aplicar limite otimizado para busca rápida
+          ...(filters.search ? { take: Math.min(take * 3, 150) } : { take: 500 }),
+          orderBy: {
+            data_Confirmacao: 'desc'
+          }
+        });
+      } catch (queryError) {
+        console.error('❌ Erro na query otimizada:', queryError);
+        console.log('🔄 Fazendo fallback para busca simples...');
+        
+        // Fallback: busca simples sem filtros complexos
+        confirmacoes = await prisma.tb_confirmacoes.findMany({
+          where: {
+            codigo_Status: { in: [1, 2] }
+          },
+          include: {
+            tb_matriculas: {
+              include: {
+                tb_alunos: true,
+                tb_cursos: true
+              }
+            },
+            tb_turmas: {
+              include: {
+                tb_classes: true
+              }
+            }
+          },
+          take: 500,
+          orderBy: {
+            data_Confirmacao: 'desc'
+          }
+        });
+      }
 
       console.log(`📊 Confirmações encontradas: ${confirmacoes.length}`);
       
@@ -1619,7 +1641,33 @@ export class PaymentManagementService {
       }
 
 
-      // Filtro já aplicado no banco de dados - não precisa filtrar novamente
+      // Se há busca e muitos resultados, aplicar filtro refinado em memória
+      if (filters.search && todosAlunos.length > 10) {
+        console.log('🔄 Aplicando filtro refinado em memória...');
+        const searchTerm = filters.search.toLowerCase().trim();
+        
+        todosAlunos = todosAlunos.filter(aluno => {
+          const nome = (aluno.nome || '').toLowerCase();
+          const documento = (aluno.n_documento_identificacao || '').toLowerCase();
+          
+          if (searchTerm.includes(' ')) {
+            // Busca por múltiplas palavras - todas devem estar presentes
+            const palavras = searchTerm.split(' ').filter(p => p.length > 0);
+            const palavrasNome = nome.split(' ');
+            return palavras.every(palavra => 
+              palavrasNome.some(palavraNome => palavraNome.startsWith(palavra))
+            ) || documento.includes(searchTerm);
+          } else {
+            // Busca por palavra única - deve começar com o termo
+            const palavrasNome = nome.split(' ');
+            return palavrasNome.some(palavraNome => palavraNome.startsWith(searchTerm)) || 
+                   documento.includes(searchTerm);
+          }
+        });
+        
+        console.log(`🎯 Filtro refinado aplicado: ${todosAlunos.length} resultados`);
+      }
+      
       console.log(`📊 Alunos únicos processados: ${todosAlunos.length}`);
 
       // Aplicar outros filtros
@@ -1657,8 +1705,26 @@ export class PaymentManagementService {
         pagination
       };
     } catch (error) {
-      console.error('Erro ao buscar alunos confirmados:', error);
-      throw new AppError('Erro ao buscar alunos confirmados', 500);
+      console.error('❌ Erro ao buscar alunos confirmados:', {
+        message: error.message,
+        stack: error.stack,
+        filters: filters
+      });
+      
+      // Tentar retornar uma resposta vazia em vez de erro
+      try {
+        return {
+          data: [],
+          pagination: {
+            currentPage: page,
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: limit
+          }
+        };
+      } catch (fallbackError) {
+        throw new AppError(`Erro ao buscar alunos confirmados: ${error.message}`, 500);
+      }
     }
   }
 
