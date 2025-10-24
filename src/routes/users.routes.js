@@ -394,6 +394,28 @@ router.put('/legacy/:id', UsersController.updateLegacyUser);
  */
 router.delete('/legacy/:id', UsersController.deleteLegacyUser);
 
+/**
+ * @swagger
+ * /api/users/legacy/{id}/deactivate:
+ *   patch:
+ *     summary: Desativar usuário do sistema legado
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Usuário desativado com sucesso
+ *       404:
+ *         description: Usuário não encontrado
+ */
+router.patch('/legacy/:id/deactivate', UsersController.deactivateLegacyUser);
+
 // Rota genérica /:id deve ficar por último para não interceptar outras rotas
 router.get('/:id', UsersController.getUserById);
 

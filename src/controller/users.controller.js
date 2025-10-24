@@ -88,7 +88,42 @@ export class UsersController {
         message: "Utilizador excluído com sucesso",
       });
     } catch (error) {
+      console.error('❌ Erro no controller deleteLegacyUser:', error);
+      
+      // Se for um AppError, usar a mensagem específica
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      }
+      
+      // Caso contrário, usar o handler padrão
       handleControllerError(res, error, "Erro ao excluir utilizador", 500);
+    }
+  }
+
+  static async deactivateLegacyUser(req, res) {
+    try {
+      const user = await UsersServices.deactivateLegacyUser(req.params.id);
+      res.json({
+        success: true,
+        message: "Utilizador desativado com sucesso",
+        data: user,
+      });
+    } catch (error) {
+      console.error('❌ Erro no controller deactivateLegacyUser:', error);
+      
+      // Se for um AppError, usar a mensagem específica
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      }
+      
+      // Caso contrário, usar o handler padrão
+      handleControllerError(res, error, "Erro ao desativar utilizador", 500);
     }
   }
 }

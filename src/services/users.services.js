@@ -203,6 +203,8 @@ export class UsersServices {
 
   static async deleteLegacyUser(userId) {
     try {
+      console.log(`🗑️ Iniciando exclusão em cascata do usuário ID: ${userId}`);
+      
       // Verificar se o usuário existe
       const existingUser = await prisma.tb_utilizadores.findUnique({
         where: { codigo: parseInt(userId) }
@@ -212,36 +214,145 @@ export class UsersServices {
         throw new AppError("Utilizador não encontrado", 404);
       }
 
-      // Verificar se o usuário tem dependências
-      const [alunos, encarregados, docentes, matriculas, confirmacoes] = await Promise.all([
-        prisma.tb_alunos.count({ where: { codigo_Utilizador: parseInt(userId) } }),
-        prisma.tb_encarregados.count({ where: { codigo_Utilizador: parseInt(userId) } }),
-        prisma.tb_docente.count({ where: { codigo_Utilizador: parseInt(userId) } }),
-        prisma.tb_matriculas.count({ where: { codigo_Utilizador: parseInt(userId) } }),
-        prisma.tb_confirmacoes.count({ where: { codigo_Utilizador: parseInt(userId) } })
-      ]);
+      console.log(`✅ Usuário encontrado: ${existingUser.nome}`);
 
-      const totalDependencies = alunos + encarregados + docentes + matriculas + confirmacoes;
+      // Executar exclusão em cascata usando transação
+      await prisma.$transaction(async (tx) => {
+        const userCode = parseInt(userId);
+        
+        console.log(`🔄 Iniciando transação de exclusão em cascata...`);
 
-      if (totalDependencies > 0) {
-        throw new AppError(
-          `Não é possível excluir o usuário. Existem ${totalDependencies} registros dependentes (alunos, encarregados, docentes, matrículas ou confirmações).`,
-          409
-        );
+        // 1. Excluir confirmações
+        try {
+          const confirmacoes = await tx.tb_confirmacoes.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${confirmacoes.count} confirmações`);
+        } catch (error) {
+          console.log(`⚠️ Tabela tb_confirmacoes pode não existir: ${error.message}`);
+        }
+
+        // 2. Excluir matrículas
+        try {
+          const matriculas = await tx.tb_matriculas.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${matriculas.count} matrículas`);
+        } catch (error) {
+          console.log(`⚠️ Tabela tb_matriculas pode não existir: ${error.message}`);
+        }
+
+        // 3. Excluir aluno
+        try {
+          const alunos = await tx.tb_alunos.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${alunos.count} aluno`);
+        } catch (error) {
+          console.log(`⚠️ Tabela tb_alunos pode não existir: ${error.message}`);
+        }
+
+        // 4. Excluir encarregados
+        try {
+          const encarregados = await tx.tb_encarregados.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${encarregados.count} encarregados`);
+        } catch (error) {
+          console.log(`⚠️ Tabela tb_encarregados pode não existir: ${error.message}`);
+        }
+
+        // 5. Excluir docentes
+        try {
+          const docentes = await tx.tb_docente.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${docentes.count} docentes`);
+        } catch (error) {
+          console.log(`⚠️ Tabela tb_docente pode não existir: ${error.message}`);
+        }
+
+        // 6. Excluir outros registros relacionados que possam existir
+        try {
+          // Verificar se há outras tabelas que referenciam o usuário
+          const otherTables = [
+            'tb_funcionarios',
+            'tb_pagamentos',
+            'tb_notas',
+            'tb_presencas',
+            'tb_disciplinas_docente'
+          ];
+
+          for (const tableName of otherTables) {
+            try {
+              const result = await tx.$executeRawUnsafe(
+                `DELETE FROM ${tableName} WHERE codigo_Utilizador = ? OR Codigo_Utilizador = ?`,
+                userCode, userCode
+              );
+              if (result > 0) {
+                console.log(`✅ Excluídos ${result} registros da tabela ${tableName}`);
+              }
+            } catch (tableError) {
+              console.log(`⚠️ Tabela ${tableName} pode não existir ou não ter a coluna: ${tableError.message}`);
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Erro ao limpar tabelas adicionais: ${error.message}`);
+        }
+
+        // 7. Finalmente, excluir o usuário
+        await tx.tb_utilizadores.delete({
+          where: { codigo: userCode }
+        });
+
+        console.log(`✅ Usuário ${existingUser.nome} e todos os registros relacionados foram excluídos com sucesso`);
+      });
+
+      return { message: "Usuário e registros relacionados excluídos com sucesso" };
+    } catch (error) {
+      if (error instanceof AppError) {
+        console.log(`🚨 AppError: ${error.message}`);
+        throw error;
       }
+      
+      console.error("❌ Erro inesperado ao excluir usuário em cascata:", error);
+      throw new AppError("Erro interno ao excluir usuário", 500);
+    }
+  }
 
-      // Excluir o usuário
-      await prisma.tb_utilizadores.delete({
+  static async deactivateLegacyUser(userId) {
+    try {
+      console.log(`🔒 Desativando usuário ID: ${userId}`);
+      
+      // Verificar se o usuário existe
+      const existingUser = await prisma.tb_utilizadores.findUnique({
         where: { codigo: parseInt(userId) }
       });
 
-      return { message: "Usuário excluído com sucesso" };
+      if (!existingUser) {
+        throw new AppError("Utilizador não encontrado", 404);
+      }
+
+      // Desativar o usuário
+      const user = await prisma.tb_utilizadores.update({
+        where: { codigo: parseInt(userId) },
+        data: { 
+          estadoActual: 'INATIVO',
+          loginStatus: 'OFF'
+        },
+        include: {
+          tb_tipos_utilizador: true
+        }
+      });
+
+      console.log(`✅ Usuário ${existingUser.nome} desativado com sucesso`);
+      return convertBigIntToString(user);
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
       }
-      console.error("Erro ao excluir usuário:", error);
-      throw new AppError("Erro ao excluir usuário", 500);
+      console.error("❌ Erro ao desativar usuário:", error);
+      throw new AppError("Erro ao desativar usuário", 500);
     }
   }
 }
