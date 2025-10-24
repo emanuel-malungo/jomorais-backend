@@ -187,19 +187,16 @@
  *       description: "Operações relacionadas aos detalhes de pagamento"
  *     - name: Gestão de Pagamentos - Notas de Crédito
  *       description: "Operações relacionadas às notas de crédito"
- *     - name: Gestão de Pagamentos - Motivos de Anulação
  *       description: "Operações relacionadas aos motivos de anulação"
  *     - name: Gestão de Pagamentos - Relatórios
  *       description: "Relatórios e dashboards financeiros"
  */
 
-import express from 'express';
-import { PaymentManagementController } from '../controller/payment-management.controller.js';
-import { authenticateToken } from '../middleware/auth.middleware.js';
-
+const express = require('express');
 const router = express.Router();
-
-// ===============================
+const PaymentManagementController = require('../controllers/payment-management.controller');
+const { studentsSearchCache, dynamicDataCache, invalidateCacheMiddleware } = require('../middleware/cache.middleware');
+const { authenticateToken } = require('../middleware/auth.middleware');
 // FORMAS DE PAGAMENTO
 // ===============================
 
@@ -1071,7 +1068,8 @@ router.post('/pagamentos', PaymentManagementController.createPagamento);
  *                 pagination:
  *                   type: object
  */
-router.get('/alunos-confirmados', PaymentManagementController.getAlunosConfirmados);
+// ⚡ OTIMIZAÇÃO: Cache para busca de alunos confirmados
+router.get('/alunos-confirmados', studentsSearchCache, PaymentManagementController.getAlunosConfirmados);
 
 /**
  * @swagger

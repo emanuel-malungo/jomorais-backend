@@ -1438,12 +1438,54 @@ export class PaymentManagementService {
       
       console.log('🔍 Iniciando busca de alunos confirmados...');
       
-      // BUSCA DIRETA NA TABELA DE CONFIRMAÇÕES
+      // ⚡ OTIMIZAÇÃO: BUSCA DIRETA COM FILTROS NO BANCO
       let whereClause = {
         codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
       };
 
-      console.log(`🔍 Buscando confirmações com filtros:`, filters);
+      // ⚡ OTIMIZAÇÃO: Aplicar filtro de busca no banco de dados
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase().trim();
+        console.log(`🔍 Aplicando filtro de busca no banco: "${searchTerm}"`);
+        
+        whereClause.tb_matriculas = {
+          tb_alunos: {
+            OR: [
+              {
+                nome: {
+                  contains: searchTerm,
+                  mode: 'insensitive'
+                }
+              },
+              {
+                n_documento_identificacao: {
+                  contains: searchTerm,
+                  mode: 'insensitive'
+                }
+              }
+            ]
+          }
+        };
+      }
+
+      // ⚡ OTIMIZAÇÃO: Aplicar filtro de curso no banco
+      if (filters.curso) {
+        const cursoId = parseInt(filters.curso);
+        if (!whereClause.tb_matriculas) whereClause.tb_matriculas = {};
+        whereClause.tb_matriculas.tb_cursos = {
+          codigo: cursoId
+        };
+      }
+
+      // ⚡ OTIMIZAÇÃO: Aplicar filtro de turma no banco
+      if (filters.turma) {
+        const turmaId = parseInt(filters.turma);
+        whereClause.tb_turmas = {
+          codigo: turmaId
+        };
+      }
+
+      console.log(`🔍 Buscando confirmações com filtros otimizados:`, JSON.stringify(whereClause, null, 2));
 
       const confirmacoes = await prisma.tb_confirmacoes.findMany({
         where: whereClause,
@@ -1460,8 +1502,8 @@ export class PaymentManagementService {
             }
           }
         },
-        // Sem limite para garantir que todos os alunos sejam carregados
-        // ...(filters.search ? {} : { take: 500 }),
+        // ⚡ OTIMIZAÇÃO: Limitar resultados no banco para melhor performance
+        take: filters.search ? 1000 : 500, // Mais resultados para busca, menos para listagem geral
         orderBy: {
           data_Confirmacao: 'desc'
         }
@@ -1592,87 +1634,8 @@ export class PaymentManagementService {
       }
 
 
-      // APLICAR FILTRO DE BUSCA NA LISTA DE ALUNOS CONFIRMADOS
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase().trim();
-        console.log(`🔍 Aplicando filtro de busca para: "${searchTerm}"`);
-        console.log(`📊 Total de alunos antes do filtro: ${todosAlunos.length}`);
-        
-        todosAlunos = todosAlunos.filter(aluno => {
-          const nome = (aluno.nome || '').toLowerCase();
-          const documento = (aluno.n_documento_identificacao || '').toLowerCase();
-          
-          let match = false;
-          
-          // BUSCA PROGRESSIVA E INTELIGENTE
-          if (searchTerm.includes(' ')) {
-            // Se tem espaços, busca progressiva por palavras
-            const palavras = searchTerm.split(' ').filter(p => p.length > 0);
-            const palavrasNome = nome.split(' ');
-            
-            // Cada palavra da busca deve ter uma palavra correspondente no nome que COMECE com ela
-            match = palavras.every((palavra, index) => {
-              // Para a primeira palavra, deve começar com ela
-              if (index === 0) {
-                return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
-              }
-              // Para palavras seguintes, deve haver uma palavra que comece com ela
-              return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
-            }) || documento.includes(searchTerm);
-          } else {
-            // Se é uma palavra só, buscar palavra que COMECE com o termo
-            const palavrasNome = nome.split(' ');
-            match = palavrasNome.some(palavraNome => palavraNome.startsWith(searchTerm)) || 
-                   documento.includes(searchTerm);
-          }
-          
-          // Debug específico para busca progressiva
-          if ((searchTerm.includes('abel') || searchTerm.includes('c')) && nome.includes('abel')) {
-            const palavrasNome = nome.split(' ');
-            console.log(`🎯 BUSCA PROGRESSIVA: ${aluno.nome}`);
-            console.log(`   - Nome: "${nome}"`);
-            console.log(`   - Palavras do nome: [${palavrasNome.join(', ')}]`);
-            console.log(`   - Termo busca: "${searchTerm}"`);
-            
-            if (searchTerm.includes(' ')) {
-              const palavras = searchTerm.split(' ').filter(p => p.length > 0);
-              console.log(`   - Palavras da busca: [${palavras.join(', ')}]`);
-              palavras.forEach((palavra, index) => {
-                const encontrou = palavrasNome.some(pn => pn.startsWith(palavra));
-                console.log(`   - "${palavra}" encontrada: ${encontrou}`);
-              });
-            }
-            
-            console.log(`   - Match final: ${match}`);
-          }
-          
-          return match;
-        });
-        
-        console.log(`📊 Alunos encontrados após filtro: ${todosAlunos.length}`);
-        
-        // Debug: mostrar resultados se poucos
-        if (todosAlunos.length <= 10) {
-          console.log('📋 Resultados da busca:', todosAlunos.map(a => a.nome));
-        }
-      }
-
-      // Aplicar outros filtros
-      if (filters.curso) {
-        const cursoId = parseInt(filters.curso);
-        todosAlunos = todosAlunos.filter(aluno => 
-          aluno.tb_matriculas?.tb_cursos?.codigo === cursoId
-        );
-        console.log(`🎓 Após filtro de curso: ${todosAlunos.length}`);
-      }
-
-      if (filters.turma) {
-        const turmaId = parseInt(filters.turma);
-        todosAlunos = todosAlunos.filter(aluno => 
-          aluno.tb_matriculas?.tb_confirmacoes?.some(c => c.tb_turmas?.codigo === turmaId)
-        );
-        console.log(`🏫 Após filtro de turma: ${todosAlunos.length}`);
-      }
+      // ⚡ OTIMIZAÇÃO: Filtros já aplicados no banco de dados - removendo filtros em memória
+      console.log(`📊 Total de alunos únicos após processamento: ${todosAlunos.length}`);
 
       // Aplicar paginação
       const total = todosAlunos.length;
