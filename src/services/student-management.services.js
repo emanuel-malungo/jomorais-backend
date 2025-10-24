@@ -239,18 +239,36 @@ export class StudentManagementService {
         throw new AppError('Encarregado não encontrado', 404);
       }
 
-      // Verificar se há alunos associados
+      // TÉCNICA 1: SOFT DELETE (Exclusão Lógica)
+      // Se houver alunos associados, fazer soft delete (desativar)
       if (existingEncarregado.tb_alunos.length > 0) {
-        throw new AppError('Não é possível excluir encarregado com alunos associados', 400);
+        await prisma.tb_encarregados.update({
+          where: { codigo: parseInt(id) },
+          data: { 
+            status: 0,  // Status = 0 indica "inativo/excluído logicamente"
+          }
+        });
+
+        return { 
+          message: 'Encarregado desativado com sucesso (possui alunos associados)',
+          tipo: 'soft_delete',
+          alunosAssociados: existingEncarregado.tb_alunos.length
+        };
       }
 
+      // TÉCNICA 2: HARD DELETE (Exclusão Física)
+      // Se não houver dependências, fazer exclusão física
       await prisma.tb_encarregados.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Encarregado excluído com sucesso' };
+      return { 
+        message: 'Encarregado excluído permanentemente com sucesso',
+        tipo: 'hard_delete'
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir encarregado:', error);
       throw new AppError('Erro ao excluir encarregado', 500);
     }
   }
@@ -451,13 +469,36 @@ export class StudentManagementService {
         throw new AppError('Proveniência não encontrada', 404);
       }
 
+      // TÉCNICA: SOFT DELETE (Exclusão Lógica)
+      // Verificar se há dependências - neste caso, não há tabelas que referenciam proveniências
+      // Mas podemos aplicar soft delete caso seja uma configuração importante
+      
+      // OPÇÃO: Aplicar soft delete se o status existir
+      if (existingProveniencia.codigoStatus !== null && existingProveniencia.codigoStatus !== undefined) {
+        await prisma.tb_proveniencias.update({
+          where: { codigo: parseInt(id) },
+          data: { codigoStatus: 0 }  // 0 = inativo/excluído
+        });
+
+        return { 
+          message: 'Proveniência desativada com sucesso',
+          tipo: 'soft_delete'
+        };
+      }
+
+      // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Se não houver campo de status ou preferir exclusão física
       await prisma.tb_proveniencias.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Proveniência excluída com sucesso' };
+      return { 
+        message: 'Proveniência excluída permanentemente com sucesso',
+        tipo: 'hard_delete'
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir proveniência:', error);
       throw new AppError('Erro ao excluir proveniência', 500);
     }
   }
@@ -1322,11 +1363,15 @@ export class StudentManagementService {
         throw new AppError('Aluno não encontrado', 404);
       }
 
-      // Usar transação para excluir todas as dependências em cascata
+      // TÉCNICA: CASCADE DELETE (Exclusão em Cascata)
+      // Excluir o aluno e todas as suas dependências em uma transação
+      // Aumentando timeout para 30 segundos devido ao volume de dados
       const result = await prisma.$transaction(async (tx) => {
-        // console.log(`Iniciando exclusão em cascata do aluno ${id}`);
+        console.log(`[DELETE ALUNO] Iniciando exclusão em cascata do aluno ${id}`);
         
-        // 1. Excluir confirmações (se existir matrícula)
+        // ===================================
+        // PASSO 1: EXCLUIR CONFIRMAÇÕES
+        // ===================================
         let confirmacoes = 0;
         if (existingAluno.tb_matriculas) {
           const confirmacoesList = await tx.tb_confirmacoes.findMany({
@@ -1338,22 +1383,27 @@ export class StudentManagementService {
               where: { codigo_Matricula: existingAluno.tb_matriculas.codigo }
             });
             confirmacoes = confirmacoesList.length;
-            // console.log(`Excluídas ${confirmacoes} confirmações`);
+            console.log(`[DELETE ALUNO] ✓ Excluídas ${confirmacoes} confirmações`);
           }
         }
         
-        // 2. Primeiro, buscar todos os pagamentos principais do aluno
+        // ===================================
+        // PASSO 2: BUSCAR PAGAMENTOS PRINCIPAIS
+        // ===================================
         const pagamentoiIds = await tx.tb_pagamentoi.findMany({
           where: { codigo_Aluno: parseInt(id) },
           select: { codigo: true }
         });
         
         const pagamentoiIdsList = pagamentoiIds.map(p => p.codigo);
+        console.log(`[DELETE ALUNO] Encontrados ${pagamentoiIdsList.length} pagamentos principais`);
         
-        // 3. Excluir notas de crédito (por aluno E por pagamentos principais)
+        // ===================================
+        // PASSO 3: EXCLUIR NOTAS DE CRÉDITO
+        // ===================================
         let notasCreditoCount = 0;
         if (pagamentoiIdsList.length > 0) {
-          notasCreditoCount = await tx.tb_nota_credito.count({
+          const notasCreditoResult = await tx.tb_nota_credito.deleteMany({
             where: {
               OR: [
                 { codigo_aluno: parseInt(id) },
@@ -1361,36 +1411,26 @@ export class StudentManagementService {
               ]
             }
           });
-          
+          notasCreditoCount = notasCreditoResult.count;
           if (notasCreditoCount > 0) {
-            await tx.tb_nota_credito.deleteMany({
-              where: {
-                OR: [
-                  { codigo_aluno: parseInt(id) },
-                  { codigoPagamentoi: { in: pagamentoiIdsList } }
-                ]
-              }
-            });
-            // console.log(`Excluídas ${notasCreditoCount} notas de crédito`);
+            console.log(`[DELETE ALUNO] ✓ Excluídas ${notasCreditoCount} notas de crédito`);
           }
         } else {
-          // Se não há pagamentos principais, excluir apenas por aluno
-          notasCreditoCount = await tx.tb_nota_credito.count({
+          const notasCreditoResult = await tx.tb_nota_credito.deleteMany({
             where: { codigo_aluno: parseInt(id) }
           });
-          
+          notasCreditoCount = notasCreditoResult.count;
           if (notasCreditoCount > 0) {
-            await tx.tb_nota_credito.deleteMany({
-              where: { codigo_aluno: parseInt(id) }
-            });
-            // console.log(`Excluídas ${notasCreditoCount} notas de crédito`);
+            console.log(`[DELETE ALUNO] ✓ Excluídas ${notasCreditoCount} notas de crédito`);
           }
         }
         
-        // 4. Excluir pagamentos (por aluno E por pagamentos principais)
+        // ===================================
+        // PASSO 4: EXCLUIR PAGAMENTOS SECUNDÁRIOS
+        // ===================================
         let pagamentosCount = 0;
         if (pagamentoiIdsList.length > 0) {
-          pagamentosCount = await tx.tb_pagamentos.count({
+          const pagamentosResult = await tx.tb_pagamentos.deleteMany({
             where: {
               OR: [
                 { codigo_Aluno: parseInt(id) },
@@ -1398,82 +1438,77 @@ export class StudentManagementService {
               ]
             }
           });
-          
+          pagamentosCount = pagamentosResult.count;
           if (pagamentosCount > 0) {
-            await tx.tb_pagamentos.deleteMany({
-              where: {
-                OR: [
-                  { codigo_Aluno: parseInt(id) },
-                  { codigoPagamento: { in: pagamentoiIdsList } }
-                ]
-              }
-            });
-            // console.log(`Excluídos ${pagamentosCount} pagamentos`);
+            console.log(`[DELETE ALUNO] ✓ Excluídos ${pagamentosCount} pagamentos secundários`);
           }
         } else {
-          // Se não há pagamentos principais, excluir apenas por aluno
-          pagamentosCount = await tx.tb_pagamentos.count({
+          const pagamentosResult = await tx.tb_pagamentos.deleteMany({
             where: { codigo_Aluno: parseInt(id) }
           });
-          
+          pagamentosCount = pagamentosResult.count;
           if (pagamentosCount > 0) {
-            await tx.tb_pagamentos.deleteMany({
-              where: { codigo_Aluno: parseInt(id) }
-            });
-            // console.log(`Excluídos ${pagamentosCount} pagamentos`);
+            console.log(`[DELETE ALUNO] ✓ Excluídos ${pagamentosCount} pagamentos secundários`);
           }
         }
         
-        // 5. Agora excluir pagamentos principais
+        // ===================================
+        // PASSO 5: EXCLUIR PAGAMENTOS PRINCIPAIS
+        // ===================================
         const pagamentoiCount = pagamentoiIds.length;
         if (pagamentoiCount > 0) {
           await tx.tb_pagamentoi.deleteMany({
             where: { codigo_Aluno: parseInt(id) }
           });
-          // console.log(`Excluídos ${pagamentoiCount} pagamentos principais`);
+          console.log(`[DELETE ALUNO] ✓ Excluídos ${pagamentoiCount} pagamentos principais`);
         }
         
-        // 6. Excluir serviços do aluno
-        const servicosCount = await tx.tb_servico_aluno.count({
+        // ===================================
+        // PASSO 6: EXCLUIR SERVIÇOS DO ALUNO
+        // ===================================
+        const servicosResult = await tx.tb_servico_aluno.deleteMany({
           where: { codigo_Aluno: parseInt(id) }
         });
-        
+        const servicosCount = servicosResult.count;
         if (servicosCount > 0) {
-          await tx.tb_servico_aluno.deleteMany({
-            where: { codigo_Aluno: parseInt(id) }
-          });
-          // console.log(`Excluídos ${servicosCount} serviços`);
+          console.log(`[DELETE ALUNO] ✓ Excluídos ${servicosCount} serviços`);
         }
         
-        // 7. Excluir transferências
-        const transferenciasCount = await tx.tb_transferencias.count({
+        // ===================================
+        // PASSO 7: EXCLUIR TRANSFERÊNCIAS
+        // ===================================
+        const transferenciasResult = await tx.tb_transferencias.deleteMany({
           where: { codigoAluno: parseInt(id) }
         });
-        
+        const transferenciasCount = transferenciasResult.count;
         if (transferenciasCount > 0) {
-          await tx.tb_transferencias.deleteMany({
-            where: { codigoAluno: parseInt(id) }
-          });
-          // console.log(`Excluídas ${transferenciasCount} transferências`);
+          console.log(`[DELETE ALUNO] ✓ Excluídas ${transferenciasCount} transferências`);
         }
         
-        // 8. Excluir matrícula
+        // ===================================
+        // PASSO 8: EXCLUIR MATRÍCULA
+        // ===================================
         let matriculaExcluida = 0;
         if (existingAluno.tb_matriculas) {
           await tx.tb_matriculas.delete({
             where: { codigo: existingAluno.tb_matriculas.codigo }
           });
           matriculaExcluida = 1;
-          // console.log('Matrícula excluída');
+          console.log('[DELETE ALUNO] ✓ Matrícula excluída');
         }
         
-        // 9. Excluir o aluno
+        // ===================================
+        // PASSO 9: EXCLUIR O ALUNO
+        // ===================================
         await tx.tb_alunos.delete({
           where: { codigo: parseInt(id) }
         });
-        // console.log('Aluno excluído');
+        console.log('[DELETE ALUNO] ✓ Aluno excluído');
         
-        // 10. OPCIONAL: Excluir encarregado se não tiver outros alunos
+        // ===================================
+        // PASSO 10: VERIFICAR ENCARREGADO
+        // (OPCIONAL - Soft Delete)
+        // ===================================
         let encarregadoExcluido = false;
         if (existingAluno.tb_encarregados) {
           const outrosAlunos = await tx.tb_alunos.count({
@@ -1483,18 +1518,31 @@ export class StudentManagementService {
           });
           
           if (outrosAlunos === 0) {
+            // OPÇÃO A: Excluir permanentemente (Hard Delete)
             await tx.tb_encarregados.delete({
               where: { codigo: existingAluno.codigo_Encarregado }
             });
-            // console.log('Encarregado excluído (não tinha outros alunos)');
+            console.log('[DELETE ALUNO] ✓ Encarregado excluído (não tinha outros alunos)');
             encarregadoExcluido = true;
+            
+            // OPÇÃO B: Desativar (Soft Delete) - Descomente para usar
+            // await tx.tb_encarregados.update({
+            //   where: { codigo: existingAluno.codigo_Encarregado },
+            //   data: { status: 0 }
+            // });
+            // console.log('[DELETE ALUNO] ✓ Encarregado desativado (soft delete)');
+            // encarregadoExcluido = false;
           } else {
-            // console.log(`Encarregado mantido (tem ${outrosAlunos} outros alunos)`);
+            console.log(`[DELETE ALUNO] ℹ Encarregado mantido (tem ${outrosAlunos} outros alunos)`);
           }
         }
         
+        console.log('[DELETE ALUNO] ✓ Exclusão em cascata concluída com sucesso');
+        
+        // Retornar resumo da operação
         return { 
           message: 'Aluno e todas as dependências excluídos com sucesso',
+          tipo: 'cascade_delete',
           detalhes: {
             confirmacoes,
             notasCredito: notasCreditoCount,
@@ -1506,12 +1554,15 @@ export class StudentManagementService {
             encarregadoExcluido
           }
         };
+      }, {
+        maxWait: 30000, // Tempo máximo de espera: 30 segundos
+        timeout: 30000, // Timeout da transação: 30 segundos
       });
       
       return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao excluir aluno em cascata:', error);
+      console.error('[DELETE ALUNO] ✗ Erro ao excluir aluno em cascata:', error);
       console.error('Stack trace:', error.stack);
       throw new AppError(`Erro ao excluir aluno e dependências: ${error.message}`, 500);
     }
@@ -1840,18 +1891,50 @@ export class StudentManagementService {
         throw new AppError('Matrícula não encontrada', 404);
       }
 
-      // Verificar se há confirmações associadas
+      // TÉCNICA: CASCADE DELETE COM CONFIRMAÇÃO
+      // Se houver confirmações, excluir em cascata dentro de uma transação
       if (existingMatricula.tb_confirmacoes.length > 0) {
-        throw new AppError('Não é possível excluir matrícula com confirmações associadas', 400);
+        const result = await prisma.$transaction(async (tx) => {
+          console.log(`[DELETE MATRÍCULA] Iniciando exclusão em cascata da matrícula ${id}`);
+          
+          // Passo 1: Excluir todas as confirmações
+          const confirmacoesCount = existingMatricula.tb_confirmacoes.length;
+          await tx.tb_confirmacoes.deleteMany({
+            where: { codigo_Matricula: parseInt(id) }
+          });
+          console.log(`[DELETE MATRÍCULA] ✓ Excluídas ${confirmacoesCount} confirmações`);
+          
+          // Passo 2: Excluir a matrícula
+          await tx.tb_matriculas.delete({
+            where: { codigo: parseInt(id) }
+          });
+          console.log('[DELETE MATRÍCULA] ✓ Matrícula excluída');
+          
+          return {
+            message: 'Matrícula e confirmações excluídas com sucesso',
+            tipo: 'cascade_delete',
+            detalhes: {
+              confirmacoes: confirmacoesCount
+            }
+          };
+        });
+        
+        return result;
       }
 
+      // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Se não houver confirmações, exclusão simples
       await prisma.tb_matriculas.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Matrícula excluída com sucesso' };
+      return { 
+        message: 'Matrícula excluída com sucesso',
+        tipo: 'hard_delete'
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir matrícula:', error);
       throw new AppError('Erro ao excluir matrícula', 500);
     }
   }
@@ -2335,20 +2418,59 @@ export class StudentManagementService {
   static async deleteConfirmacao(id) {
     try {
       const existingConfirmacao = await prisma.tb_confirmacoes.findUnique({
-        where: { codigo: parseInt(id) }
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_alunos: {
+                select: {
+                  codigo: true,
+                  nome: true
+                }
+              }
+            }
+          }
+        }
       });
 
       if (!existingConfirmacao) {
         throw new AppError('Confirmação não encontrada', 404);
       }
 
+      // TÉCNICA: SOFT DELETE COM VALIDAÇÃO
+      // Verificar se é a última confirmação do aluno
+      const totalConfirmacoes = await prisma.tb_confirmacoes.count({
+        where: {
+          codigo_Matricula: existingConfirmacao.codigo_Matricula
+        }
+      });
+
+      console.log(`[DELETE CONFIRMAÇÃO] Confirmação ${id} - Total de confirmações da matrícula: ${totalConfirmacoes}`);
+
+      // OPÇÃO A: Soft Delete (caso queira manter histórico)
+      // Se for a última confirmação, pode querer avisar ao usuário
+      if (totalConfirmacoes === 1) {
+        console.log('[DELETE CONFIRMAÇÃO] ⚠ Aviso: Esta é a última confirmação da matrícula');
+      }
+
+      // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Confirmações geralmente podem ser excluídas sem problemas
       await prisma.tb_confirmacoes.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Confirmação excluída com sucesso' };
+      return { 
+        message: 'Confirmação excluída com sucesso',
+        tipo: 'hard_delete',
+        info: totalConfirmacoes === 1 ? 'Esta era a última confirmação da matrícula' : null,
+        detalhes: {
+          alunoNome: existingConfirmacao.tb_matriculas?.tb_alunos?.nome,
+          eraUltimaConfirmacao: totalConfirmacoes === 1
+        }
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir confirmação:', error);
       throw new AppError('Erro ao excluir confirmação', 500);
     }
   }
@@ -2544,20 +2666,53 @@ export class StudentManagementService {
   static async deleteTransferencia(id) {
     try {
       const existingTransferencia = await prisma.tb_transferencias.findUnique({
-        where: { codigo: parseInt(id) }
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_alunos: {
+            select: {
+              codigo: true,
+              nome: true
+            }
+          }
+        }
       });
 
       if (!existingTransferencia) {
         throw new AppError('Transferência não encontrada', 404);
       }
 
+      console.log(`[DELETE TRANSFERÊNCIA] Excluindo transferência ${id} do aluno ${existingTransferencia.tb_alunos?.nome || existingTransferencia.codigoAluno}`);
+
+      // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Transferências são registros históricos que podem ser excluídos
+      // Mas importante: só excluir se não afetar a integridade do sistema
+      
+      // VALIDAÇÃO: Verificar se a transferência já foi processada
+      // Se foi processada recentemente, pode querer confirmar com usuário
+      const dataTransferencia = new Date(existingTransferencia.dataTransferencia);
+      const diasDesdeTransferencia = Math.floor((Date.now() - dataTransferencia.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diasDesdeTransferencia <= 7) {
+        console.log(`[DELETE TRANSFERÊNCIA] ⚠ Aviso: Transferência recente (${diasDesdeTransferencia} dias)`);
+      }
+
       await prisma.tb_transferencias.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Transferência excluída com sucesso' };
+      return { 
+        message: 'Transferência excluída com sucesso',
+        tipo: 'hard_delete',
+        detalhes: {
+          alunoNome: existingTransferencia.tb_alunos?.nome,
+          diasDesdeTransferencia,
+          dataTransferencia: existingTransferencia.dataTransferencia
+        },
+        info: diasDesdeTransferencia <= 7 ? 'Esta transferência foi realizada recentemente' : null
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir transferência:', error);
       throw new AppError('Erro ao excluir transferência', 500);
     }
   }

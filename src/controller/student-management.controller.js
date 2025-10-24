@@ -115,9 +115,16 @@ export class StudentManagementController {
 
       const result = await StudentManagementService.deleteEncarregado(id);
       
-      res.json({
+      // Determinar código de status baseado no tipo de exclusão
+      const statusCode = result.tipo === 'soft_delete' ? 200 : 200;
+      
+      res.status(statusCode).json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        ...(result.alunosAssociados && { 
+          info: `O encarregado foi desativado porque possui ${result.alunosAssociados} aluno(s) associado(s). Para excluir permanentemente, remova os alunos primeiro.`
+        })
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir encarregado", 400);
@@ -204,6 +211,7 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir proveniência", 400);
@@ -351,6 +359,9 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        detalhes: result.detalhes,
+        info: 'Exclusão em cascata: todas as dependências do aluno foram removidas de forma segura.'
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir aluno", 400);
@@ -462,6 +473,11 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        ...(result.detalhes && { detalhes: result.detalhes }),
+        ...(result.tipo === 'cascade_delete' && {
+          info: 'Exclusão em cascata: matrícula e confirmações removidas.'
+        })
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir matrícula", 400);
@@ -569,6 +585,9 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        ...(result.detalhes && { detalhes: result.detalhes }),
+        ...(result.info && { info: result.info })
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir confirmação", 400);
@@ -655,6 +674,9 @@ export class StudentManagementController {
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        ...(result.detalhes && { detalhes: result.detalhes }),
+        ...(result.info && { info: result.info })
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir transferência", 400);
