@@ -1443,20 +1443,26 @@ export class PaymentManagementService {
         codigo_Status: { in: [1, 2] } // Incluir status 1 e 2 para capturar mais alunos
       };
 
-      // Se há busca, usar abordagem mais simples e confiável
+      // FILTRO HÍBRIDO: BANCO + MEMÓRIA PARA VELOCIDADE + PRECISÃO
       if (filters.search) {
-        const searchTerm = filters.search.trim(); // Não converter para lowercase
-        console.log(`🔍 Aplicando busca SIMPLES no banco para: "${searchTerm}"`);
+        const searchTerm = filters.search.trim();
+        console.log(`🔍 BUSCA HÍBRIDA (Banco + Memória) para: "${searchTerm}"`);
         
-        // Usar busca case-insensitive com ILIKE (PostgreSQL) ou contains (SQLite)
+        // Extrair primeira palavra para filtro inicial no banco
+        const primeiraPalavra = searchTerm.toLowerCase().split(' ')[0];
+        console.log(`🎯 Filtro inicial no banco com primeira palavra: "${primeiraPalavra}"`);
+        
+        // Aplicar filtro inicial no banco para reduzir dataset
         whereClause = {
           codigo_Status: { in: [1, 2] },
           tb_matriculas: {
             tb_alunos: {
               OR: [
-                { nome: { contains: searchTerm.toUpperCase() } },
-                { nome: { contains: searchTerm.toLowerCase() } },
-                { nome: { contains: searchTerm } },
+                // Buscar por primeira palavra em diferentes casos
+                { nome: { contains: primeiraPalavra.toUpperCase() } },
+                { nome: { contains: primeiraPalavra.toLowerCase() } },
+                { nome: { contains: primeiraPalavra } },
+                // Também buscar por documento
                 { n_documento_identificacao: { contains: searchTerm } }
               ]
             }
@@ -1483,8 +1489,10 @@ export class PaymentManagementService {
               }
             }
           },
-          // Remover limite para cobrir toda a tabela na busca
-          // ...(filters.search ? { take: Math.min(take * 3, 150) } : { take: 500 }),
+          // Limite inteligente baseado na busca
+          ...(filters.search ? { 
+            take: filters.search.split(' ')[0].length >= 4 ? 1000 : 2000 // Mais específico = mais resultados
+          } : { take: 500 }),
           orderBy: {
             data_Confirmacao: 'desc'
           }
@@ -1518,7 +1526,23 @@ export class PaymentManagementService {
         });
       }
 
-      console.log(`📊 Confirmações encontradas: ${confirmacoes.length} (SEM LIMITE - cobrindo toda a tabela)`);
+      if (filters.search) {
+        console.log(`📊 Confirmações pré-filtradas no banco: ${confirmacoes.length} (filtro híbrido)`);
+      } else {
+        console.log(`📊 Confirmações encontradas: ${confirmacoes.length} (sem busca)`);
+      }
+      
+      // Debug específico para JUSTINA
+      if (filters.search && filters.search.toLowerCase().includes('justina')) {
+        console.log(`🔍 Procurando por JUSTINA nas ${confirmacoes.length} confirmações pré-filtradas...`);
+        const justinas = confirmacoes.filter(conf => 
+          conf.tb_matriculas?.tb_alunos?.nome?.toLowerCase().includes('justina')
+        );
+        console.log(`👥 JUSTINAs encontradas nas confirmações pré-filtradas: ${justinas.length}`);
+        justinas.forEach((conf, index) => {
+          console.log(`   ${index + 1}. ${conf.tb_matriculas?.tb_alunos?.nome}`);
+        });
+      }
       
       // Debug específico para os alunos problemáticos
       if (filters.search) {
@@ -1643,35 +1667,81 @@ export class PaymentManagementService {
       }
 
 
-      // Se há busca, aplicar filtro refinado em memória para garantir precisão
+      // APLICAR FILTRO DE BUSCA PROGRESSIVA INTELIGENTE (2ª FASE)
       if (filters.search) {
-        console.log('🔄 Aplicando filtro refinado em memória...');
+        console.log('🔄 Aplicando filtro PROGRESSIVO em memória (2ª fase)...');
         const searchTerm = filters.search.toLowerCase().trim();
         const totalAntesDoFiltro = todosAlunos.length;
+        console.log(`📊 Alunos únicos antes do filtro progressivo: ${totalAntesDoFiltro}`);
         
         todosAlunos = todosAlunos.filter(aluno => {
           const nome = (aluno.nome || '').toLowerCase();
           const documento = (aluno.n_documento_identificacao || '').toLowerCase();
           
+          let match = false;
+          
+          // BUSCA PROGRESSIVA E INTELIGENTE - RESTAURADA
           if (searchTerm.includes(' ')) {
-            // Busca por múltiplas palavras - todas devem estar presentes
+            // Se tem espaços, busca progressiva por palavras
             const palavras = searchTerm.split(' ').filter(p => p.length > 0);
             const palavrasNome = nome.split(' ');
-            return palavras.every(palavra => 
-              palavrasNome.some(palavraNome => palavraNome.startsWith(palavra))
-            ) || documento.includes(searchTerm);
+            
+            // Cada palavra da busca deve ter uma palavra correspondente no nome que COMECE com ela
+            match = palavras.every((palavra, index) => {
+              // Para a primeira palavra, deve começar com ela
+              if (index === 0) {
+                return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
+              }
+              // Para palavras seguintes, deve haver uma palavra que comece com ela
+              return palavrasNome.some(palavraNome => palavraNome.startsWith(palavra));
+            }) || documento.includes(searchTerm);
           } else {
-            // Busca por palavra única - deve começar com o termo
+            // Se é uma palavra só, buscar palavra que COMECE com o termo
             const palavrasNome = nome.split(' ');
-            return palavrasNome.some(palavraNome => palavraNome.startsWith(searchTerm)) || 
+            match = palavrasNome.some(palavraNome => palavraNome.startsWith(searchTerm)) || 
                    documento.includes(searchTerm);
           }
+          
+          // Debug específico para busca progressiva
+          if ((searchTerm.includes('abel') || searchTerm.includes('justina')) && 
+              (nome.includes('abel') || nome.includes('justina'))) {
+            const palavrasNome = nome.split(' ');
+            console.log(`🎯 BUSCA PROGRESSIVA DEBUG: ${aluno.nome}`);
+            console.log(`   - Nome: "${nome}"`);
+            console.log(`   - Palavras do nome: [${palavrasNome.join(', ')}]`);
+            console.log(`   - Termo busca: "${searchTerm}"`);
+            
+            if (searchTerm.includes(' ')) {
+              const palavras = searchTerm.split(' ').filter(p => p.length > 0);
+              console.log(`   - Palavras da busca: [${palavras.join(', ')}]`);
+              palavras.forEach((palavra, index) => {
+                const encontrou = palavrasNome.some(pn => pn.startsWith(palavra));
+                console.log(`   - "${palavra}" encontrada: ${encontrou}`);
+              });
+            }
+            
+            console.log(`   - Match final: ${match}`);
+          }
+          
+          return match;
         });
         
-        console.log(`🎯 Filtro refinado aplicado: ${todosAlunos.length} resultados (de ${totalAntesDoFiltro} total)`);
+        console.log(`🎯 Filtro PROGRESSIVO aplicado: ${todosAlunos.length} resultados (de ${totalAntesDoFiltro} total)`);
       }
       
       console.log(`📊 Alunos únicos processados: ${todosAlunos.length}`);
+      
+      // Debug final para JUSTINA
+      if (filters.search && filters.search.toLowerCase().includes('justina')) {
+        console.log(`🔍 Verificação final - JUSTINAs nos alunos únicos:`);
+        const justinasFinais = todosAlunos.filter(aluno => 
+          aluno.nome?.toLowerCase().includes('justina')
+        );
+        console.log(`👥 JUSTINAs nos alunos únicos: ${justinasFinais.length}`);
+        justinasFinais.forEach((aluno, index) => {
+          console.log(`   ${index + 1}. ${aluno.nome}`);
+        });
+      }
 
       // Aplicar outros filtros
       if (filters.curso) {
