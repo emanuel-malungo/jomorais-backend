@@ -1846,8 +1846,8 @@ export class PaymentManagementService {
       return {
         pagamento,
         instituicao: {
-          nome: 'INSTITUTO MÉDIO POLITÉCNICO JO MORAIS',
-          endereco: 'Luanda, Angola',
+          nome: 'COMPLEXO ESCOLAR PRIVADO JOMORAIS',
+          endereco: 'Cabinda, Angola',
           telefone: '+244 XXX XXX XXX',
           email: 'info@jomorais.ao'
         }
