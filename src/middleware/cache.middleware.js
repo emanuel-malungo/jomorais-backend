@@ -1,4 +1,4 @@
-const NodeCache = require('node-cache');
+import NodeCache from 'node-cache';
 
 // ⚡ CACHE EM MEMÓRIA PARA OTIMIZAR CONSULTAS FREQUENTES
 // TTL: 2 minutos para dados dinâmicos, 10 minutos para dados estáticos
@@ -158,7 +158,7 @@ const invalidateCacheMiddleware = (patterns = []) => {
   };
 };
 
-module.exports = {
+export {
   cacheMiddleware,
   studentsSearchCache,
   staticDataCache,

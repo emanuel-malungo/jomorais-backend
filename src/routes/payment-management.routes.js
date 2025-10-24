@@ -192,11 +192,12 @@
  *       description: "Relatórios e dashboards financeiros"
  */
 
-const express = require('express');
+import express from 'express';
+import PaymentManagementController from '../controller/payment-management.controller.js';
+import { studentsSearchCache, dynamicDataCache, invalidateCacheMiddleware } from '../middleware/cache.middleware.js';
+import { authenticateToken } from '../middleware/auth.middleware.js';
+
 const router = express.Router();
-const PaymentManagementController = require('../controllers/payment-management.controller');
-const { studentsSearchCache, dynamicDataCache, invalidateCacheMiddleware } = require('../middleware/cache.middleware');
-const { authenticateToken } = require('../middleware/auth.middleware');
 // FORMAS DE PAGAMENTO
 // ===============================
 
