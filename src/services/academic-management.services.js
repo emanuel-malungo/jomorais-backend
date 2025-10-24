@@ -1321,21 +1321,125 @@ export class AcademicManagementService {
   static async deleteTurma(id) {
     try {
       const existingTurma = await prisma.tb_turmas.findUnique({
-        where: { codigo: parseInt(id) }
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_classes: { select: { designacao: true } },
+          tb_cursos: { select: { designacao: true } },
+          tb_salas: { select: { designacao: true } },
+          tb_periodos: { select: { designacao: true } }
+        }
       });
 
       if (!existingTurma) {
         throw new AppError('Turma não encontrada', 404);
       }
 
-      await prisma.tb_turmas.delete({
-        where: { codigo: parseInt(id) }
+      // TÉCNICA: CASCADE DELETE (Exclusão em Cascata)
+      const result = await prisma.$transaction(async (tx) => {
+        console.log(`[DELETE TURMA] Iniciando exclusão em cascata da turma ${id} - ${existingTurma.designacao}`);
+        
+        const turmaId = parseInt(id);
+        
+        // ===================================
+        // PASSO 1: EXCLUIR CONFIRMAÇÕES
+        // ===================================
+        const confirmacoesResult = await tx.tb_confirmacoes.deleteMany({
+          where: { codigo_Turma: turmaId }
+        });
+        const confirmacoesCount = confirmacoesResult.count;
+        if (confirmacoesCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídas ${confirmacoesCount} confirmações`);
+        }
+        
+        // ===================================
+        // PASSO 2: EXCLUIR SERVIÇOS DE ALUNOS
+        // ===================================
+        const servicosResult = await tx.tb_servico_aluno.deleteMany({
+          where: { codigo_Turma: turmaId }
+        });
+        const servicosCount = servicosResult.count;
+        if (servicosCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídos ${servicosCount} serviços de alunos`);
+        }
+        
+        // ===================================
+        // PASSO 3: EXCLUIR RELAÇÕES DOCENTE-TURMA
+        // ===================================
+        const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
+          where: { codigo_turma: turmaId }
+        });
+        const docenteTurmaCount = docenteTurmaResult.count;
+        if (docenteTurmaCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídas ${docenteTurmaCount} relações docente-turma`);
+        }
+        
+        // ===================================
+        // PASSO 4: EXCLUIR SERVIÇOS DE TURMA
+        // ===================================
+        const servicosTurmaResult = await tx.tb_servicos_turma.deleteMany({
+          where: { codigoTurma: turmaId }
+        });
+        const servicosTurmaCount = servicosTurmaResult.count;
+        if (servicosTurmaCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídos ${servicosTurmaCount} serviços de turma`);
+        }
+        
+        // ===================================
+        // PASSO 5: EXCLUIR DIRETORES DE TURMA
+        // ===================================
+        const diretoresTurmaResult = await tx.tb_directores_turmas.deleteMany({
+          where: { codigoTurma: turmaId }
+        });
+        const diretoresTurmaCount = diretoresTurmaResult.count;
+        if (diretoresTurmaCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídos ${diretoresTurmaCount} diretores de turma`);
+        }
+        
+        // ===================================
+        // PASSO 6: EXCLUIR PERMISSÕES DE TURMA-UTILIZADOR
+        // ===================================
+        const permissoesResult = await tx.tb_permissao_turma_utilizador.deleteMany({
+          where: { codigoTurma: turmaId }
+        });
+        const permissoesCount = permissoesResult.count;
+        if (permissoesCount > 0) {
+          console.log(`[DELETE TURMA] ✓ Excluídas ${permissoesCount} permissões de turma`);
+        }
+        
+        // ===================================
+        // PASSO 7: EXCLUIR A TURMA
+        // ===================================
+        await tx.tb_turmas.delete({
+          where: { codigo: turmaId }
+        });
+        console.log('[DELETE TURMA] ✓ Turma excluída');
+        
+        console.log('[DELETE TURMA] ✓ Exclusão em cascata concluída com sucesso');
+        
+        return {
+          message: 'Turma e todas as dependências excluídas com sucesso',
+          tipo: 'cascade_delete',
+          detalhes: {
+            turmaNome: existingTurma.designacao,
+            confirmacoes: confirmacoesCount,
+            servicos: servicosCount,
+            docenteTurma: docenteTurmaCount,
+            servicosTurma: servicosTurmaCount,
+            diretoresTurma: diretoresTurmaCount,
+            permissoes: permissoesCount
+          }
+        };
+      }, {
+        maxWait: 30000,
+        timeout: 30000,
       });
-
-      return { message: 'Turma excluída com sucesso' };
+      
+      return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao excluir turma', 500);
+      console.error('[DELETE TURMA] ✗ Erro ao excluir turma em cascata:', error);
+      console.error('Stack trace:', error.stack);
+      throw new AppError(`Erro ao excluir turma e dependências: ${error.message}`, 500);
     }
   }
 
