@@ -138,28 +138,39 @@ export class AcademicManagementService {
   static async deleteAnoLectivo(id) {
     try {
       const existingAno = await prisma.tb_ano_lectivo.findUnique({
-        where: { codigo: parseInt(id) }
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_turmas: true
+        }
       });
 
       if (!existingAno) {
         throw new AppError('Ano letivo não encontrado', 404);
       }
 
-      const turmasCount = await prisma.tb_turmas.count({
-        where: { codigo_AnoLectivo: parseInt(id) }
-      });
-
-      if (turmasCount > 0) {
-        throw new AppError('Não é possível excluir este ano letivo pois está sendo usado por turmas', 400);
+      // TÉCNICA: VALIDAÇÃO COM DETALHES
+      if (existingAno.tb_turmas.length > 0) {
+        throw new AppError(
+          `Não é possível excluir este ano letivo pois está sendo usado por ${existingAno.tb_turmas.length} turma(s)`, 
+          400
+        );
       }
 
+      // TÉCNICA: HARD DELETE (Exclusão Física)
       await prisma.tb_ano_lectivo.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Ano letivo excluído com sucesso' };
+      return { 
+        message: 'Ano letivo excluído com sucesso',
+        tipo: 'hard_delete',
+        detalhes: {
+          anoNome: existingAno.designacao
+        }
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir ano letivo:', error);
       throw new AppError('Erro ao excluir ano letivo', 500);
     }
   }
@@ -312,7 +323,8 @@ export class AcademicManagementService {
         include: {
           tb_disciplinas: true,
           tb_turmas: true,
-          tb_grade_curricular: true
+          tb_grade_curricular: true,
+          tb_matriculas: true
         }
       });
 
@@ -320,19 +332,46 @@ export class AcademicManagementService {
         throw new AppError('Curso não encontrado', 404);
       }
 
-      if (existingCurso.tb_disciplinas.length > 0 || 
-          existingCurso.tb_turmas.length > 0 || 
-          existingCurso.tb_grade_curricular.length > 0) {
-        throw new AppError('Não é possível excluir este curso pois possui dependências', 400);
+      // TÉCNICA: VALIDAÇÃO COM DETALHES
+      // Verificar todas as dependências e retornar informações detalhadas
+      const temDependencias = existingCurso.tb_disciplinas.length > 0 || 
+                              existingCurso.tb_turmas.length > 0 || 
+                              existingCurso.tb_grade_curricular.length > 0 ||
+                              existingCurso.tb_matriculas.length > 0;
+
+      if (temDependencias) {
+        const detalhes = {
+          disciplinas: existingCurso.tb_disciplinas.length,
+          turmas: existingCurso.tb_turmas.length,
+          gradeCurricular: existingCurso.tb_grade_curricular.length,
+          matriculas: existingCurso.tb_matriculas.length
+        };
+        
+        throw new AppError(
+          `Não é possível excluir este curso pois possui ${existingCurso.tb_disciplinas.length} disciplina(s), ` +
+          `${existingCurso.tb_turmas.length} turma(s), ${existingCurso.tb_grade_curricular.length} item(ns) na grade curricular ` +
+          `e ${existingCurso.tb_matriculas.length} matrícula(s) associadas.`, 
+          400,
+          detalhes
+        );
       }
 
+      // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Curso sem dependências pode ser excluído permanentemente
       await prisma.tb_cursos.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Curso excluído com sucesso' };
+      return { 
+        message: 'Curso excluído com sucesso',
+        tipo: 'hard_delete',
+        detalhes: {
+          cursoNome: existingCurso.designacao
+        }
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir curso:', error);
       throw new AppError('Erro ao excluir curso', 500);
     }
   }
@@ -467,24 +506,43 @@ export class AcademicManagementService {
     try {
       const existingClasse = await prisma.tb_classes.findUnique({
         where: { codigo: parseInt(id) },
-        include: { tb_turmas: true, tb_grade_curricular: true }
+        include: { 
+          tb_turmas: true, 
+          tb_grade_curricular: true 
+        }
       });
 
       if (!existingClasse) {
         throw new AppError('Classe não encontrada', 404);
       }
 
-      if (existingClasse.tb_turmas.length > 0 || existingClasse.tb_grade_curricular.length > 0) {
-        throw new AppError('Não é possível excluir esta classe pois possui dependências', 400);
+      // TÉCNICA: VALIDAÇÃO COM DETALHES
+      const temDependencias = existingClasse.tb_turmas.length > 0 || 
+                              existingClasse.tb_grade_curricular.length > 0;
+
+      if (temDependencias) {
+        throw new AppError(
+          `Não é possível excluir esta classe pois possui ${existingClasse.tb_turmas.length} turma(s) ` +
+          `e ${existingClasse.tb_grade_curricular.length} item(ns) na grade curricular`, 
+          400
+        );
       }
 
+      // TÉCNICA: HARD DELETE (Exclusão Física)
       await prisma.tb_classes.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Classe excluída com sucesso' };
+      return { 
+        message: 'Classe excluída com sucesso',
+        tipo: 'hard_delete',
+        detalhes: {
+          classeNome: existingClasse.designacao
+        }
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir classe:', error);
       throw new AppError('Erro ao excluir classe', 500);
     }
   }
@@ -580,7 +638,8 @@ export class AcademicManagementService {
               tb_classes: { select: { designacao: true } },
               tb_cursos: { select: { designacao: true } }
             }
-          }
+          },
+          tb_cursos: { select: { designacao: true } }
         }
       });
 
@@ -588,6 +647,7 @@ export class AcademicManagementService {
         throw new AppError('Disciplina não encontrada', 404);
       }
 
+      // TÉCNICA: VALIDAÇÃO COM DETALHES
       if (existingDisciplina.tb_grade_curricular.length > 0) {
         const count = existingDisciplina.tb_grade_curricular.length;
         const gradeInfo = existingDisciplina.tb_grade_curricular.map(gc => ({
@@ -605,13 +665,22 @@ export class AcademicManagementService {
         );
       }
 
+      // TÉCNICA: HARD DELETE (Exclusão Física)
       await prisma.tb_disciplinas.delete({
         where: { codigo: parseInt(id) }
       });
 
-      return { message: 'Disciplina excluída com sucesso' };
+      return { 
+        message: 'Disciplina excluída com sucesso',
+        tipo: 'hard_delete',
+        detalhes: {
+          disciplinaNome: existingDisciplina.designacao,
+          cursoNome: existingDisciplina.tb_cursos?.designacao || 'N/A'
+        }
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro ao excluir disciplina:', error);
       throw new AppError('Erro ao excluir disciplina', 500);
     }
   }
