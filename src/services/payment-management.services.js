@@ -533,6 +533,31 @@ export class PaymentManagementService {
       
       let where = {};
 
+      // Busca por texto (nome do aluno, documento, fatura)
+      if (filters.search) {
+        where.OR = [
+          {
+            aluno: {
+              nome: {
+                contains: filters.search
+              }
+            }
+          },
+          {
+            aluno: {
+              n_documento_identificacao: {
+                contains: filters.search
+              }
+            }
+          },
+          {
+            fatura: {
+              contains: filters.search
+            }
+          }
+        ];
+      }
+
       // Aplicar filtros similares aos pagamentois
       if (filters.codigo_Aluno) {
         where.codigo_Aluno = filters.codigo_Aluno;
@@ -540,6 +565,26 @@ export class PaymentManagementService {
 
       if (filters.codigo_Tipo_Servico) {
         where.codigo_Tipo_Servico = filters.codigo_Tipo_Servico;
+      }
+
+      // Filtro por tipo de serviço (aceita nome como propina, outros)
+      if (filters.tipo_servico) {
+        const tipoServicoLower = filters.tipo_servico.toLowerCase();
+        if (tipoServicoLower === 'propina') {
+          where.tipoServico = {
+            designacao: {
+              contains: 'propina'
+            }
+          };
+        } else if (tipoServicoLower === 'outros') {
+          where.tipoServico = {
+            designacao: {
+              not: {
+                contains: 'propina'
+              }
+            }
+          };
+        }
       }
 
       if (filters.codigoPagamento) {
@@ -564,7 +609,7 @@ export class PaymentManagementService {
           take,
           include: {
             aluno: {
-              select: { codigo: true, nome: true }
+              select: { codigo: true, nome: true, n_documento_identificacao: true }
             },
             tipoServico: {
               select: { codigo: true, designacao: true }

@@ -672,6 +672,11 @@ router.delete('/pagamentos-principais/:id', PaymentManagementController.deletePa
  *           type: integer
  *           default: 10
  *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Buscar por nome do aluno, documento ou número da fatura
+ *       - in: query
  *         name: codigo_Aluno
  *         schema:
  *           type: integer
@@ -680,7 +685,13 @@ router.delete('/pagamentos-principais/:id', PaymentManagementController.deletePa
  *         name: codigo_Tipo_Servico
  *         schema:
  *           type: integer
- *         description: Filtrar por tipo de serviço
+ *         description: Filtrar por tipo de serviço (código)
+ *       - in: query
+ *         name: tipo_servico
+ *         schema:
+ *           type: string
+ *           enum: [propina, outros]
+ *         description: Filtrar por tipo de serviço (propina ou outros)
  */
 router.post('/pagamentos', PaymentManagementController.createPagamento);
 router.get('/pagamentos', PaymentManagementController.getPagamentos);

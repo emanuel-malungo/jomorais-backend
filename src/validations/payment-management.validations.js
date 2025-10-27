@@ -230,6 +230,10 @@ export const paginationSchema = z.object({
 });
 
 export const pagamentoFilterSchema = z.object({
+  search: z.string()
+    .min(1)
+    .optional(),
+  
   codigo_Aluno: z.string()
     .regex(/^\d+$/, "Código do aluno deve ser numérico")
     .transform(val => parseInt(val))
@@ -238,6 +242,10 @@ export const pagamentoFilterSchema = z.object({
   codigo_Tipo_Servico: z.string()
     .regex(/^\d+$/, "Código do tipo de serviço deve ser numérico")
     .transform(val => parseInt(val))
+    .optional(),
+  
+  tipo_servico: z.string()
+    .min(1)
     .optional(),
   
   dataInicio: z.string()
