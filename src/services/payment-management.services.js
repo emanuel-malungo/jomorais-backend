@@ -2365,31 +2365,41 @@ export class PaymentManagementService {
       const anoFinal = parseInt(anoLectivoSelecionado.anoFinal);
 
       // Buscar pagamentos de propina do aluno para este ano letivo específico
-      // Buscar pagamentos com lógica específica para evitar duplicações entre anos letivos
+      // Precisamos buscar TODOS os pagamentos de propina e depois filtrar,
+      // pois o campo 'mes' pode estar em dois formatos: "SETEMBRO" ou "SETEMBRO-2025"
       const pagamentos = await prisma.tb_pagamentos.findMany({
         where: {
           codigo_Aluno: parseInt(alunoId),
-          OR: [
-            // Meses do primeiro ano (setembro a dezembro) - APENAS do ano inicial específico
-            {
-              AND: [
-                { ano: anoInicial },
-                { mes: { in: ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'] } }
-              ]
-            },
-            // Meses do segundo ano (janeiro a julho) - APENAS do ano final específico
-            {
-              AND: [
-                { ano: anoFinal },
-                { mes: { in: ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'] } }
-              ]
-            }
-          ],
           tipoServico: {
             designacao: {
               contains: 'propina'
             }
-          }
+          },
+          OR: [
+            // Formato novo: "SETEMBRO-2025"
+            {
+              mes: {
+                contains: `-${anoInicial}`
+              }
+            },
+            {
+              mes: {
+                contains: `-${anoFinal}`
+              }
+            },
+            // Formato antigo: mes separado + ano
+            {
+              AND: [
+                { ano: { in: [anoInicial, anoFinal] } },
+                { 
+                  mes: { 
+                    in: ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO', 'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'],
+                 
+                  } 
+                }
+              ]
+            }
+          ]
         },
         include: {
           tipoServico: {
@@ -2400,15 +2410,42 @@ export class PaymentManagementService {
         }
       });
 
-      // Usar apenas pagamentos da tabela principal
-      const todosPagamentos = pagamentos;
+      // Filtrar pagamentos que realmente pertencem a este ano letivo
+      const todosPagamentos = pagamentos.filter(pagamento => {
+        if (!pagamento.mes) return false;
+        
+        let mesSimples, anoPagamento;
+        
+        // Extrair mês e ano do pagamento
+        if (pagamento.mes.includes('-')) {
+          const partes = pagamento.mes.split('-');
+          mesSimples = partes[0].toUpperCase().trim();
+          anoPagamento = parseInt(partes[1]);
+        } else {
+          mesSimples = pagamento.mes.toUpperCase().trim();
+          anoPagamento = pagamento.ano;
+        }
+        
+        // Verificar se o mês/ano pertencem a este ano letivo
+        const mesesPrimeiroAno = ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+        const mesesSegundoAno = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'];
+        
+        if (mesesPrimeiroAno.includes(mesSimples)) {
+          return anoPagamento === anoInicial;
+        } else if (mesesSegundoAno.includes(mesSimples)) {
+          return anoPagamento === anoFinal;
+        }
+        
+        return false;
+      });
 
-      console.log(`Encontrados ${todosPagamentos.length} pagamentos de propina para o ano letivo ${anoLectivoSelecionado.designacao}`);
+      console.log(`Encontrados ${pagamentos.length} pagamentos de propina (antes da filtragem)`);
+      console.log(`Após filtrar por ano letivo ${anoLectivoSelecionado.designacao}: ${todosPagamentos.length} pagamentos`);
       console.log(`Critério de busca: ${anoInicial} (SET-DEZ) e ${anoFinal} (JAN-JUL)`);
       
       // Log detalhado dos pagamentos encontrados
       todosPagamentos.forEach(pag => {
-        console.log(`- Pagamento: ${pag.mes}/${pag.ano} (ID: ${pag.codigo})`);
+        console.log(`- Pagamento válido: ${pag.mes} (ano campo: ${pag.ano}) - ID: ${pag.codigo}`);
       });
 
       // Todos os meses do ano letivo (setembro a julho)
@@ -2422,12 +2459,38 @@ export class PaymentManagementService {
       const mesesPagosDetalhados = [];
       const mesesPagosDetalhadosSet = new Set(); // Para evitar duplicatas
       
+      // Mapa para saber qual ano pertence cada mês do ano letivo
+      const mesesComAno = new Map();
+      mesesAnoLectivo.forEach((mes, index) => {
+        // Meses de setembro a dezembro pertencem ao ano inicial
+        // Meses de janeiro a julho pertencem ao ano final
+        const anoDoPeriodo = index < 4 ? anoInicial : anoFinal;
+        mesesComAno.set(mes, anoDoPeriodo);
+      });
+      
       todosPagamentos.forEach(pagamento => {
-        if (pagamento.mes && pagamento.ano) {
-          const mesSimples = pagamento.mes.toUpperCase();
-          const mesDetalhado = `${mesSimples}-${pagamento.ano}`;
+        if (pagamento.mes) {
+          let mesSimples, anoPagamento;
           
-          mesesPagosSet.add(mesSimples);
+          // Verificar se o mês já vem no formato "MÊS-ANO" ou apenas "MÊS"
+          if (pagamento.mes.includes('-')) {
+            // Formato: "SETEMBRO-2025"
+            const partes = pagamento.mes.split('-');
+            mesSimples = partes[0].toUpperCase().trim();
+            anoPagamento = parseInt(partes[1]);
+          } else {
+            // Formato antigo: mês separado do ano
+            mesSimples = pagamento.mes.toUpperCase().trim();
+            anoPagamento = pagamento.ano;
+          }
+          
+          const mesDetalhado = `${mesSimples}-${anoPagamento}`;
+          const anoEsperado = mesesComAno.get(mesSimples);
+          
+          // Só adicionar ao Set de meses pagos se for do ano correto do ano letivo
+          if (anoPagamento === anoEsperado) {
+            mesesPagosSet.add(mesSimples);
+          }
           
           // Evitar duplicatas nos meses detalhados
           if (!mesesPagosDetalhadosSet.has(mesDetalhado)) {
@@ -2440,8 +2503,12 @@ export class PaymentManagementService {
       const mesesPagos = mesesPagosDetalhados;
       const mesesPendentes = mesesAnoLectivo.filter(mes => !mesesPagosSet.has(mes));
 
-      console.log('Meses pagos:', mesesPagos);
-      console.log('Meses pendentes:', mesesPendentes);
+      console.log('📊 Análise de Meses:');
+      console.log('  - Meses pagos (detalhados):', mesesPagos);
+      console.log('  - Meses pagos (simples):', Array.from(mesesPagosSet));
+      console.log('  - Meses pendentes:', mesesPendentes);
+      console.log('  - Mapa mês->ano esperado:', Object.fromEntries(mesesComAno));
+      console.log('  - Ano letivo:', `${anoInicial}/${anoFinal}`);
 
       // Determinar próximo mês a pagar
       const proximoMes = mesesPendentes.length > 0 ? mesesPendentes[0] : null;
