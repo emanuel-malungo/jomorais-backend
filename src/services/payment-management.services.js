@@ -2045,19 +2045,13 @@ export class PaymentManagementService {
       console.log(`🔍 Resultado da busca:`, existingBordero ? `Encontrado: ${existingBordero.codigo}` : 'Não encontrado');
 
       if (existingBordero) {
-        // Buscar informações do aluno separadamente para evitar problemas de relacionamento
+        // Buscar apenas o nome do aluno
         let alunoInfo = 'N/A';
-        let turmaInfo = 'N/A';
-        let classeInfo = 'N/A';
-        let cursoInfo = 'N/A';
         
         try {
           console.log(`🔍 Pagamento encontrado:`, {
             codigo: existingBordero.codigo,
-            codigo_Aluno: existingBordero.codigo_Aluno,
-            codigo_Tipo_Servico: existingBordero.codigo_Tipo_Servico,
-            mes: existingBordero.mes,
-            ano: existingBordero.ano
+            codigo_Aluno: existingBordero.codigo_Aluno
           });
           
           if (existingBordero.codigo_Aluno) {
@@ -2068,141 +2062,13 @@ export class PaymentManagementService {
             if (aluno) {
               alunoInfo = aluno.nome;
               console.log(`👤 Aluno encontrado: ${alunoInfo}`);
-              
-              // Buscar dados do tipo de serviço do pagamento para identificar o ano letivo
-              let anoLetivoId = null;
-              if (existingBordero.codigo_Tipo_Servico) {
-                const tipoServico = await prisma.tb_tipos_servico.findUnique({
-                  where: { codigo: existingBordero.codigo_Tipo_Servico }
-                });
-                
-                console.log(`📚 Tipo de serviço: ${tipoServico?.designacao}`);
-                
-                // Extrair ano letivo da designação do tipo de serviço
-                if (tipoServico?.designacao) {
-                  const anoMatch = tipoServico.designacao.match(/(\d{4})[\/\-](\d{4})/);
-                  console.log(`🔍 Match de ano letivo:`, anoMatch);
-                  
-                  if (anoMatch) {
-                    const anoLetivo = await prisma.tb_anos_lectivos.findFirst({
-                      where: {
-                        OR: [
-                          { designacao: `${anoMatch[1]}/${anoMatch[2]}` },
-                          { designacao: `${anoMatch[1]}-${anoMatch[2]}` }
-                        ]
-                      }
-                    });
-                    anoLetivoId = anoLetivo?.codigo;
-                    console.log(`📅 Ano letivo encontrado:`, anoLetivo);
-                  }
-                }
-              }
-              
-              // Buscar confirmação do ano letivo específico do pagamento
-              const whereConfirmacao = { codigo_Matricula: aluno.codigo };
-              if (anoLetivoId) {
-                whereConfirmacao.codigo_Ano_lectivo = anoLetivoId;
-              }
-              
-              console.log(`🔍 Buscando confirmação com:`, whereConfirmacao);
-              
-              const confirmacao = await prisma.tb_confirmacoes.findFirst({
-                where: whereConfirmacao,
-                include: {
-                  tb_turmas: {
-                    include: {
-                      tb_cursos: true
-                    }
-                  }
-                },
-                orderBy: { codigo: 'desc' }
-              });
-              
-              console.log(`✅ Confirmação encontrada:`, confirmacao ? {
-                codigo: confirmacao.codigo,
-                turma: confirmacao.tb_turmas?.designacao,
-                curso: confirmacao.tb_turmas?.tb_cursos?.designacao
-              } : 'Não encontrada');
-              
-              if (confirmacao?.tb_turmas) {
-                turmaInfo = confirmacao.tb_turmas.designacao;
-                classeInfo = this.extrairClasseDaTurma(confirmacao.tb_turmas.designacao);
-                cursoInfo = confirmacao.tb_turmas.tb_cursos?.designacao || 'N/A';
-                console.log(`📋 Dados extraídos: Turma=${turmaInfo}, Classe=${classeInfo}, Curso=${cursoInfo}`);
-              } else {
-                console.log(`⚠️ Confirmação não encontrada para ano específico, tentando outras abordagens...`);
-                
-                // Fallback 1: Buscar por ano do pagamento
-                if (existingBordero.ano) {
-                  const anoLetivoPorAno = await prisma.tb_anos_lectivos.findFirst({
-                    where: {
-                      OR: [
-                        { anoInicial: existingBordero.ano.toString() },
-                        { anoFinal: existingBordero.ano.toString() }
-                      ]
-                    }
-                  });
-                  
-                  if (anoLetivoPorAno) {
-                    console.log(`📅 Tentando buscar por ano do pagamento: ${anoLetivoPorAno.designacao}`);
-                    const confirmacaoAno = await prisma.tb_confirmacoes.findFirst({
-                      where: { 
-                        codigo_Matricula: aluno.codigo,
-                        codigo_Ano_lectivo: anoLetivoPorAno.codigo
-                      },
-                      include: {
-                        tb_turmas: {
-                          include: {
-                            tb_cursos: true
-                          }
-                        }
-                      },
-                      orderBy: { codigo: 'desc' }
-                    });
-                    
-                    if (confirmacaoAno?.tb_turmas) {
-                      turmaInfo = confirmacaoAno.tb_turmas.designacao;
-                      classeInfo = this.extrairClasseDaTurma(confirmacaoAno.tb_turmas.designacao);
-                      cursoInfo = confirmacaoAno.tb_turmas.tb_cursos?.designacao || 'N/A';
-                      console.log(`✅ Dados encontrados por ano do pagamento`);
-                    }
-                  }
-                }
-                
-                // Fallback 2: buscar confirmação mais recente se ainda não encontrou
-                if (turmaInfo === 'N/A') {
-                  console.log(`🔄 Buscando confirmação mais recente como último recurso...`);
-                  const confirmacaoFallback = await prisma.tb_confirmacoes.findFirst({
-                    where: { codigo_Matricula: aluno.codigo },
-                    include: {
-                      tb_turmas: {
-                        include: {
-                          tb_cursos: true
-                        }
-                      }
-                    },
-                    orderBy: { codigo: 'desc' }
-                  });
-                  
-                  if (confirmacaoFallback?.tb_turmas) {
-                    turmaInfo = confirmacaoFallback.tb_turmas.designacao;
-                    classeInfo = this.extrairClasseDaTurma(confirmacaoFallback.tb_turmas.designacao);
-                    cursoInfo = confirmacaoFallback.tb_turmas.tb_cursos?.designacao || 'N/A';
-                    console.log(`✅ Dados encontrados na confirmação mais recente`);
-                  }
-                }
-              }
             }
           }
         } catch (error) {
           console.log('Erro ao buscar informações do pagamento duplicado:', error.message);
         }
         
-        const errorMessage = `Número de borderô já foi usado na fatura #${existingBordero.codigo}. ` +
-          `Aluno: ${alunoInfo}, ` +
-          `Turma: ${turmaInfo}, ` +
-          `Classe: ${classeInfo}, ` +
-          `Curso: ${cursoInfo}`;
+        const errorMessage = `Número de borderô já foi usado na fatura #${existingBordero.codigo}. Aluno: ${alunoInfo}`;
         
         console.log(`🚨 Mensagem de erro final: ${errorMessage}`);
         throw new AppError(errorMessage, 400);
