@@ -2022,8 +2022,11 @@ export class PaymentManagementService {
   // Método para validar número de borderô (9 dígitos únicos)
   static async validateBordero(bordero, excludeId = null) {
     try {
+      console.log(`🔍 Validando borderô: ${bordero}, excludeId: ${excludeId}`);
+      
       // Validar formato (exatamente 9 dígitos)
       if (!/^\d{9}$/.test(bordero)) {
+        console.log(`❌ Formato inválido: ${bordero}`);
         throw new AppError('Número de borderô deve conter exatamente 9 dígitos', 400);
       }
 
@@ -2032,13 +2035,34 @@ export class PaymentManagementService {
       if (excludeId) {
         whereClause.codigo = { not: excludeId };
       }
+      
+      console.log(`🔍 Buscando borderô com whereClause:`, whereClause);
 
       const existingBordero = await prisma.tb_pagamentoi.findFirst({
-        where: whereClause,
-        include: {
-          tb_alunos: {
-            include: {
-              tb_confirmacoes: {
+        where: whereClause
+      });
+
+      console.log(`🔍 Resultado da busca:`, existingBordero ? `Encontrado: ${existingBordero.codigo}` : 'Não encontrado');
+
+      if (existingBordero) {
+        // Buscar informações do aluno separadamente para evitar problemas de relacionamento
+        let alunoInfo = 'N/A';
+        let turmaInfo = 'N/A';
+        let classeInfo = 'N/A';
+        let cursoInfo = 'N/A';
+        
+        try {
+          if (existingBordero.codigo_Aluno) {
+            const aluno = await prisma.tb_alunos.findUnique({
+              where: { codigo: existingBordero.codigo_Aluno }
+            });
+            
+            if (aluno) {
+              alunoInfo = aluno.nome;
+              
+              // Buscar confirmação mais recente
+              const confirmacao = await prisma.tb_confirmacoes.findFirst({
+                where: { codigo_Matricula: aluno.codigo },
                 include: {
                   tb_turmas: {
                     include: {
@@ -2046,35 +2070,30 @@ export class PaymentManagementService {
                     }
                   }
                 },
-                orderBy: {
-                  codigo: 'desc'
-                },
-                take: 1
+                orderBy: { codigo: 'desc' }
+              });
+              
+              if (confirmacao?.tb_turmas) {
+                turmaInfo = confirmacao.tb_turmas.designacao;
+                classeInfo = this.extrairClasseDaTurma(confirmacao.tb_turmas.designacao);
+                cursoInfo = confirmacao.tb_turmas.tb_cursos?.designacao || 'N/A';
               }
             }
           }
+        } catch (error) {
+          console.log('Erro ao buscar informações do pagamento duplicado:', error.message);
         }
-      });
-
-      if (existingBordero) {
-        // Buscar informações detalhadas do aluno e fatura
-        const aluno = existingBordero.tb_alunos;
-        const confirmacao = aluno?.tb_confirmacoes?.[0];
-        const turma = confirmacao?.tb_turmas;
-        const curso = turma?.tb_cursos;
-        
-        // Extrair classe da turma
-        const classe = turma?.designacao ? this.extrairClasseDaTurma(turma.designacao) : 'N/A';
         
         const errorMessage = `Número de borderô já foi usado na fatura #${existingBordero.codigo}. ` +
-          `Aluno: ${aluno?.nome || 'N/A'}, ` +
-          `Turma: ${turma?.designacao || 'N/A'}, ` +
-          `Classe: ${classe}, ` +
-          `Curso: ${curso?.designacao || 'N/A'}`;
+          `Aluno: ${alunoInfo}, ` +
+          `Turma: ${turmaInfo}, ` +
+          `Classe: ${classeInfo}, ` +
+          `Curso: ${cursoInfo}`;
         
         throw new AppError(errorMessage, 400);
       }
 
+      console.log(`✅ Borderô ${bordero} é válido e disponível`);
       return true;
     } catch (error) {
       if (error instanceof AppError) {
