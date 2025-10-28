@@ -1723,6 +1723,9 @@ router.post('/confirmacoes', StudentManagementController.createConfirmacao);
  */
 router.get('/confirmacoes', StudentManagementController.getConfirmacoes);
 
+// Rota alternativa em inglês para compatibilidade com frontend
+router.get('/confirmations', StudentManagementController.getConfirmacoes);
+
 /**
  * @swagger
  * /api/student-management/confirmacoes/{id}:

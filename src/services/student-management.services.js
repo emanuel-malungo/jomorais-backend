@@ -2108,7 +2108,7 @@ export class StudentManagementService {
     }
   }
 
-  static async getConfirmacoes(page = 1, limit = 10, search = '', statusFilter = null, anoLectivoFilter = null) {
+  static async getConfirmacoes(page = 1, limit = 10, search = '', statusFilter = null, anoLectivoFilter = null, alunoId = null) {
     try {
       const { skip, take } = getPagination(page, limit);
 
@@ -2180,6 +2180,13 @@ export class StudentManagementService {
           where.codigo_Ano_lectivo = parseInt(anoLectivoFilter);
         }
 
+        // Filtro por aluno específico
+        if (alunoId !== null) {
+          where.tb_matriculas = {
+            codigo_Aluno: parseInt(alunoId)
+          };
+        }
+
         const [confirmacoes, total] = await Promise.all([
           prisma.tb_confirmacoes.findMany({
             where,
@@ -2240,6 +2247,13 @@ export class StudentManagementService {
 
       if (anoLectivoFilter !== null && anoLectivoFilter !== 'all') {
         where.codigo_Ano_lectivo = parseInt(anoLectivoFilter);
+      }
+
+      // Filtro por aluno específico
+      if (alunoId !== null) {
+        where.tb_matriculas = {
+          codigo_Aluno: parseInt(alunoId)
+        };
       }
 
       const [confirmacoes, total] = await Promise.all([

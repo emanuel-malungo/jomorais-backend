@@ -547,8 +547,9 @@ export class StudentManagementController {
       const search = req.query.search || '';
       const statusFilter = req.query.status || null;
       const anoLectivoFilter = req.query.anoLectivo || null;
+      const alunoId = req.query.alunoId ? parseInt(req.query.alunoId) : null;
 
-      const result = await StudentManagementService.getConfirmacoes(page, limit, search, statusFilter, anoLectivoFilter);
+      const result = await StudentManagementService.getConfirmacoes(page, limit, search, statusFilter, anoLectivoFilter, alunoId);
       
       res.json({
         success: true,
