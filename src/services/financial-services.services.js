@@ -462,18 +462,17 @@ export class FinancialServicesService {
     try {
       const skip = (page - 1) * limit;
       
+      // MySQL não suporta mode: 'insensitive', então usamos uma abordagem diferente
       const where = search ? {
         OR: [
           {
             designacao: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           },
           {
             descricao: {
-              contains: search,
-              mode: 'insensitive'
+              contains: search
             }
           }
         ]
@@ -598,24 +597,59 @@ export class FinancialServicesService {
         throw new AppError('Tipo de serviço não encontrado', 404);
       }
 
-      const dependencies = [];
-      if (existingTipoServico.tb_servicos_turma.length > 0) dependencies.push('serviços de turma');
-      if (existingTipoServico.tb_servico_aluno.length > 0) dependencies.push('serviços de aluno');
-      if (existingTipoServico.tb_propina_classe.length > 0) dependencies.push('propinas de classe');
-      if (existingTipoServico.tb_pagamentos.length > 0) dependencies.push('pagamentos');
+      // Implementar delete em cascata - remover todas as dependências
+      // Usar uma transação para garantir que tudo seja deletado ou nada
+      await prisma.$transaction(async (tx) => {
+        // 1. Deletar pagamentos associados
+        if (existingTipoServico.tb_pagamentos.length > 0) {
+          await tx.tb_pagamentos.deleteMany({
+            where: { codigo_Servico: parseInt(id) }
+          });
+        }
 
-      if (dependencies.length > 0) {
-        throw new AppError(`Não é possível excluir este tipo de serviço pois possui ${dependencies.join(', ')} associados`, 400);
-      }
+        // 2. Deletar propinas de classe associadas
+        if (existingTipoServico.tb_propina_classe.length > 0) {
+          await tx.tb_propina_classe.deleteMany({
+            where: { codigoTipoServico: parseInt(id) }
+          });
+        }
 
-      await prisma.tb_tipo_servicos.delete({
-        where: { codigo: parseInt(id) }
+        // 3. Deletar serviços de aluno associados
+        if (existingTipoServico.tb_servico_aluno.length > 0) {
+          await tx.tb_servico_aluno.deleteMany({
+            where: { codigo_Servico: parseInt(id) }
+          });
+        }
+
+        // 4. Deletar serviços de turma associados
+        if (existingTipoServico.tb_servicos_turma.length > 0) {
+          await tx.tb_servicos_turma.deleteMany({
+            where: { codigoServico: parseInt(id) }
+          });
+        }
+
+        // 5. Finalmente, deletar o tipo de serviço
+        await tx.tb_tipo_servicos.delete({
+          where: { codigo: parseInt(id) }
+        });
       });
 
-      return { message: 'Tipo de serviço excluído com sucesso' };
+      return { 
+        message: 'Tipo de serviço e todas as suas dependências foram excluídos com sucesso',
+        deleted: {
+          pagamentos: existingTipoServico.tb_pagamentos.length,
+          propinasClasse: existingTipoServico.tb_propina_classe.length,
+          servicosAluno: existingTipoServico.tb_servico_aluno.length,
+          servicosTurma: existingTipoServico.tb_servicos_turma.length
+        }
+      };
     } catch (error) {
+      console.error('Erro detalhado ao excluir tipo de serviço:', error);
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao excluir tipo de serviço', 500);
+      
+      // Lançar erro mais detalhado
+      const errorMessage = error.message || 'Erro desconhecido ao excluir tipo de serviço';
+      throw new AppError(`Erro ao excluir tipo de serviço: ${errorMessage}`, 500);
     }
   }
 
