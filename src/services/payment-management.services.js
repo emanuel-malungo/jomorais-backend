@@ -2027,18 +2027,52 @@ export class PaymentManagementService {
         throw new AppError('Número de borderô deve conter exatamente 9 dígitos', 400);
       }
 
-      // Verificar duplicatas na tb_pagamentoi
+      // Verificar duplicatas na tb_pagamentoi com informações detalhadas
       const whereClause = { borderoux: bordero };
       if (excludeId) {
         whereClause.codigo = { not: excludeId };
       }
 
       const existingBordero = await prisma.tb_pagamentoi.findFirst({
-        where: whereClause
+        where: whereClause,
+        include: {
+          tb_alunos: {
+            include: {
+              tb_confirmacoes: {
+                include: {
+                  tb_turmas: {
+                    include: {
+                      tb_cursos: true
+                    }
+                  }
+                },
+                orderBy: {
+                  codigo: 'desc'
+                },
+                take: 1
+              }
+            }
+          }
+        }
       });
 
       if (existingBordero) {
-        throw new AppError('Este número de borderô já foi utilizado', 400);
+        // Buscar informações detalhadas do aluno e fatura
+        const aluno = existingBordero.tb_alunos;
+        const confirmacao = aluno?.tb_confirmacoes?.[0];
+        const turma = confirmacao?.tb_turmas;
+        const curso = turma?.tb_cursos;
+        
+        // Extrair classe da turma
+        const classe = turma?.designacao ? this.extrairClasseDaTurma(turma.designacao) : 'N/A';
+        
+        const errorMessage = `Número de borderô já foi usado na fatura #${existingBordero.codigo}. ` +
+          `Aluno: ${aluno?.nome || 'N/A'}, ` +
+          `Turma: ${turma?.designacao || 'N/A'}, ` +
+          `Classe: ${classe}, ` +
+          `Curso: ${curso?.designacao || 'N/A'}`;
+        
+        throw new AppError(errorMessage, 400);
       }
 
       return true;
@@ -2048,6 +2082,31 @@ export class PaymentManagementService {
       }
       console.error('Erro ao validar borderô:', error);
       throw new AppError('Erro ao validar número de borderô', 500);
+    }
+  }
+
+  // Método auxiliar para extrair classe da turma
+  static extrairClasseDaTurma(designacaoTurma) {
+    try {
+      // Padrões comuns: "10ª Classe A", "9ª A", "Classe 11 B", etc.
+      const patterns = [
+        /(\d+)ª\s*Classe/i,
+        /Classe\s*(\d+)/i,
+        /(\d+)ª/i,
+        /(\d+)/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = designacaoTurma.match(pattern);
+        if (match) {
+          return `${match[1]}ª Classe`;
+        }
+      }
+      
+      return designacaoTurma; // Retorna original se não conseguir extrair
+    } catch (error) {
+      console.error('Erro ao extrair classe da turma:', error);
+      return designacaoTurma;
     }
   }
 
