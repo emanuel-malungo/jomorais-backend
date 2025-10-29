@@ -826,7 +826,6 @@ model tb_pagamentoi {
 
   // Relacionamentos
   tb_pagamentos tb_pagamentos[]
-  tb_nota_credito tb_nota_credito[]
 
   @@index([status], name: "FK_tb_pagamentoI_1")
 }
