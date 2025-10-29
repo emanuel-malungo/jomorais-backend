@@ -367,7 +367,7 @@ export class PaymentManagementService {
 
           // Notas de crédito associadas
           prisma.tb_nota_credito.findMany({
-            where: { pagamento_ref: pagamentoi.codigo.toString() }
+            where: { codigoPagamentoi: pagamentoi.codigo }
           }).catch(() => [])
         ]);
 
@@ -770,7 +770,7 @@ export class PaymentManagementService {
 
         // Verificar se já existe uma nota de crédito para este pagamento
         const existingCreditNote = await prisma.tb_nota_credito.findFirst({
-          where: { pagamento_ref: data.codigoPagamentoi.toString() }
+          where: { codigoPagamentoi: data.codigoPagamentoi }
         });
 
         if (existingCreditNote) {
@@ -790,7 +790,7 @@ export class PaymentManagementService {
           documento: data.documento,
           next: data.next || '',
           dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
-          pagamento_ref: data.codigoPagamentoi ? data.codigoPagamentoi.toString() : null
+          codigoPagamentoi: data.codigoPagamentoi
         };
 
         // Adicionar hash apenas se fornecido
@@ -988,7 +988,7 @@ export class PaymentManagementService {
           next: data.next,
           dataOperacao: data.dataOperacao,
           hash: data.hash,
-          pagamento_ref: data.codigoPagamentoi ? data.codigoPagamentoi.toString() : null
+          codigoPagamentoi: data.codigoPagamentoi
         }
       });
 

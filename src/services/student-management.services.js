@@ -1407,7 +1407,7 @@ export class StudentManagementService {
             where: {
               OR: [
                 { codigo_aluno: parseInt(id) },
-                { pagamento_ref: { in: pagamentoiIdsList.map(id => id.toString()) } }
+                { codigoPagamentoi: { in: pagamentoiIdsList } }
               ]
             }
           });
