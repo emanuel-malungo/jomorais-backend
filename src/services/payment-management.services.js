@@ -749,11 +749,7 @@ export class PaymentManagementService {
       let pagamento = null;
       if (data.codigoPagamentoi) {
         pagamento = await prisma.tb_pagamentoi.findUnique({
-          where: { codigo: data.codigoPagamentoi },
-          include: {
-            aluno: true,
-            tipoServico: true
-          }
+          where: { codigo: data.codigoPagamentoi }
         });
 
         if (!pagamento) {
@@ -788,18 +784,13 @@ export class PaymentManagementService {
           },
           include: {
             tb_alunos: true,
-            tb_pagamentoi: {
-              include: {
-                aluno: true,
-                tipoServico: true
-              }
-            }
+            tb_pagamentoi: true
           }
         });
 
         // 2. Se há um pagamento associado, anular a fatura e reverter o pagamento
         if (pagamento) {
-          console.log(`[NOTA CRÉDITO] Anulando pagamento ${pagamento.codigo} - Fatura: ${pagamento.fatura}`);
+          console.log(`[NOTA CRÉDITO] Anulando pagamento ${pagamento.codigo}`);
 
           // 2.1. Marcar o pagamento como anulado (soft delete)
           await tx.tb_pagamentoi.update({
@@ -813,7 +804,7 @@ export class PaymentManagementService {
           });
 
           // 2.2. Reverter o saldo do aluno (adicionar o valor de volta)
-          const valorReversao = parseFloat(pagamento.preco) || 0;
+          const valorReversao = parseFloat(pagamento.total) || parseFloat(pagamento.valorEntregue) || 0;
           if (valorReversao > 0) {
             await tx.tb_alunos.update({
               where: { codigo: pagamento.codigo_aluno },
@@ -882,9 +873,9 @@ export class PaymentManagementService {
               select: { 
                 codigo: true, 
                 data: true, 
-                preco: true,
-                fatura: true,
-                mes: true
+                total: true,
+                valorEntregue: true,
+                obs: true
               }
             }
           },
