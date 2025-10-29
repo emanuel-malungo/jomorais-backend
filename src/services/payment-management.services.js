@@ -748,9 +748,21 @@ export class PaymentManagementService {
       // Verificar se o pagamento existe (se fornecido)
       let pagamento = null;
       if (data.codigoPagamentoi) {
-        pagamento = await prisma.tb_pagamentoi.findUnique({
-          where: { codigo: data.codigoPagamentoi }
+        // Procurar primeiro na tabela tb_pagamentos (que é usada na listagem)
+        pagamento = await prisma.tb_pagamentos.findUnique({
+          where: { codigo: data.codigoPagamentoi },
+          include: {
+            aluno: true,
+            tipoServico: true
+          }
         });
+
+        // Se não encontrar, procurar na tb_pagamentoi
+        if (!pagamento) {
+          pagamento = await prisma.tb_pagamentoi.findUnique({
+            where: { codigo: data.codigoPagamentoi }
+          });
+        }
 
         if (!pagamento) {
           throw new AppError('Pagamento não encontrado', 404);
@@ -792,34 +804,54 @@ export class PaymentManagementService {
         if (pagamento) {
           console.log(`[NOTA CRÉDITO] Anulando pagamento ${pagamento.codigo}`);
 
-          // 2.1. Marcar o pagamento como anulado (soft delete)
-          await tx.tb_pagamentoi.update({
-            where: { codigo: pagamento.codigo },
-            data: {
-              // Adicionar campo de status se existir, ou usar um campo de observação
-              obs: `ANULADO - Nota de Crédito: ${notaCredito.next}`,
-              // Se houver campo de status, descomente a linha abaixo:
-              // status: 'ANULADO'
-            }
-          });
-
-          // 2.2. Reverter o saldo do aluno (adicionar o valor de volta)
-          const valorReversao = parseFloat(pagamento.total) || parseFloat(pagamento.valorEntregue) || 0;
-          if (valorReversao > 0) {
-            await tx.tb_alunos.update({
-              where: { codigo: pagamento.codigo_aluno },
+          // Determinar qual tabela usar baseado na estrutura do pagamento
+          const isFromTbPagamentos = pagamento.hasOwnProperty('preco') || pagamento.hasOwnProperty('totalgeral');
+          
+          if (isFromTbPagamentos) {
+            // 2.1. Marcar o pagamento como anulado na tb_pagamentos
+            await tx.tb_pagamentos.update({
+              where: { codigo: pagamento.codigo },
               data: {
-                saldo: {
-                  increment: valorReversao
-                }
+                observacao: `ANULADO - Nota de Crédito: ${notaCredito.next}`
               }
             });
-            console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_aluno} incrementado em ${valorReversao}`);
-          }
 
-          // 2.3. Registrar histórico da reversão (se houver tabela de histórico)
-          // Aqui você pode adicionar um registro em uma tabela de histórico de transações
-          // se ela existir no seu sistema
+            // 2.2. Reverter o saldo do aluno (usar preco ou totalgeral)
+            const valorReversao = parseFloat(pagamento.preco) || parseFloat(pagamento.totalgeral) || 0;
+            if (valorReversao > 0) {
+              await tx.tb_alunos.update({
+                where: { codigo: pagamento.codigo_Aluno },
+                data: {
+                  saldo: {
+                    increment: valorReversao
+                  }
+                }
+              });
+              console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_Aluno} incrementado em ${valorReversao}`);
+            }
+          } else {
+            // 2.1. Marcar o pagamento como anulado na tb_pagamentoi
+            await tx.tb_pagamentoi.update({
+              where: { codigo: pagamento.codigo },
+              data: {
+                obs: `ANULADO - Nota de Crédito: ${notaCredito.next}`
+              }
+            });
+
+            // 2.2. Reverter o saldo do aluno (usar total ou valorEntregue)
+            const valorReversao = parseFloat(pagamento.total) || parseFloat(pagamento.valorEntregue) || 0;
+            if (valorReversao > 0) {
+              await tx.tb_alunos.update({
+                where: { codigo: pagamento.codigo_Aluno },
+                data: {
+                  saldo: {
+                    increment: valorReversao
+                  }
+                }
+              });
+              console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_Aluno} incrementado em ${valorReversao}`);
+            }
+          }
 
           console.log(`[NOTA CRÉDITO] Pagamento ${pagamento.codigo} anulado com sucesso`);
         }
