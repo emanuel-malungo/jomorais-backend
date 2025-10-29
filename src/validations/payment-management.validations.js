@@ -191,9 +191,7 @@ export const notaCreditoCreateSchema = z.object({
   
   pagamento_ref: z.string()
     .max(50, "Referência do pagamento deve ter no máximo 50 caracteres")
-    .optional(),
-  
-  codigo_utilizador: z.number().int().positive("Código do utilizador deve ser um número positivo").optional()
+    .optional()
 });
 
 export const notaCreditoUpdateSchema = notaCreditoCreateSchema.partial();

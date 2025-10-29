@@ -58,7 +58,6 @@ model tb_utilizadores {
   tb_proveniencias   tb_proveniencias[]
   tb_permissao_turma_utilizador tb_permissao_turma_utilizador[]
   tb_item_permissao_utilizador  tb_item_permissao_utilizador[]
-  tb_nota_credito    tb_nota_credito[]
 }
 
 // ===============================================================
@@ -892,14 +891,11 @@ model tb_nota_credito {
   dataOperacao    String?  @db.VarChar(45) @default("00-00-0000") @map("DataOperacao")
   hash            String?  @db.VarChar(555) @map("hash")
   codigoPagamentoi Int?    @map("CodigoPagamentoi")
-  codigo_utilizador Int?   @map("codigo_utilizador")
 
-  // Relacionamentos
-  tb_alunos       tb_alunos        @relation(fields: [codigo_aluno], references: [codigo])
-  tb_utilizadores tb_utilizadores? @relation(fields: [codigo_utilizador], references: [codigo])
+  // Relacionamentos - apenas com tb_alunos, sem foreign key para pagamento
+  tb_alunos     tb_alunos      @relation(fields: [codigo_aluno], references: [codigo])
 
   @@index([codigo_aluno], name: "FK_tb_nota_credito_1")
-  @@index([codigo_utilizador], name: "FK_tb_nota_credito_utilizador")
 
   @@map("tb_nota_credito")
 }

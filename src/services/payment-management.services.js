@@ -792,8 +792,8 @@ export class PaymentManagementService {
           codigo_aluno: data.codigo_aluno,
           documento: data.documento,
           next: data.next || '',
-          dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
-          codigo_utilizador: data.codigo_utilizador
+          dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0]
+          // NÃO incluir codigo_utilizador temporariamente até a coluna ser criada no banco
           // NÃO incluir codigoPagamentoi para evitar foreign key constraint
         };
 
@@ -810,14 +810,7 @@ export class PaymentManagementService {
           notaCredito = await tx.tb_nota_credito.create({
             data: createData,
             include: {
-              tb_alunos: true,
-              tb_utilizadores: {
-                select: {
-                  codigo: true,
-                  nome: true,
-                  user: true
-                }
-              }
+              tb_alunos: true
             }
           });
           
@@ -924,13 +917,6 @@ export class PaymentManagementService {
                 codigo: true, 
                 nome: true, 
                 n_documento_identificacao: true 
-              }
-            },
-            tb_utilizadores: {
-              select: {
-                codigo: true,
-                nome: true,
-                user: true
               }
             }
           },
