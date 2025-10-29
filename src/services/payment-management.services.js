@@ -848,15 +848,22 @@ export class PaymentManagementService {
 
   static async getNotasCredito(page = 1, limit = 10, search = '') {
     try {
+      console.log(`[GET NOTAS CRÉDITO] Iniciando busca - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
       const { skip, take } = getPagination(page, limit);
       
-      const where = search ? {
+      const where = search && search.trim() ? {
         OR: [
-          { designacao: { contains: search, mode: 'insensitive' } },
-          { fatura: { contains: search, mode: 'insensitive' } },
-          { documento: { contains: search, mode: 'insensitive' } }
+          { designacao: { contains: search.trim(), mode: 'insensitive' } },
+          { fatura: { contains: search.trim(), mode: 'insensitive' } },
+          { documento: { contains: search.trim(), mode: 'insensitive' } },
+          { next: { contains: search.trim(), mode: 'insensitive' } },
+          { tb_alunos: { 
+            nome: { contains: search.trim(), mode: 'insensitive' } 
+          }}
         ]
       } : {};
+
+      console.log(`[GET NOTAS CRÉDITO] Filtros aplicados:`, where);
 
       const [notasCredito, total] = await Promise.all([
         prisma.tb_nota_credito.findMany({
@@ -886,6 +893,8 @@ export class PaymentManagementService {
         prisma.tb_nota_credito.count({ where })
       ]);
 
+      console.log(`[GET NOTAS CRÉDITO] Encontradas ${notasCredito.length} notas de crédito, total: ${total}`);
+
       return {
         data: notasCredito,
         pagination: {
@@ -897,7 +906,23 @@ export class PaymentManagementService {
       };
     } catch (error) {
       console.error('Erro ao buscar notas de crédito:', error);
-      throw new AppError('Erro ao buscar notas de crédito', 500);
+      console.error('Stack trace:', error.stack);
+      
+      // Se for erro de tabela não encontrada, retornar array vazio
+      if (error.code === 'P2021' || error.message.includes('does not exist')) {
+        console.log('[GET NOTAS CRÉDITO] Tabela não existe, retornando dados vazios');
+        return {
+          data: [],
+          pagination: {
+            currentPage: page,
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: limit
+          }
+        };
+      }
+      
+      throw new AppError(`Erro ao buscar notas de crédito: ${error.message}`, 500);
     }
   }
 

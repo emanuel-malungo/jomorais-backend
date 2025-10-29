@@ -17,6 +17,7 @@ import {
 
 import { PaymentManagementService } from "../services/payment-management.services.js";
 import { handleControllerError } from "../utils/validation.utils.js";
+import prisma from "../config/database.js";
 
 export class PaymentManagementController {
   // ===============================
@@ -289,8 +290,27 @@ export class PaymentManagementController {
 
   static async getNotasCredito(req, res) {
     try {
-      const { page, limit } = paginationSchema.parse(req.query);
-      const { search } = req.query;
+      console.log('[CONTROLLER] Query params recebidos:', req.query);
+      
+      // Fazer parsing mais flexível dos parâmetros
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+
+      console.log('[CONTROLLER] Parâmetros processados:', { page, limit, search });
+
+      // Teste básico da tabela primeiro
+      try {
+        const testCount = await prisma.tb_nota_credito.count();
+        console.log('[CONTROLLER] Total de registros na tabela tb_nota_credito:', testCount);
+      } catch (testError) {
+        console.error('[CONTROLLER] Erro ao acessar tabela tb_nota_credito:', testError);
+        return res.status(500).json({
+          success: false,
+          message: "Erro ao acessar tabela de notas de crédito",
+          error: testError.message
+        });
+      }
 
       const result = await PaymentManagementService.getNotasCredito(page, limit, search);
       
@@ -301,6 +321,7 @@ export class PaymentManagementController {
         pagination: result.pagination,
       });
     } catch (error) {
+      console.error('[CONTROLLER] Erro ao buscar notas de crédito:', error);
       handleControllerError(res, error, "Erro ao buscar notas de crédito", 400);
     }
   }
