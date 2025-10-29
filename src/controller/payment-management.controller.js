@@ -316,7 +316,14 @@ export class PaymentManagementController {
       console.log('[CONTROLLER] ✅ Dados validados com sucesso');
       
       console.log('[CONTROLLER] Chamando service para criar nota de crédito...');
-      const notaCredito = await PaymentManagementService.createNotaCredito(validatedData);
+      
+      // Adicionar código do usuário logado
+      const dataWithUser = {
+        ...validatedData,
+        codigo_utilizador: req.user?.id || req.user?.codigo || 1 // Fallback para desenvolvimento
+      };
+      
+      const notaCredito = await PaymentManagementService.createNotaCredito(dataWithUser);
       console.log('[CONTROLLER] ✅ Nota de crédito criada com sucesso');
       
       res.status(201).json({
