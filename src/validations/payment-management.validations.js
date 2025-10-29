@@ -169,7 +169,7 @@ export const notaCreditoCreateSchema = z.object({
     .min(1, "Valor é obrigatório")
     .max(45, "Valor deve ter no máximo 45 caracteres"),
   
-  codigo_aluno: positiveInt,
+  codigo_aluno: z.number().int().positive("Código do aluno deve ser um número positivo"),
   
   documento: z.string()
     .min(1, "Documento é obrigatório")
@@ -187,7 +187,7 @@ export const notaCreditoCreateSchema = z.object({
     .max(555, "Hash deve ter no máximo 555 caracteres")
     .optional(),
   
-  codigoPagamentoi: optionalPositiveInt
+  codigoPagamentoi: z.number().int().positive("Código do pagamento deve ser um número positivo").optional()
 });
 
 export const notaCreditoUpdateSchema = notaCreditoCreateSchema.partial();

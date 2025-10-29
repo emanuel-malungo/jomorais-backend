@@ -277,17 +277,10 @@ export class PaymentManagementController {
     try {
       console.log('[CONTROLLER] Dados recebidos para nota de crédito:', req.body);
       
-      // Temporariamente pular validação para debug
-      try {
-        const validatedData = notaCreditoCreateSchema.parse(req.body);
-        console.log('[CONTROLLER] Dados validados com sucesso:', validatedData);
-      } catch (validationError) {
-        console.error('[CONTROLLER] Erro de validação Zod:', validationError);
-        console.error('[CONTROLLER] Detalhes do erro:', validationError.errors);
-        throw validationError;
-      }
+      const validatedData = notaCreditoCreateSchema.parse(req.body);
+      console.log('[CONTROLLER] Dados validados com sucesso:', validatedData);
       
-      const notaCredito = await PaymentManagementService.createNotaCredito(req.body);
+      const notaCredito = await PaymentManagementService.createNotaCredito(validatedData);
       
       res.status(201).json({
         success: true,
@@ -296,7 +289,9 @@ export class PaymentManagementController {
       });
     } catch (error) {
       console.error('[CONTROLLER] Erro detalhado ao criar nota de crédito:', error);
-      console.error('[CONTROLLER] Stack trace:', error.stack);
+      if (error.errors) {
+        console.error('[CONTROLLER] Detalhes da validação:', error.errors);
+      }
       handleControllerError(res, error, "Erro ao criar nota de crédito", 400);
     }
   }
