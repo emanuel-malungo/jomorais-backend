@@ -882,12 +882,12 @@ model tb_pagamentos {
 
 model tb_nota_credito {
   codigo          Int      @id @default(autoincrement()) @map("codigo")
-  designacao      String   @db.VarChar(45) @map("Designacao")
-  fatura          String   @db.VarChar(45) @map("fatura")
-  descricao      String   @db.VarChar(45) @map("Descricao")
+  designacao      String   @db.VarChar(200) @map("Designacao")
+  fatura          String   @db.VarChar(100) @map("fatura")
+  descricao      String   @db.VarChar(500) @map("Descricao")
   valor           String   @db.VarChar(45) @map("valor")
   codigo_aluno    Int      @map("codigo_aluno")
-  documento       String   @db.VarChar(45) @map("Documento")
+  documento       String   @db.VarChar(100) @map("Documento")
   next            String   @db.VarChar(45) @map("next")
   dataOperacao    String?  @db.VarChar(45) @default("00-00-0000") @map("DataOperacao")
   hash            String?  @db.VarChar(555) @map("hash")

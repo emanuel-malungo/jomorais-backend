@@ -155,15 +155,15 @@ export const pagamentoUpdateSchema = pagamentoCreateSchema.partial();
 export const notaCreditoCreateSchema = z.object({
   designacao: z.string()
     .min(1, "Designação é obrigatória")
-    .max(45, "Designação deve ter no máximo 45 caracteres"),
+    .max(200, "Designação deve ter no máximo 200 caracteres"),
   
   fatura: z.string()
     .min(1, "Fatura é obrigatória")
-    .max(45, "Fatura deve ter no máximo 45 caracteres"),
+    .max(100, "Fatura deve ter no máximo 100 caracteres"),
   
   descricao: z.string()
     .min(1, "Descrição é obrigatória")
-    .max(45, "Descrição deve ter no máximo 45 caracteres"),
+    .max(500, "Descrição deve ter no máximo 500 caracteres"),
   
   valor: z.string()
     .min(1, "Valor é obrigatório")
@@ -173,7 +173,7 @@ export const notaCreditoCreateSchema = z.object({
   
   documento: z.string()
     .min(1, "Documento é obrigatório")
-    .max(45, "Documento deve ter no máximo 45 caracteres"),
+    .max(100, "Documento deve ter no máximo 100 caracteres"),
   
   next: z.string()
     .max(45, "Next deve ter no máximo 45 caracteres")
