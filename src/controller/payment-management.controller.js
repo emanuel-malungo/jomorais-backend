@@ -273,6 +273,38 @@ export class PaymentManagementController {
   // NOTAS DE CRÉDITO - CRUD COMPLETO
   // ===============================
 
+  // Endpoint de teste para debug
+  static async testNotaCredito(req, res) {
+    try {
+      const testData = {
+        designacao: "TESTE - Anulação de Fatura",
+        fatura: "TEST_001",
+        descricao: "Teste de criação de nota de crédito",
+        valor: "1000",
+        codigo_aluno: 1, // Usar um aluno que sabemos que existe
+        documento: "TEST_001",
+        next: "NC TEST/001",
+        dataOperacao: "2025-10-29"
+      };
+
+      console.log('[TEST] Criando nota de crédito de teste:', testData);
+      
+      const notaCredito = await PaymentManagementService.createNotaCredito(testData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Nota de crédito de teste criada com sucesso",
+        data: notaCredito,
+      });
+    } catch (error) {
+      console.error('[TEST] Erro no teste:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || "Erro no teste"
+      });
+    }
+  }
+
   static async createNotaCredito(req, res) {
     try {
       console.log('[CONTROLLER] ===== INÍCIO CRIAÇÃO NOTA DE CRÉDITO =====');

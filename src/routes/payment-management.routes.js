@@ -760,28 +760,12 @@ router.delete('/pagamentos/:id', PaymentManagementController.deletePagamento);
  *     security:
  *       - bearerAuth: []
  */
+// Rota de teste primeiro
+router.post('/notas-credito/test', PaymentManagementController.testNotaCredito);
+
+// Rotas principais
 router.post('/notas-credito', PaymentManagementController.createNotaCredito);
 router.get('/notas-credito', PaymentManagementController.getNotasCredito);
-
-/**
- * @swagger
- * /api/payment-management/notas-credito/{id}:
- *   get:
- *     summary: Buscar nota de crédito por ID
- *     tags: [Gestão de Pagamentos - Notas de Crédito]
- *     security:
- *       - bearerAuth: []
- *   put:
- *     summary: Atualizar nota de crédito
- *     tags: [Gestão de Pagamentos - Notas de Crédito]
- *     security:
- *       - bearerAuth: []
- *   delete:
- *     summary: Excluir nota de crédito
- *     tags: [Gestão de Pagamentos - Notas de Crédito]
- *     security:
- *       - bearerAuth: []
- */
 router.get('/notas-credito/:id', PaymentManagementController.getNotaCreditoById);
 router.put('/notas-credito/:id', PaymentManagementController.updateNotaCredito);
 router.delete('/notas-credito/:id', PaymentManagementController.deleteNotaCredito);
