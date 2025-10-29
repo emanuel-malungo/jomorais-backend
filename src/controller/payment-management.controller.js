@@ -308,16 +308,16 @@ export class PaymentManagementController {
   static async createNotaCredito(req, res) {
     try {
       console.log('[CONTROLLER] ===== INÍCIO CRIAÇÃO NOTA DE CRÉDITO =====');
-      console.log('[CONTROLLER] Dados recebidos para nota de crédito:', JSON.stringify(req.body, null, 2));
+      console.log('[CONTROLLER] Dados recebidos para nota de crédito:', req.body);
       
       // Teste de validação passo a passo
       console.log('[CONTROLLER] Iniciando validação Zod...');
       const validatedData = notaCreditoCreateSchema.parse(req.body);
-      console.log('[CONTROLLER] ✅ Dados validados com sucesso:', JSON.stringify(validatedData, null, 2));
+      console.log('[CONTROLLER] ✅ Dados validados com sucesso');
       
       console.log('[CONTROLLER] Chamando service para criar nota de crédito...');
       const notaCredito = await PaymentManagementService.createNotaCredito(validatedData);
-      console.log('[CONTROLLER] ✅ Nota de crédito criada com sucesso:', JSON.stringify(notaCredito, null, 2));
+      console.log('[CONTROLLER] ✅ Nota de crédito criada com sucesso');
       
       res.status(201).json({
         success: true,
@@ -331,7 +331,7 @@ export class PaymentManagementController {
       console.error('[CONTROLLER] ❌ STACK:', error.stack);
       
       if (error.errors) {
-        console.error('[CONTROLLER] ❌ DETALHES VALIDAÇÃO ZOD:', JSON.stringify(error.errors, null, 2));
+        console.error('[CONTROLLER] ❌ DETALHES VALIDAÇÃO ZOD:', error.errors);
       }
       
       if (error.code) {

@@ -828,15 +828,7 @@ export class PaymentManagementService {
           const isFromTbPagamentos = pagamento.hasOwnProperty('preco') || pagamento.hasOwnProperty('totalgeral');
           
           if (isFromTbPagamentos) {
-            // 2.1. Marcar o pagamento como anulado na tb_pagamentos
-            await tx.tb_pagamentos.update({
-              where: { codigo: pagamento.codigo },
-              data: {
-                observacao: `ANULADO - Nota de Crédito: ${notaCredito.next}`
-              }
-            });
-
-            // 2.2. Reverter o saldo do aluno (usar preco ou totalgeral)
+            // 2.1. Reverter o saldo do aluno ANTES de excluir (usar preco ou totalgeral)
             const valorReversao = parseFloat(pagamento.preco) || parseFloat(pagamento.totalgeral) || 0;
             if (valorReversao > 0) {
               await tx.tb_alunos.update({
@@ -849,16 +841,15 @@ export class PaymentManagementService {
               });
               console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_Aluno} incrementado em ${valorReversao}`);
             }
-          } else {
-            // 2.1. Marcar o pagamento como anulado na tb_pagamentoi
-            await tx.tb_pagamentoi.update({
-              where: { codigo: pagamento.codigo },
-              data: {
-                obs: `ANULADO - Nota de Crédito: ${notaCredito.next}`
-              }
-            });
 
-            // 2.2. Reverter o saldo do aluno (usar total ou valorEntregue)
+            // 2.2. EXCLUIR o pagamento da tb_pagamentos (para remover da lista e reverter status do mês)
+            await tx.tb_pagamentos.delete({
+              where: { codigo: pagamento.codigo }
+            });
+            console.log(`[NOTA CRÉDITO] Pagamento ${pagamento.codigo} EXCLUÍDO da tb_pagamentos`);
+
+          } else {
+            // 2.1. Reverter o saldo do aluno ANTES de excluir (usar total ou valorEntregue)
             const valorReversao = parseFloat(pagamento.total) || parseFloat(pagamento.valorEntregue) || 0;
             if (valorReversao > 0) {
               await tx.tb_alunos.update({
@@ -871,6 +862,12 @@ export class PaymentManagementService {
               });
               console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_Aluno} incrementado em ${valorReversao}`);
             }
+
+            // 2.2. EXCLUIR o pagamento da tb_pagamentoi (para remover da lista e reverter status do mês)
+            await tx.tb_pagamentoi.delete({
+              where: { codigo: pagamento.codigo }
+            });
+            console.log(`[NOTA CRÉDITO] Pagamento ${pagamento.codigo} EXCLUÍDO da tb_pagamentoi`);
           }
 
           console.log(`[NOTA CRÉDITO] Pagamento ${pagamento.codigo} anulado com sucesso`);
