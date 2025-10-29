@@ -745,22 +745,100 @@ export class PaymentManagementService {
         throw new AppError('Aluno não encontrado', 404);
       }
 
-      const notaCredito = await prisma.tb_nota_credito.create({
-        data: {
-          designacao: data.designacao,
-          fatura: data.fatura,
-          descricao: data.descricao,
-          valor: data.valor,
-          codigo_aluno: data.codigo_aluno,
-          documento: data.documento,
-          next: data.next || '',
-          dataOperacao: data.dataOperacao || '00-00-0000',
-          hash: data.hash,
-          codigoPagamentoi: data.codigoPagamentoi
+      // Verificar se o pagamento existe (se fornecido)
+      let pagamento = null;
+      if (data.codigoPagamentoi) {
+        pagamento = await prisma.tb_pagamentoi.findUnique({
+          where: { codigo: data.codigoPagamentoi },
+          include: {
+            aluno: true,
+            tipoServico: true
+          }
+        });
+
+        if (!pagamento) {
+          throw new AppError('Pagamento não encontrado', 404);
         }
+
+        // Verificar se já existe uma nota de crédito para este pagamento
+        const existingCreditNote = await prisma.tb_nota_credito.findFirst({
+          where: { codigoPagamentoi: data.codigoPagamentoi }
+        });
+
+        if (existingCreditNote) {
+          throw new AppError('Já existe uma nota de crédito para este pagamento', 409);
+        }
+      }
+
+      // Usar transação para garantir consistência
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Criar a nota de crédito
+        const notaCredito = await tx.tb_nota_credito.create({
+          data: {
+            designacao: data.designacao,
+            fatura: data.fatura,
+            descricao: data.descricao,
+            valor: data.valor,
+            codigo_aluno: data.codigo_aluno,
+            documento: data.documento,
+            next: data.next || '',
+            dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
+            hash: data.hash,
+            codigoPagamentoi: data.codigoPagamentoi
+          },
+          include: {
+            tb_alunos: true,
+            tb_pagamentoi: {
+              include: {
+                aluno: true,
+                tipoServico: true
+              }
+            }
+          }
+        });
+
+        // 2. Se há um pagamento associado, anular a fatura e reverter o pagamento
+        if (pagamento) {
+          console.log(`[NOTA CRÉDITO] Anulando pagamento ${pagamento.codigo} - Fatura: ${pagamento.fatura}`);
+
+          // 2.1. Marcar o pagamento como anulado (soft delete)
+          await tx.tb_pagamentoi.update({
+            where: { codigo: pagamento.codigo },
+            data: {
+              // Adicionar campo de status se existir, ou usar um campo de observação
+              obs: `ANULADO - Nota de Crédito: ${notaCredito.next}`,
+              // Se houver campo de status, descomente a linha abaixo:
+              // status: 'ANULADO'
+            }
+          });
+
+          // 2.2. Reverter o saldo do aluno (adicionar o valor de volta)
+          const valorReversao = parseFloat(pagamento.preco) || 0;
+          if (valorReversao > 0) {
+            await tx.tb_alunos.update({
+              where: { codigo: pagamento.codigo_aluno },
+              data: {
+                saldo: {
+                  increment: valorReversao
+                }
+              }
+            });
+            console.log(`[NOTA CRÉDITO] Saldo do aluno ${pagamento.codigo_aluno} incrementado em ${valorReversao}`);
+          }
+
+          // 2.3. Registrar histórico da reversão (se houver tabela de histórico)
+          // Aqui você pode adicionar um registro em uma tabela de histórico de transações
+          // se ela existir no seu sistema
+
+          console.log(`[NOTA CRÉDITO] Pagamento ${pagamento.codigo} anulado com sucesso`);
+        }
+
+        return notaCredito;
       });
 
-      return notaCredito;
+      console.log(`[NOTA CRÉDITO] Nota de crédito ${result.next} criada com sucesso`);
+      return result;
+
     } catch (error) {
       if (error instanceof AppError) throw error;
       console.error('Erro ao criar nota de crédito:', error);
@@ -787,10 +865,20 @@ export class PaymentManagementService {
           take,
           include: {
             tb_alunos: {
-              select: { codigo: true, nome: true }
+              select: { 
+                codigo: true, 
+                nome: true, 
+                n_documento_identificacao: true 
+              }
             },
             tb_pagamentoi: {
-              select: { codigo: true, data: true, total: true }
+              select: { 
+                codigo: true, 
+                data: true, 
+                preco: true,
+                fatura: true,
+                mes: true
+              }
             }
           },
           orderBy: { codigo: 'desc' }
