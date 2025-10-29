@@ -365,9 +365,9 @@ export class PaymentManagementService {
             }
           }).catch(() => []),
 
-          // Notas de crédito associadas
+          // Notas de crédito associadas (buscar por aluno, já que codigoPagamentoi pode ter constraint)
           prisma.tb_nota_credito.findMany({
-            where: { codigoPagamentoi: pagamentoi.codigo }
+            where: { codigo_aluno: pagamentoi.codigo_Aluno }
           }).catch(() => [])
         ]);
 
@@ -768,13 +768,16 @@ export class PaymentManagementService {
           throw new AppError('Pagamento não encontrado', 404);
         }
 
-        // Verificar se já existe uma nota de crédito para este pagamento
+        // Verificar se já existe uma nota de crédito para esta fatura
         const existingCreditNote = await prisma.tb_nota_credito.findFirst({
-          where: { codigoPagamentoi: data.codigoPagamentoi }
+          where: { 
+            fatura: data.fatura,
+            codigo_aluno: data.codigo_aluno
+          }
         });
 
         if (existingCreditNote) {
-          throw new AppError('Já existe uma nota de crédito para este pagamento', 409);
+          throw new AppError('Já existe uma nota de crédito para esta fatura', 409);
         }
       }
 
@@ -789,8 +792,8 @@ export class PaymentManagementService {
           codigo_aluno: data.codigo_aluno,
           documento: data.documento,
           next: data.next || '',
-          dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
-          codigoPagamentoi: data.codigoPagamentoi
+          dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0]
+          // NÃO incluir codigoPagamentoi para evitar foreign key constraint
         };
 
         // Adicionar hash apenas se fornecido
@@ -798,14 +801,24 @@ export class PaymentManagementService {
           createData.hash = data.hash;
         }
 
-        console.log('[NOTA CRÉDITO] Dados para criação:', createData);
+        console.log('[NOTA CRÉDITO] Dados para criação (sem codigoPagamentoi):', createData);
 
-        const notaCredito = await tx.tb_nota_credito.create({
-          data: createData,
-          include: {
-            tb_alunos: true
-          }
-        });
+        let notaCredito;
+        try {
+          // Tentar criar sem codigoPagamentoi primeiro
+          notaCredito = await tx.tb_nota_credito.create({
+            data: createData,
+            include: {
+              tb_alunos: true
+            }
+          });
+          
+          console.log('[NOTA CRÉDITO] ✅ Criada com sucesso sem codigoPagamentoi');
+          
+        } catch (createError) {
+          console.log('[NOTA CRÉDITO] ❌ Erro ao criar sem codigoPagamentoi:', createError.message);
+          throw createError;
+        }
 
         // 2. Se há um pagamento associado, anular a fatura e reverter o pagamento
         if (pagamento) {
