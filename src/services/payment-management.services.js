@@ -790,7 +790,7 @@ export class PaymentManagementService {
           documento: data.documento,
           next: data.next || '',
           dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
-          codigoPagamentoi: data.codigoPagamentoi
+          pagamento_ref: data.codigoPagamentoi ? data.codigoPagamentoi.toString() : null
         };
 
         // Adicionar hash apenas se fornecido
