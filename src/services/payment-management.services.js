@@ -803,8 +803,7 @@ export class PaymentManagementService {
         const notaCredito = await tx.tb_nota_credito.create({
           data: createData,
           include: {
-            tb_alunos: true,
-            tb_pagamentoi: true
+            tb_alunos: true
           }
         });
 
@@ -907,15 +906,6 @@ export class PaymentManagementService {
                 codigo: true, 
                 nome: true, 
                 n_documento_identificacao: true 
-              }
-            },
-            tb_pagamentoi: {
-              select: { 
-                codigo: true, 
-                data: true, 
-                total: true,
-                valorEntregue: true,
-                obs: true
               }
             }
           },

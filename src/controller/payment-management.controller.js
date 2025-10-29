@@ -275,12 +275,17 @@ export class PaymentManagementController {
 
   static async createNotaCredito(req, res) {
     try {
-      console.log('[CONTROLLER] Dados recebidos para nota de crédito:', req.body);
+      console.log('[CONTROLLER] ===== INÍCIO CRIAÇÃO NOTA DE CRÉDITO =====');
+      console.log('[CONTROLLER] Dados recebidos para nota de crédito:', JSON.stringify(req.body, null, 2));
       
+      // Teste de validação passo a passo
+      console.log('[CONTROLLER] Iniciando validação Zod...');
       const validatedData = notaCreditoCreateSchema.parse(req.body);
-      console.log('[CONTROLLER] Dados validados com sucesso:', validatedData);
+      console.log('[CONTROLLER] ✅ Dados validados com sucesso:', JSON.stringify(validatedData, null, 2));
       
+      console.log('[CONTROLLER] Chamando service para criar nota de crédito...');
       const notaCredito = await PaymentManagementService.createNotaCredito(validatedData);
+      console.log('[CONTROLLER] ✅ Nota de crédito criada com sucesso:', JSON.stringify(notaCredito, null, 2));
       
       res.status(201).json({
         success: true,
@@ -288,10 +293,20 @@ export class PaymentManagementController {
         data: notaCredito,
       });
     } catch (error) {
-      console.error('[CONTROLLER] Erro detalhado ao criar nota de crédito:', error);
+      console.error('[CONTROLLER] ❌ ERRO DETALHADO:', error);
+      console.error('[CONTROLLER] ❌ TIPO DO ERRO:', error.constructor.name);
+      console.error('[CONTROLLER] ❌ MENSAGEM:', error.message);
+      console.error('[CONTROLLER] ❌ STACK:', error.stack);
+      
       if (error.errors) {
-        console.error('[CONTROLLER] Detalhes da validação:', error.errors);
+        console.error('[CONTROLLER] ❌ DETALHES VALIDAÇÃO ZOD:', JSON.stringify(error.errors, null, 2));
       }
+      
+      if (error.code) {
+        console.error('[CONTROLLER] ❌ CÓDIGO PRISMA:', error.code);
+      }
+      
+      console.error('[CONTROLLER] ===== FIM ERRO =====');
       handleControllerError(res, error, "Erro ao criar nota de crédito", 400);
     }
   }

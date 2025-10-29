@@ -893,12 +893,10 @@ model tb_nota_credito {
   hash            String?  @db.VarChar(555) @map("hash")
   codigoPagamentoi Int?    @map("CodigoPagamentoi")
 
-  // Relacionamentos
+  // Relacionamentos - apenas com tb_alunos, sem foreign key para pagamento
   tb_alunos     tb_alunos      @relation(fields: [codigo_aluno], references: [codigo])
-  tb_pagamentoi tb_pagamentoi? @relation(fields: [codigoPagamentoi], references: [codigo])
 
   @@index([codigo_aluno], name: "FK_tb_nota_credito_1")
-  @@index([codigoPagamentoi], name: "FK_tb_nota_credito_tb_pagamentoi")
 
   @@map("tb_nota_credito")
 }
