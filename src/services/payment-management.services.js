@@ -781,19 +781,27 @@ export class PaymentManagementService {
       // Usar transação para garantir consistência
       const result = await prisma.$transaction(async (tx) => {
         // 1. Criar a nota de crédito
+        const createData = {
+          designacao: data.designacao,
+          fatura: data.fatura,
+          descricao: data.descricao,
+          valor: data.valor,
+          codigo_aluno: data.codigo_aluno,
+          documento: data.documento,
+          next: data.next || '',
+          dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
+          codigoPagamentoi: data.codigoPagamentoi
+        };
+
+        // Adicionar hash apenas se fornecido
+        if (data.hash) {
+          createData.hash = data.hash;
+        }
+
+        console.log('[NOTA CRÉDITO] Dados para criação:', createData);
+
         const notaCredito = await tx.tb_nota_credito.create({
-          data: {
-            designacao: data.designacao,
-            fatura: data.fatura,
-            descricao: data.descricao,
-            valor: data.valor,
-            codigo_aluno: data.codigo_aluno,
-            documento: data.documento,
-            next: data.next || '',
-            dataOperacao: data.dataOperacao || new Date().toISOString().split('T')[0],
-            hash: data.hash,
-            codigoPagamentoi: data.codigoPagamentoi
-          },
+          data: createData,
           include: {
             tb_alunos: true,
             tb_pagamentoi: true
