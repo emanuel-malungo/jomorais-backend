@@ -80,11 +80,6 @@ export class AcademicStaffService {
           where,
           skip,
           take: limit,
-          include: {
-            _count: {
-              select: { tb_docente: true }
-            }
-          },
           orderBy: { designacao: 'asc' }
         }),
         prisma.tb_especialidade.count({ where })
@@ -104,7 +99,8 @@ export class AcademicStaffService {
         }
       };
     } catch (error) {
-      throw new AppError('Erro ao buscar especialidades', 500);
+      console.error('Erro ao buscar especialidades (detalhes):', error);
+      throw new AppError(`Erro ao buscar especialidades: ${error.message}`, 500);
     }
   }
 
@@ -192,7 +188,7 @@ export class AcademicStaffService {
         if (!especialidadeExists) throw new AppError('Especialidade não encontrada', 404);
       }
 
-      return await prisma.tb_docente.create({
+      const docente = await prisma.tb_docente.create({
         data: {
           nome: nome?.trim() || "teste",
           status: status ? parseInt(status) : 1,
@@ -204,11 +200,39 @@ export class AcademicStaffService {
           user_id: user_id ? BigInt(user_id) : BigInt(1)
         },
         include: {
-          tb_disciplinas: { select: { codigo: true, designacao: true } },
-          tb_utilizadores: { select: { codigo: true, nome: true } },
-          tb_especialidade: { select: { codigo: true, designacao: true } }
+          tb_status: true,
+          users: true,
+          tb_directores_turmas: true
         }
       });
+
+      // Buscar relações manualmente (não há relations no schema para esses campos FK)
+      const [disciplina, utilizador, especialidade] = await Promise.all([
+        docente.codigo_disciplina ? 
+          prisma.tb_disciplinas.findUnique({
+            where: { codigo: docente.codigo_disciplina },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null,
+        
+        docente.codigo_Utilizador ? 
+          prisma.tb_utilizadores.findUnique({
+            where: { codigo: docente.codigo_Utilizador },
+            select: { codigo: true, nome: true }
+          }).catch(() => null) : null,
+        
+        docente.codigo_Especialidade ? 
+          prisma.tb_especialidade.findUnique({
+            where: { codigo: docente.codigo_Especialidade },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null
+      ]);
+
+      return {
+        ...docente,
+        tb_disciplinas: disciplina,
+        tb_utilizadores: utilizador,
+        tb_especialidade: especialidade
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       console.error('Erro detalhado ao criar docente:', error);
@@ -270,15 +294,43 @@ export class AcademicStaffService {
         }
       });
 
-      return await prisma.tb_docente.update({
+      const updated = await prisma.tb_docente.update({
         where: { codigo: parseInt(id) },
         data: updateData,
         include: {
-          tb_disciplinas: { select: { codigo: true, designacao: true } },
-          tb_utilizadores: { select: { codigo: true, nome: true } },
-          tb_especialidade: { select: { codigo: true, designacao: true } }
+          tb_status: true,
+          users: true,
+          tb_directores_turmas: true
         }
       });
+
+      // Buscar relações manualmente
+      const [disciplina, utilizador, especialidade] = await Promise.all([
+        updated.codigo_disciplina ? 
+          prisma.tb_disciplinas.findUnique({
+            where: { codigo: updated.codigo_disciplina },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null,
+        
+        updated.codigo_Utilizador ? 
+          prisma.tb_utilizadores.findUnique({
+            where: { codigo: updated.codigo_Utilizador },
+            select: { codigo: true, nome: true }
+          }).catch(() => null) : null,
+        
+        updated.codigo_Especialidade ? 
+          prisma.tb_especialidade.findUnique({
+            where: { codigo: updated.codigo_Especialidade },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null
+      ]);
+
+      return {
+        ...updated,
+        tb_disciplinas: disciplina,
+        tb_utilizadores: utilizador,
+        tb_especialidade: especialidade
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar docente', 500);
@@ -316,13 +368,29 @@ export class AcademicStaffService {
           skip,
           take: parseInt(limit),
           include: {
-            tb_disciplinas: true,
-            tb_especialidade: true,
-            _count: {
-              select: { 
-                tb_disciplinas_docente: true,
-                tb_directores_turmas: true,
-                tb_docente_turma: true
+            tb_status: {
+              select: {
+                codigo: true,
+                designacao: true
+              }
+            },
+            users: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            tb_directores_turmas: {
+              select: {
+                codigo: true,
+                codigoTurma: true,
+                tb_turmas: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                }
               }
             }
           },
@@ -331,10 +399,27 @@ export class AcademicStaffService {
         prisma.tb_docente.count({ where })
       ]);
 
+      // Buscar especialidades manualmente para os docentes que têm
+      const docentesComEspecialidade = await Promise.all(
+        docentes.map(async (docente) => {
+          if (docente.codigo_Especialidade) {
+            const especialidade = await prisma.tb_especialidade.findUnique({
+              where: { codigo: docente.codigo_Especialidade },
+              select: {
+                codigo: true,
+                designacao: true
+              }
+            });
+            return { ...docente, tb_especialidade: especialidade };
+          }
+          return { ...docente, tb_especialidade: null };
+        })
+      );
+
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: docentes,
+        data: docentesComEspecialidade,
         pagination: {
           currentPage: page,
           totalPages,
@@ -353,67 +438,84 @@ export class AcademicStaffService {
 
   static async getDocenteById(id) {
     try {
-      // Implementando abordagem step-by-step baseada na memória para evitar erros de includes complexos
-      let docente;
-      
-      try {
-        // Primeira tentativa com includes completos
-        docente = await prisma.tb_docente.findUnique({
-          where: { codigo: parseInt(id) },
-          include: {
-            tb_disciplinas: { select: { codigo: true, designacao: true } },
-            tb_utilizadores: { select: { codigo: true, nome: true } },
-            tb_especialidade: { select: { codigo: true, designacao: true } },
-            tb_disciplinas_docente: {
-              select: { codigo: true, codigoCurso: true, codigoDisciplina: true },
-              take: 5
-            },
-            tb_directores_turmas: {
-              select: { codigo: true, designacao: true, codigoTurma: true },
-              take: 5
+      // Buscar docente com apenas os includes válidos
+      const docente = await prisma.tb_docente.findUnique({
+        where: { codigo: parseInt(id) },
+        include: {
+          tb_status: true,
+          users: true,
+          tb_directores_turmas: {
+            take: 10,
+            include: {
+              tb_turmas: {
+                select: {
+                  codigo: true,
+                  designacao: true
+                }
+              }
             }
           }
-        });
-      } catch (includeError) {
-        console.error('Erro com includes complexos, tentando abordagem simples:', includeError);
-        
-        // Fallback: busca simples primeiro
-        docente = await prisma.tb_docente.findUnique({
-          where: { codigo: parseInt(id) }
-        });
-        
-        if (docente) {
-          // Buscar relacionamentos separadamente se necessário
-          try {
-            const [disciplina, utilizador, especialidade] = await Promise.all([
-              docente.codigo_disciplina ? prisma.tb_disciplinas.findUnique({
-                where: { codigo: docente.codigo_disciplina },
-                select: { codigo: true, designacao: true }
-              }) : null,
-              docente.codigo_Utilizador ? prisma.tb_utilizadores.findUnique({
-                where: { codigo: docente.codigo_Utilizador },
-                select: { codigo: true, nome: true }
-              }) : null,
-              docente.codigo_Especialidade ? prisma.tb_especialidade.findUnique({
-                where: { codigo: docente.codigo_Especialidade },
-                select: { codigo: true, designacao: true }
-              }) : null
-            ]);
-            
-            docente.tb_disciplinas = disciplina;
-            docente.tb_utilizadores = utilizador;
-            docente.tb_especialidade = especialidade;
-          } catch (relationError) {
-            console.error('Erro ao buscar relacionamentos:', relationError);
-          }
         }
-      }
+      });
 
       if (!docente) {
         throw new AppError('Docente não encontrado', 404);
       }
 
-      return docente;
+      // Buscar relacionamentos manualmente (FK sem relation no schema)
+      const [disciplina, utilizador, especialidade, disciplinasDocente] = await Promise.all([
+        docente.codigo_disciplina ? 
+          prisma.tb_disciplinas.findUnique({
+            where: { codigo: docente.codigo_disciplina },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null,
+        
+        docente.codigo_Utilizador ? 
+          prisma.tb_utilizadores.findUnique({
+            where: { codigo: docente.codigo_Utilizador },
+            select: { codigo: true, nome: true }
+          }).catch(() => null) : null,
+        
+        docente.codigo_Especialidade ? 
+          prisma.tb_especialidade.findUnique({
+            where: { codigo: docente.codigo_Especialidade },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null) : null,
+        
+        // Buscar disciplinas associadas ao docente
+        prisma.tb_disciplinas_docente.findMany({
+          where: { codigoDocente: parseInt(id) },
+          take: 10,
+          include: {
+            tb_cursos: {
+              select: { codigo: true, designacao: true }
+            }
+          }
+        }).catch(() => [])
+      ]);
+
+      // Buscar disciplinas completas para tb_disciplinas_docente
+      const disciplinasDocenteCompletas = await Promise.all(
+        disciplinasDocente.map(async (dd) => {
+          const disciplinaInfo = await prisma.tb_disciplinas.findUnique({
+            where: { codigo: dd.codigoDisciplina },
+            select: { codigo: true, designacao: true }
+          }).catch(() => null);
+          
+          return {
+            ...dd,
+            tb_disciplinas: disciplinaInfo
+          };
+        })
+      );
+
+      return {
+        ...docente,
+        tb_disciplinas: disciplina,
+        tb_utilizadores: utilizador,
+        tb_especialidade: especialidade,
+        tb_disciplinas_docente: disciplinasDocenteCompletas
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       console.error('Erro detalhado ao buscar docente:', error);
@@ -423,13 +525,9 @@ export class AcademicStaffService {
 
   static async deleteDocente(id) {
     try {
+      // Buscar docente sem includes inválidos
       const existingDocente = await prisma.tb_docente.findUnique({
-        where: { codigo: parseInt(id) },
-        include: {
-          tb_disciplinas_docente: true,
-          tb_directores_turmas: true,
-          tb_docente_turma: true
-        }
+        where: { codigo: parseInt(id) }
       });
 
       if (!existingDocente) {
@@ -438,25 +536,46 @@ export class AcademicStaffService {
 
       // Implementação CASCADE DELETE com transação
       const result = await prisma.$transaction(async (tx) => {
+        console.log(`[DELETE DOCENTE] Iniciando exclusão do docente ${id}`);
+        
         // Passo 1: Excluir registros de tb_disciplinas_docente
-        const disciplinasDocenteDeleteCount = await tx.tb_disciplinas_docente.deleteMany({
-          where: { codigoDocente: parseInt(id) }
-        });
+        let disciplinasDocenteDeleteCount = { count: 0 };
+        try {
+          disciplinasDocenteDeleteCount = await tx.tb_disciplinas_docente.deleteMany({
+            where: { codigoDocente: parseInt(id) }
+          });
+          console.log(`[DELETE DOCENTE] ✓ Excluídas ${disciplinasDocenteDeleteCount.count} disciplinas do docente`);
+        } catch (err) {
+          console.error('[DELETE DOCENTE] Erro ao excluir tb_disciplinas_docente:', err.message);
+        }
 
         // Passo 2: Excluir registros de tb_directores_turmas
-        const diretoresTurmasDeleteCount = await tx.tb_directores_turmas.deleteMany({
-          where: { codigoDocente: parseInt(id) }
-        });
+        let diretoresTurmasDeleteCount = { count: 0 };
+        try {
+          diretoresTurmasDeleteCount = await tx.tb_directores_turmas.deleteMany({
+            where: { codigoDocente: parseInt(id) }
+          });
+          console.log(`[DELETE DOCENTE] ✓ Excluídos ${diretoresTurmasDeleteCount.count} registros de diretores de turmas`);
+        } catch (err) {
+          console.error('[DELETE DOCENTE] Erro ao excluir tb_directores_turmas:', err.message);
+        }
 
-        // Passo 3: Excluir registros de tb_docente_turma
-        const docenteTurmaDeleteCount = await tx.tb_docente_turma.deleteMany({
-          where: { codigo_Docente: parseInt(id) }
-        });
+        // Passo 3: Excluir registros de tb_docente_turma (verificar se existe)
+        let docenteTurmaDeleteCount = { count: 0 };
+        try {
+          docenteTurmaDeleteCount = await tx.tb_docente_turma.deleteMany({
+            where: { codigo_Docente: parseInt(id) }
+          });
+          console.log(`[DELETE DOCENTE] ✓ Excluídos ${docenteTurmaDeleteCount.count} registros de docente_turma`);
+        } catch (err) {
+          console.error('[DELETE DOCENTE] Aviso: tb_docente_turma pode não existir:', err.message);
+        }
 
         // Passo 4: Excluir o docente
         await tx.tb_docente.delete({
           where: { codigo: parseInt(id) }
         });
+        console.log('[DELETE DOCENTE] ✓ Docente excluído com sucesso');
 
         return {
           tipo: 'cascade_delete',
@@ -475,7 +594,8 @@ export class AcademicStaffService {
       return result;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao excluir docente', 500);
+      console.error('[DELETE DOCENTE] Erro detalhado:', error);
+      throw new AppError(`Erro ao excluir docente: ${error.message}`, 500);
     }
   }
 
@@ -511,20 +631,38 @@ export class AcademicStaffService {
         throw new AppError('Esta associação já existe', 409);
       }
 
-      return await prisma.tb_disciplinas_docente.create({
+      const association = await prisma.tb_disciplinas_docente.create({
         data: {
           codigoDocente: parseInt(codigoDocente),
           codigoCurso: parseInt(codigoCurso),
           codigoDisciplina: parseInt(codigoDisciplina)
         },
         include: {
-          tb_docente: { select: { codigo: true, nome: true } },
-          tb_cursos: { select: { codigo: true, designacao: true } },
-          tb_disciplinas: { select: { codigo: true, designacao: true } }
+          tb_cursos: { select: { codigo: true, designacao: true } }
         }
       });
+
+      // Buscar docente e disciplina manualmente (não são relations no schema)
+      const [docente, disciplina] = await Promise.all([
+        prisma.tb_docente.findUnique({
+          where: { codigo: association.codigoDocente },
+          select: { codigo: true, nome: true }
+        }).catch(() => null),
+        
+        prisma.tb_disciplinas.findUnique({
+          where: { codigo: association.codigoDisciplina },
+          select: { codigo: true, designacao: true }
+        }).catch(() => null)
+      ]);
+
+      return {
+        ...association,
+        tb_docente: docente,
+        tb_disciplinas: disciplina
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro detalhado ao criar associação disciplina-docente:', error);
       throw new AppError('Erro ao criar associação disciplina-docente', 500);
     }
   }
@@ -541,31 +679,53 @@ export class AcademicStaffService {
         where.codigoDocente = parseInt(docenteId);
       }
 
-      // Filtro de busca por nome do docente, disciplina ou curso
+      // Filtro de busca - precisamos buscar IDs primeiro já que não há relations diretas
+      let additionalFilters = {};
       if (search && search.trim() !== '') {
-        where.OR = [
-          {
-            tb_docente: {
-              nome: {
-                contains: search.trim()
-              }
+        const searchTerm = search.trim().toLowerCase();
+        
+        // Buscar docentes, disciplinas e cursos que correspondem
+        const [docentes, disciplinas, cursos] = await Promise.all([
+          prisma.tb_docente.findMany({
+            where: { nome: { contains: search.trim() } },
+            select: { codigo: true }
+          }),
+          prisma.tb_disciplinas.findMany({
+            where: { designacao: { contains: search.trim() } },
+            select: { codigo: true }
+          }),
+          prisma.tb_cursos.findMany({
+            where: { designacao: { contains: search.trim() } },
+            select: { codigo: true }
+          })
+        ]);
+
+        const docenteIds = docentes.map(d => d.codigo);
+        const disciplinaIds = disciplinas.map(d => d.codigo);
+        const cursoIds = cursos.map(c => c.codigo);
+
+        // Se encontrou algum, adicionar ao filtro OR
+        if (docenteIds.length > 0 || disciplinaIds.length > 0 || cursoIds.length > 0) {
+          const orConditions = [];
+          if (docenteIds.length > 0) orConditions.push({ codigoDocente: { in: docenteIds } });
+          if (disciplinaIds.length > 0) orConditions.push({ codigoDisciplina: { in: disciplinaIds } });
+          if (cursoIds.length > 0) orConditions.push({ codigoCurso: { in: cursoIds } });
+          
+          where.OR = orConditions;
+        } else {
+          // Se não encontrou nada, retornar vazio
+          return {
+            data: [],
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: limit,
+              hasNextPage: false,
+              hasPreviousPage: false
             }
-          },
-          {
-            tb_disciplinas: {
-              designacao: {
-                contains: search.trim()
-              }
-            }
-          },
-          {
-            tb_cursos: {
-              designacao: {
-                contains: search.trim()
-              }
-            }
-          }
-        ];
+          };
+        }
       }
 
       const [associacoes, total] = await Promise.all([
@@ -574,19 +734,39 @@ export class AcademicStaffService {
           skip,
           take: limit,
           include: {
-            tb_docente: { select: { codigo: true, nome: true } },
-            tb_cursos: { select: { codigo: true, designacao: true } },
-            tb_disciplinas: { select: { codigo: true, designacao: true } }
+            tb_cursos: { select: { codigo: true, designacao: true } }
           },
           orderBy: { codigo: 'desc' }
         }),
         prisma.tb_disciplinas_docente.count({ where })
       ]);
 
+      // Buscar dados dos docentes e disciplinas manualmente
+      const associacoesCompletas = await Promise.all(
+        associacoes.map(async (assoc) => {
+          const [docente, disciplina] = await Promise.all([
+            prisma.tb_docente.findUnique({
+              where: { codigo: assoc.codigoDocente },
+              select: { codigo: true, nome: true }
+            }).catch(() => null),
+            prisma.tb_disciplinas.findUnique({
+              where: { codigo: assoc.codigoDisciplina },
+              select: { codigo: true, designacao: true }
+            }).catch(() => null)
+          ]);
+          
+          return { 
+            ...assoc, 
+            tb_docente: docente,
+            tb_disciplinas: disciplina
+          };
+        })
+      );
+
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: associacoes,
+        data: associacoesCompletas,
         pagination: {
           currentPage: page,
           totalPages,
@@ -598,7 +778,7 @@ export class AcademicStaffService {
       };
     } catch (error) {
       console.error('Erro detalhado ao buscar disciplinas-docente:', error);
-      throw new AppError('Erro ao buscar disciplinas-docente', 500);
+      throw new AppError(`Erro ao buscar disciplinas-docente: ${error.message}`, 500);
     }
   }
 
@@ -607,9 +787,7 @@ export class AcademicStaffService {
       const associacao = await prisma.tb_disciplinas_docente.findUnique({
         where: { codigo: parseInt(id) },
         include: {
-          tb_docente: { select: { codigo: true, nome: true } },
-          tb_cursos: { select: { codigo: true, designacao: true } },
-          tb_disciplinas: { select: { codigo: true, designacao: true } }
+          tb_cursos: { select: { codigo: true, designacao: true } }
         }
       });
 
@@ -617,9 +795,27 @@ export class AcademicStaffService {
         throw new AppError('Associação disciplina-docente não encontrada', 404);
       }
 
-      return associacao;
+      // Buscar docente e disciplina manualmente
+      const [docente, disciplina] = await Promise.all([
+        prisma.tb_docente.findUnique({
+          where: { codigo: associacao.codigoDocente },
+          select: { codigo: true, nome: true }
+        }).catch(() => null),
+        
+        prisma.tb_disciplinas.findUnique({
+          where: { codigo: associacao.codigoDisciplina },
+          select: { codigo: true, designacao: true }
+        }).catch(() => null)
+      ]);
+
+      return {
+        ...associacao,
+        tb_docente: docente,
+        tb_disciplinas: disciplina
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro detalhado ao buscar associação disciplina-docente:', error);
       throw new AppError('Erro ao buscar associação disciplina-docente', 500);
     }
   }
@@ -664,7 +860,7 @@ export class AcademicStaffService {
         throw new AppError('Já existe uma associação com estes dados', 409);
       }
 
-      return await prisma.tb_disciplinas_docente.update({
+      const updated = await prisma.tb_disciplinas_docente.update({
         where: { codigo: parseInt(id) },
         data: {
           codigoDocente: parseInt(codigoDocente),
@@ -672,13 +868,31 @@ export class AcademicStaffService {
           codigoDisciplina: parseInt(codigoDisciplina)
         },
         include: {
-          tb_docente: { select: { codigo: true, nome: true } },
-          tb_cursos: { select: { codigo: true, designacao: true } },
-          tb_disciplinas: { select: { codigo: true, designacao: true } }
+          tb_cursos: { select: { codigo: true, designacao: true } }
         }
       });
+
+      // Buscar docente e disciplina manualmente
+      const [docente, disciplina] = await Promise.all([
+        prisma.tb_docente.findUnique({
+          where: { codigo: updated.codigoDocente },
+          select: { codigo: true, nome: true }
+        }).catch(() => null),
+        
+        prisma.tb_disciplinas.findUnique({
+          where: { codigo: updated.codigoDisciplina },
+          select: { codigo: true, designacao: true }
+        }).catch(() => null)
+      ]);
+
+      return {
+        ...updated,
+        tb_docente: docente,
+        tb_disciplinas: disciplina
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro detalhado ao atualizar associação disciplina-docente:', error);
       throw new AppError('Erro ao atualizar associação disciplina-docente', 500);
     }
   }

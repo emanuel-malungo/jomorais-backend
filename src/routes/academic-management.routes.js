@@ -1197,6 +1197,25 @@ router.get('/disciplinas/stats', AcademicManagementController.getDisciplineStati
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
+
+/**
+ * @swagger
+ * /api/academic-management/disciplinas/complete:
+ *   get:
+ *     summary: Obter todas as disciplinas sem paginação
+ *     tags: [Disciplinas]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista completa de disciplinas
+ */
+router.get('/disciplinas/complete', AcademicManagementController.getDisciplinas);
+
 router.get('/disciplinas/:id', AcademicManagementController.getDisciplinaById);
 
 /**

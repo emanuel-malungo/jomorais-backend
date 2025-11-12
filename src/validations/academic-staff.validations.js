@@ -44,7 +44,6 @@ export const docenteCreateSchema = z.object({
       z.string().transform(val => parseInt(val)),
       z.number().int()
     ])
-    .refine(val => !isNaN(val) && [0, 1].includes(val), "Status deve ser 0 (inativo) ou 1 (ativo)")
     .optional(),
   codigo_disciplina: z
     .union([
@@ -106,7 +105,6 @@ export const docenteUpdateSchema = z.object({
       z.string().transform(val => parseInt(val)),
       z.number().int()
     ])
-    .refine(val => !isNaN(val) && [0, 1].includes(val), "Status deve ser 0 (inativo) ou 1 (ativo)")
     .optional(),
   codigo_disciplina: z
     .union([

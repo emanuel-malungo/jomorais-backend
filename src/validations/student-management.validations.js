@@ -93,8 +93,6 @@ export const provenienciaCreateSchema = z.object({
   codigoStatus: z
     .number()
     .int("Status deve ser um número inteiro")
-    .min(0, "Status deve ser 0 ou 1")
-    .max(1, "Status deve ser 0 ou 1")
     .default(1),
   localizacao: z
     .string()
@@ -556,8 +554,6 @@ export const matriculaCreateSchema = z.object({
   codigoStatus: z
     .number()
     .int("Status deve ser um número inteiro")
-    .min(0, "Status deve ser 0 ou 1")
-    .max(1, "Status deve ser 0 ou 1")
     .default(1)
 }).strict();
 

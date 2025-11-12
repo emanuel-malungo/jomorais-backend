@@ -295,7 +295,7 @@ export class StudentManagementService {
       // Verificar se já existe proveniência com mesma designação
       const existingProveniencia = await prisma.tb_proveniencias.findFirst({
         where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+          designacao: designacao.trim()
         }
       });
 
@@ -313,17 +313,18 @@ export class StudentManagementService {
           dataCadastro: dataCadastro || new Date()
         },
         include: {
-          tb_utilizadores: codigoUtilizador ? {
+          tb_status: codigoStatus ? {
             select: {
               codigo: true,
-              nome: true,
-              user: true
+              designacao: true,
+              tipoStatus: true
             }
           } : undefined
         }
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
+      console.error('Erro detalhado ao criar proveniência:', error);
       throw new AppError('Erro ao criar proveniência', 500);
     }
   }
@@ -353,7 +354,7 @@ export class StudentManagementService {
       if (data.designacao) {
         const existingWithName = await prisma.tb_proveniencias.findFirst({
           where: {
-            designacao: { equals: data.designacao.trim(), mode: 'insensitive' },
+            designacao: data.designacao.trim(),
             codigo: { not: parseInt(id) }
           }
         });
@@ -372,11 +373,11 @@ export class StudentManagementService {
         where: { codigo: parseInt(id) },
         data: updateData,
         include: {
-          tb_utilizadores: updateData.codigoUtilizador ? {
+          tb_status: updateData.codigoStatus ? {
             select: {
               codigo: true,
-              nome: true,
-              user: true
+              designacao: true,
+              tipoStatus: true
             }
           } : undefined
         }
@@ -405,11 +406,11 @@ export class StudentManagementService {
           skip,
           take,
           include: {
-            tb_utilizadores: {
+            tb_status: {
               select: {
                 codigo: true,
-                nome: true,
-                user: true
+                designacao: true,
+                tipoStatus: true
               }
             }
           },
@@ -437,12 +438,11 @@ export class StudentManagementService {
       const proveniencia = await prisma.tb_proveniencias.findUnique({
         where: { codigo: parseInt(id) },
         include: {
-          tb_utilizadores: {
+          tb_status: {
             select: {
               codigo: true,
-              nome: true,
-              user: true,
-              email: true
+              designacao: true,
+              tipoStatus: true
             }
           }
         }
@@ -1453,17 +1453,21 @@ export class StudentManagementService {
               sexo: true
             }
           },
-          tb_cursos: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_cursos: true
         }
       });
-      
+
+      // Anexar utilizador manualmente (não há relation definida no Prisma schema)
+      if (matricula && matricula.codigo_Utilizador) {
+        const user = await prisma.tb_utilizadores.findUnique({
+          where: { codigo: matricula.codigo_Utilizador },
+          select: { codigo: true, nome: true, user: true }
+        }).catch(() => null);
+        matricula.tb_utilizadores = user || null;
+      } else {
+        matricula.tb_utilizadores = null;
+      }
+
       return matricula;
       
     } catch (error) {
@@ -1525,7 +1529,7 @@ export class StudentManagementService {
         }
       }
 
-      return await prisma.tb_matriculas.update({
+      const updated = await prisma.tb_matriculas.update({
         where: { codigo: parseInt(id) },
         data,
         include: {
@@ -1537,16 +1541,22 @@ export class StudentManagementService {
               sexo: true
             }
           },
-          tb_cursos: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_cursos: true
         }
       });
+
+      // Anexar utilizador manualmente
+      const userCodigo = data.codigo_Utilizador ?? updated.codigo_Utilizador;
+      updated.tb_utilizadores = null;
+      if (userCodigo) {
+        const user = await prisma.tb_utilizadores.findUnique({
+          where: { codigo: userCodigo },
+          select: { codigo: true, nome: true, user: true }
+        }).catch(() => null);
+        updated.tb_utilizadores = user || null;
+      }
+
+      return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar matrícula', 500);
@@ -1614,13 +1624,6 @@ export class StudentManagementService {
               }
             },
             tb_cursos: true,
-            tb_utilizadores: {
-              select: {
-                codigo: true,
-                nome: true,
-                user: true
-              }
-            },
             tb_confirmacoes: {
               take: 1,
               orderBy: { codigo: 'desc' },
@@ -1638,8 +1641,24 @@ export class StudentManagementService {
         prisma.tb_matriculas.count({ where })
       ]);
 
+      // Buscar utilizadores relacionados manualmente (campo codigo_Utilizador existe, mas não há relation no schema)
+      const userIds = Array.from(new Set(matriculas.map(m => m.codigo_Utilizador).filter(id => !!id)));
+      let usersMap = {};
+      if (userIds.length > 0) {
+        const users = await prisma.tb_utilizadores.findMany({
+          where: { codigo: { in: userIds } },
+          select: { codigo: true, nome: true, user: true }
+        });
+        usersMap = Object.fromEntries(users.map(u => [u.codigo, u]));
+      }
+
+      const matriculasWithUsers = matriculas.map(m => ({
+        ...m,
+        tb_utilizadores: usersMap[m.codigo_Utilizador] || null
+      }));
+
       return {
-        data: matriculas,
+        data: matriculasWithUsers,
         pagination: {
           currentPage: page,
           totalPages: Math.ceil(total / limit),
@@ -1672,19 +1691,23 @@ export class StudentManagementService {
               url_Foto: true
             }
           },
-          tb_cursos: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_cursos: true
         }
       });
 
       if (!matricula) {
         throw new AppError('Matrícula não encontrada', 404);
+      }
+
+      // Anexar utilizador manualmente
+      if (matricula.codigo_Utilizador) {
+        const user = await prisma.tb_utilizadores.findUnique({
+          where: { codigo: matricula.codigo_Utilizador },
+          select: { codigo: true, nome: true, user: true }
+        }).catch(() => null);
+        matricula.tb_utilizadores = user || null;
+      } else {
+        matricula.tb_utilizadores = null;
       }
 
       return matricula;
@@ -2391,37 +2414,79 @@ export class StudentManagementService {
     try {
       const { skip, take } = getPagination(page, limit);
 
-      const where = search ? {
-        OR: [
-          { tb_alunos: { nome: { contains: search } } },
-          { obs: { contains: search } }
-        ]
-      } : {};
+      // Construir filtro de busca
+      let where = {};
+      
+      if (search && search.trim()) {
+        // Buscar por nome do aluno ou observação
+        const searchTerm = search.trim();
+        
+        // Buscar IDs de alunos que correspondem à busca
+        const alunosMatched = await prisma.tb_alunos.findMany({
+          where: {
+            nome: {
+              contains: searchTerm,
+            }
+          },
+          select: { codigo: true }
+        });
+        
+        const alunoIds = alunosMatched.map(a => a.codigo);
+        
+        // Construir condição OR
+        where = {
+          OR: [
+            ...(alunoIds.length > 0 ? [{ codigoAluno: { in: alunoIds } }] : []),
+            { obs: { contains: searchTerm, mode: 'insensitive' } }
+          ]
+        };
+        
+        // Se não encontrou nada, retornar vazio
+        if (alunoIds.length === 0 && !searchTerm) {
+          return {
+            data: [],
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: limit
+            }
+          };
+        }
+      }
 
       const [transferencias, total] = await Promise.all([
         prisma.tb_transferencias.findMany({
           where,
           skip,
           take,
-          include: {
-            tb_alunos: {
-              select: {
-                codigo: true,
-                nome: true,
-                dataNascimento: true,
-                sexo: true,
-                url_Foto: true
-              }
-            }
-          },
           orderBy: { dataTransferencia: 'desc' }
         }),
         prisma.tb_transferencias.count({ where })
       ]);
 
-      // Buscar dados relacionados manualmente (apenas utilizador, pois as outras tabelas não existem)
+      // Buscar dados relacionados manualmente (aluno e utilizador)
       const transferenciasComDados = await Promise.all(
         transferencias.map(async (transferencia) => {
+          // Buscar aluno
+          let aluno = null;
+          if (transferencia.codigoAluno) {
+            try {
+              aluno = await prisma.tb_alunos.findUnique({
+                where: { codigo: transferencia.codigoAluno },
+                select: {
+                  codigo: true,
+                  nome: true,
+                  dataNascimento: true,
+                  sexo: true,
+                  url_Foto: true
+                }
+              });
+            } catch (error) {
+              console.error(`Erro ao buscar aluno ${transferencia.codigoAluno}:`, error);
+            }
+          }
+
           // Buscar utilizador
           let utilizador = null;
           if (transferencia.codigoUtilizador) {
@@ -2435,12 +2500,14 @@ export class StudentManagementService {
                 }
               });
             } catch (error) {
-              throw new AppError('Erro ao buscar dados do utilizador', 500);
+              console.error('Erro ao buscar utilizador:', error);
+              // Continuar sem o utilizador em vez de falhar
             }
           }
 
           return {
             ...transferencia,
+            tb_alunos: aluno,
             tb_utilizadores: utilizador
           };
         })
@@ -2456,37 +2523,45 @@ export class StudentManagementService {
         }
       };
     } catch (error) {
-      throw new AppError('Erro ao buscar transferências', 500);
+      console.error('Erro detalhado ao buscar transferências:', error);
+      throw new AppError(`Erro ao buscar transferências: ${error.message}`, 500);
     }
   }
 
   static async getTransferenciaById(id) {
     try {
       const transferencia = await prisma.tb_transferencias.findUnique({
-        where: { codigo: parseInt(id) },
-        include: {
-          tb_alunos: {
-            include: {
-              tb_encarregados: {
-                include: {
-                  tb_profissao: true
-                }
-              },
-              tb_matriculas: {
-                include: {
-                  tb_cursos: true
-                }
-              }
-            }
-          }
-        }
+        where: { codigo: parseInt(id) }
       });
 
       if (!transferencia) {
         throw new AppError('Transferência não encontrada', 404);
       }
 
-      return transferencia;
+      // Buscar dados do aluno manualmente
+      let aluno = null;
+      if (transferencia.codigoAluno) {
+        aluno = await prisma.tb_alunos.findUnique({
+          where: { codigo: transferencia.codigoAluno },
+          include: {
+            tb_encarregados: {
+              include: {
+                tb_profissao: true
+              }
+            },
+            tb_matriculas: {
+              include: {
+                tb_cursos: true
+              }
+            }
+          }
+        });
+      }
+
+      return {
+        ...transferencia,
+        tb_alunos: aluno
+      };
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao buscar transferência', 500);
@@ -2496,22 +2571,26 @@ export class StudentManagementService {
   static async deleteTransferencia(id) {
     try {
       const existingTransferencia = await prisma.tb_transferencias.findUnique({
-        where: { codigo: parseInt(id) },
-        include: {
-          tb_alunos: {
-            select: {
-              codigo: true,
-              nome: true
-            }
-          }
-        }
+        where: { codigo: parseInt(id) }
       });
 
       if (!existingTransferencia) {
         throw new AppError('Transferência não encontrada', 404);
       }
 
-      console.log(`[DELETE TRANSFERÊNCIA] Excluindo transferência ${id} do aluno ${existingTransferencia.tb_alunos?.nome || existingTransferencia.codigoAluno}`);
+      // Buscar dados do aluno manualmente
+      let aluno = null;
+      if (existingTransferencia.codigoAluno) {
+        aluno = await prisma.tb_alunos.findUnique({
+          where: { codigo: existingTransferencia.codigoAluno },
+          select: {
+            codigo: true,
+            nome: true
+          }
+        });
+      }
+
+      console.log(`[DELETE TRANSFERÊNCIA] Excluindo transferência ${id} do aluno ${aluno?.nome || existingTransferencia.codigoAluno}`);
 
       // TÉCNICA: HARD DELETE (Exclusão Física)
       // Transferências são registros históricos que podem ser excluídos
@@ -2534,7 +2613,7 @@ export class StudentManagementService {
         message: 'Transferência excluída com sucesso',
         tipo: 'hard_delete',
         detalhes: {
-          alunoNome: existingTransferencia.tb_alunos?.nome,
+          alunoNome: aluno?.nome,
           diasDesdeTransferencia,
           dataTransferencia: existingTransferencia.dataTransferencia
         },

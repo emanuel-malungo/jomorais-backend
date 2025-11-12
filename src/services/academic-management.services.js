@@ -972,11 +972,23 @@ export class AcademicManagementService {
     try {
       const { designacao } = data;
 
-      const existingSala = await prisma.tb_salas.findFirst({
-        where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+      // Valida se a designação foi fornecida
+      if (!designacao || designacao.trim().length === 0) {
+        throw new AppError('Designação é obrigatória', 400);
+      }
+
+      // Busca todas as salas e faz comparação case-insensitive manualmente
+      const allSalas = await prisma.tb_salas.findMany({
+        select: {
+          codigo: true,
+          designacao: true
         }
       });
+
+      const designacaoNormalizada = designacao.trim().toLowerCase();
+      const existingSala = allSalas.find(
+        sala => sala.designacao.toLowerCase() === designacaoNormalizada
+      );
 
       if (existingSala) {
         throw new AppError('Já existe uma sala com esta designação', 409);
@@ -987,7 +999,9 @@ export class AcademicManagementService {
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao criar sala', 500);
+      // Loga o erro real para debug
+      console.error('Erro ao criar sala (detalhes):', error);
+      throw new AppError(`Erro ao criar sala: ${error.message}`, 500);
     }
   }
 
@@ -1041,10 +1055,10 @@ export class AcademicManagementService {
     try {
       const skip = (page - 1) * limit;
       
+      // Remove o mode: 'insensitive' que não é suportado
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -1072,6 +1086,7 @@ export class AcademicManagementService {
         }
       };
     } catch (error) {
+      console.error('Erro ao buscar salas (detalhes):', error);
       throw new AppError('Erro ao buscar salas', 500);
     }
   }
@@ -1101,11 +1116,23 @@ export class AcademicManagementService {
     try {
       const { designacao } = data;
 
-      const existingPeriodo = await prisma.tb_periodos.findFirst({
-        where: {
-          designacao: { equals: designacao.trim(), mode: 'insensitive' }
+      // Valida se a designação foi fornecida
+      if (!designacao || designacao.trim().length === 0) {
+        throw new AppError('Designação é obrigatória', 400);
+      }
+
+      // Busca todos os períodos e faz comparação case-insensitive manualmente
+      const allPeriodos = await prisma.tb_periodos.findMany({
+        select: {
+          codigo: true,
+          designacao: true
         }
       });
+
+      const designacaoNormalizada = designacao.trim().toLowerCase();
+      const existingPeriodo = allPeriodos.find(
+        periodo => periodo.designacao.toLowerCase() === designacaoNormalizada
+      );
 
       if (existingPeriodo) {
         throw new AppError('Já existe um período com esta designação', 409);
@@ -1116,7 +1143,8 @@ export class AcademicManagementService {
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError('Erro ao criar período', 500);
+      console.error('Erro ao criar período (detalhes):', error);
+      throw new AppError(`Erro ao criar período: ${error.message}`, 500);
     }
   }
 
@@ -1170,10 +1198,10 @@ export class AcademicManagementService {
     try {
       const skip = (page - 1) * limit;
       
+      // Remove o mode: 'insensitive' que não é suportado
       const where = search ? {
         designacao: {
-          contains: search,
-          mode: 'insensitive'
+          contains: search
         }
       } : {};
 
@@ -1201,6 +1229,7 @@ export class AcademicManagementService {
         }
       };
     } catch (error) {
+      console.error('Erro ao buscar períodos (detalhes):', error);
       throw new AppError('Erro ao buscar períodos', 500);
     }
   }
