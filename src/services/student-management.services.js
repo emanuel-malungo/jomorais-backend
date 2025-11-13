@@ -52,13 +52,7 @@ export class StudentManagementService {
         },
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_status: true
         }
       });
     } catch (error) {
@@ -122,13 +116,7 @@ export class StudentManagementService {
         data: updateData,
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_status: true
         }
       });
     } catch (error) {
@@ -157,13 +145,7 @@ export class StudentManagementService {
           take,
           include: {
             tb_profissao: true,
-            tb_utilizadores: {
-              select: {
-                codigo: true,
-                nome: true,
-                user: true
-              }
-            },
+            tb_status: true,
             tb_alunos: {
               select: {
                 codigo: true,
@@ -196,14 +178,7 @@ export class StudentManagementService {
         where: { codigo: parseInt(id) },
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true,
-              email: true
-            }
-          },
+          tb_status: true,
           tb_alunos: {
             select: {
               codigo: true,
@@ -604,13 +579,7 @@ export class StudentManagementService {
             tb_encarregados: {
               include: {
                 tb_profissao: true,
-                tb_utilizadores: {
-                  select: {
-                    codigo: true,
-                    nome: true,
-                    user: true
-                  }
-                }
+                tb_status: true
               }
             },
             tb_utilizadores: {
@@ -619,8 +588,7 @@ export class StudentManagementService {
                 nome: true,
                 user: true
               }
-            },
-            tb_tipo_documento: true
+            }
           }
         });
 
@@ -710,8 +678,7 @@ export class StudentManagementService {
               nome: true,
               user: true
             }
-          },
-          tb_tipo_documento: true
+          }
         }
       });
     } catch (error) {
@@ -815,8 +782,7 @@ export class StudentManagementService {
                 nome: true,
                 user: true
               }
-            },
-            tb_tipo_documento: true
+            }
           }
         });
       });
@@ -913,8 +879,7 @@ export class StudentManagementService {
               nome: true,
               user: true
             }
-          },
-          tb_tipo_documento: true
+          }
         }
       });
     } catch (error) {
@@ -2768,8 +2733,7 @@ export class StudentManagementService {
               nome: true,
               telefone: true
             }
-          },
-          tb_tipo_documento: true
+          }
         },
         orderBy: { nome: 'asc' }
       });
