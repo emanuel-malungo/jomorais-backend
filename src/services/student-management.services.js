@@ -706,7 +706,8 @@ export class StudentManagementService {
               user: true
             }
           },
-          tb_tipo_documento: true
+          tb_comunas: true,
+          tb_nacionalidades: true
         }
       });
     } catch (error) {
@@ -811,7 +812,8 @@ export class StudentManagementService {
                 user: true
               }
             },
-            tb_tipo_documento: true
+            tb_comunas: true,
+            tb_nacionalidades: true
           }
         });
       });
@@ -909,7 +911,8 @@ export class StudentManagementService {
               user: true
             }
           },
-          tb_tipo_documento: true
+          tb_comunas: true,
+          tb_nacionalidades: true
         }
       });
     } catch (error) {
@@ -1014,12 +1017,8 @@ export class StudentManagementService {
                 user: true
               }
             },
-            tb_tipo_documento: {
-              select: {
-                codigo: true,
-                designacao: true
-              }
-            },
+            tb_comunas: true,
+            tb_nacionalidades: true,
             tb_matriculas: {
               select: {
                 codigo: true,
@@ -1122,12 +1121,8 @@ export class StudentManagementService {
                   telefone: true
                 }
               },
-              tb_tipo_documento: {
-                select: {
-                  codigo: true,
-                  designacao: true
-                }
-              }
+              tb_comunas: true,
+              tb_nacionalidades: true
             }
           });
 
@@ -2764,7 +2759,8 @@ export class StudentManagementService {
               telefone: true
             }
           },
-          tb_tipo_documento: true
+          tb_comunas: true,
+          tb_nacionalidades: true
         },
         orderBy: { nome: 'asc' }
       });
