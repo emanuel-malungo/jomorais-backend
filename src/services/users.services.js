@@ -222,85 +222,281 @@ export class UsersServices {
         
         console.log(`🔄 Iniciando transação de exclusão em cascata...`);
 
-        // 1. Excluir confirmações
+        // 1. Excluir permissões de usuário
+        try {
+          const permissoes = await tx.tb_item_permissao_utilizador.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${permissoes.count} permissões de usuário`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir permissões: ${error.message}`);
+        }
+
+        // 2. Excluir permissões de turma
+        try {
+          const permissoesTurma = await tx.tb_permissao_turma_utilizador.deleteMany({
+            where: { codigoUtilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${permissoesTurma.count} permissões de turma`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir permissões de turma: ${error.message}`);
+        }
+
+        // 3. Excluir acessos ao sistema
+        try {
+          const acessos = await tx.tb_acessos_sistema.deleteMany({
+            where: { CodigoUtilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${acessos.count} registros de acesso`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir acessos: ${error.message}`);
+        }
+
+        // 4. Excluir anulações
+        try {
+          const anulacoes = await tx.tb_anulacoes.deleteMany({
+            where: { Codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${anulacoes.count} anulações`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir anulações: ${error.message}`);
+        }
+
+        // 5. Excluir grade curricular
+        try {
+          const grades = await tx.tb_grade_curricular.deleteMany({
+            where: { codigo_user: userCode }
+          });
+          console.log(`✅ Excluídas ${grades.count} grades curriculares`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir grades curriculares: ${error.message}`);
+        }
+
+        // 6. Excluir propinas de classe
+        try {
+          const propinas = await tx.tb_propina_classe.deleteMany({
+            where: { codigoUtilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${propinas.count} propinas de classe`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir propinas de classe: ${error.message}`);
+        }
+
+        // 7. Excluir pagamentos
+        try {
+          const pagamentos = await tx.tb_pagamentos.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${pagamentos.count} pagamentos`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir pagamentos: ${error.message}`);
+        }
+
+        // 8. Excluir pagamentos
+        try {
+          const pagamentos = await tx.tb_pagamentos.deleteMany({
+            where: { codigo_Utilizador: userCode }
+          });
+          console.log(`✅ Excluídos ${pagamentos.count} pagamentos`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir pagamentos: ${error.message}`);
+        }
+
+        // 8.1. Excluir pré-confirmações (depende de matrículas)
+        try {
+          const preConfirmacoes = await tx.tb_pre_confirmacao.deleteMany({
+            where: { CodigoUtilizador: userCode }
+          });
+          console.log(`✅ Excluídas ${preConfirmacoes.count} pré-confirmações`);
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir pré-confirmações: ${error.message}`);
+        }
+
+        // 8.2. Excluir registros que dependem de matrículas e alunos (usando subquery)
+        try {
+          // Primeiro, obter os códigos das matrículas e alunos do usuário
+          const matriculasDoUsuario = await tx.tb_matriculas.findMany({
+            where: { codigo_Utilizador: userCode },
+            select: { codigo: true }
+          });
+          
+          const alunosDoUsuario = await tx.tb_alunos.findMany({
+            where: { codigo_Utilizador: userCode },
+            select: { codigo: true }
+          });
+          
+          const codigosMatriculas = matriculasDoUsuario.map(m => m.codigo);
+          const codigosAlunos = alunosDoUsuario.map(aluno => aluno.codigo);
+          
+          // Excluir registros que dependem de matrículas
+          if (codigosMatriculas.length > 0) {
+            // Excluir declarações de notas dependentes de matrículas (não tratado antes)
+            const declNot = await tx.tb_declaracao_notas.deleteMany({
+              where: { Codigo_Matricula: { in: codigosMatriculas } }
+            });
+            console.log(`✅ Excluídas ${declNot.count} declarações de notas por matrícula`);
+
+            // Excluir declarações sem nota dependentes de matrículas (não tratado antes)
+            const declSemNot = await tx.tb_declaracao_sem_nota.deleteMany({
+              where: { Codigo_Matricula: { in: codigosMatriculas } }
+            });
+            console.log(`✅ Excluídas ${declSemNot.count} declarações sem nota por matrícula`);
+
+            // Excluir faltas dependentes de matrículas (não tratado antes)
+            const faltasMat = await tx.tb_faltas.deleteMany({
+              where: { Codigo_Matricula: { in: codigosMatriculas } }
+            });
+            console.log(`✅ Excluídas ${faltasMat.count} faltas por matrícula`);
+
+            // Excluir mérito dependente de matrículas (não tratado antes)
+            const meritoMat = await tx.tb_merito.deleteMany({
+              where: { Codigo_Matricula: { in: codigosMatriculas } }
+            });
+            console.log(`✅ Excluídos ${meritoMat.count} registros de mérito por matrícula`);
+
+            // Excluir processos disciplinares dependentes de matrículas (não tratado antes)
+            const procDisc = await tx.tb_processos_disciplinar.deleteMany({
+              where: { Codigo_Matricula: { in: codigosMatriculas } }
+            });
+            console.log(`✅ Excluídos ${procDisc.count} processos disciplinares por matrícula`);
+          }
+          
+          // Excluir registros que dependem de alunos
+          if (codigosAlunos.length > 0) {
+            // Excluir notas de credito
+            const notaCredito = await tx.tb_nota_credito.deleteMany({
+              where: { codigo_aluno: { in: codigosAlunos } }
+            });
+            console.log(`✅ Excluídas ${notaCredito.count} notas de crédito`);
+
+            // Excluir serviços de aluno
+            const servicoAluno = await tx.tb_servico_aluno.deleteMany({
+              where: { codigo_Aluno: { in: codigosAlunos } }
+            });
+            console.log(`✅ Excluídos ${servicoAluno.count} serviços de aluno`);
+
+            // Excluir comportamento
+            const comportamento = await tx.tb_comportamento.deleteMany({
+              where: { Codigo_Aluno: { in: codigosAlunos } }
+            });
+            console.log(`✅ Excluídos ${comportamento.count} registros de comportamento`);
+
+            // Excluir conta aluno
+            const contaAluno = await tx.tb_conta_aluno.deleteMany({
+              where: { Codigo_Aluno: { in: codigosAlunos } }
+            });
+            console.log(`✅ Excluídas ${contaAluno.count} contas de aluno`);
+
+            // Excluir depósitos de valor
+            const depositos = await tx.tb_deposito_valor.deleteMany({
+              where: { Codigo_Aluno: { in: codigosAlunos } }
+            });
+            console.log(`✅ Excluídos ${depositos.count} depósitos de valor`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Erro ao excluir registros dependentes de matrículas/alunos: ${error.message}`);
+        }
+
+        // 9. Excluir confirmações
         try {
           const confirmacoes = await tx.tb_confirmacoes.deleteMany({
             where: { codigo_Utilizador: userCode }
           });
           console.log(`✅ Excluídas ${confirmacoes.count} confirmações`);
         } catch (error) {
-          console.log(`⚠️ Tabela tb_confirmacoes pode não existir: ${error.message}`);
+          console.log(`⚠️ Erro ao excluir confirmações: ${error.message}`);
         }
 
-        // 2. Excluir matrículas
+        // 10. Excluir matrículas
         try {
           const matriculas = await tx.tb_matriculas.deleteMany({
             where: { codigo_Utilizador: userCode }
           });
           console.log(`✅ Excluídas ${matriculas.count} matrículas`);
         } catch (error) {
-          console.log(`⚠️ Tabela tb_matriculas pode não existir: ${error.message}`);
+          console.log(`⚠️ Erro ao excluir matrículas: ${error.message}`);
         }
 
-        // 3. Excluir aluno
+        // 11. Excluir alunos
         try {
           const alunos = await tx.tb_alunos.deleteMany({
             where: { codigo_Utilizador: userCode }
           });
-          console.log(`✅ Excluídos ${alunos.count} aluno`);
+          console.log(`✅ Excluídos ${alunos.count} alunos`);
         } catch (error) {
-          console.log(`⚠️ Tabela tb_alunos pode não existir: ${error.message}`);
+          console.log(`⚠️ Erro ao excluir alunos: ${error.message}`);
         }
 
-        // 4. Excluir encarregados
+        // 12. Excluir encarregados
         try {
           const encarregados = await tx.tb_encarregados.deleteMany({
             where: { codigo_Utilizador: userCode }
           });
           console.log(`✅ Excluídos ${encarregados.count} encarregados`);
         } catch (error) {
-          console.log(`⚠️ Tabela tb_encarregados pode não existir: ${error.message}`);
+          console.log(`⚠️ Erro ao excluir encarregados: ${error.message}`);
         }
 
-        // 5. Excluir docentes
+        // 13. Excluir docentes
         try {
           const docentes = await tx.tb_docente.deleteMany({
             where: { codigo_Utilizador: userCode }
           });
           console.log(`✅ Excluídos ${docentes.count} docentes`);
         } catch (error) {
-          console.log(`⚠️ Tabela tb_docente pode não existir: ${error.message}`);
+          console.log(`⚠️ Erro ao excluir docentes: ${error.message}`);
         }
 
-        // 6. Excluir outros registros relacionados que possam existir
-        try {
-          // Verificar se há outras tabelas que referenciam o usuário
-          const otherTables = [
-            'tb_funcionarios',
-            'tb_pagamentos',
-            'tb_notas',
-            'tb_presencas',
-            'tb_disciplinas_docente'
-          ];
+        // 14. Excluir outros registros usando Prisma quando possível
+        const otherTablesToDelete = [
+          { table: 'tb_logs', field: 'CodigoUtilizador' },
+          { table: 'tb_notas', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_1_4', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_5_6', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_7_9', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_alunos', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_contgest_10_12', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_enfermagem_10_12', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_fis_bio_10_12', field: 'CodigoUtilizador' },
+          { table: 'tb_notas_jur_econ_10_12', field: 'CodigoUtilizador' },
+          { table: 'tb_ocorrencias_alunos', field: 'CodigoUtilizador' },
+          { table: 'tb_pauta', field: 'codigo_Utilizador' },
+          { table: 'tb_pedidos_declaracao', field: 'CodigoUtilizador' },
+          { table: 'tb_processos_disciplinar', field: 'Codigo_Utilizador' },
+          { table: 'tb_propinas', field: 'Codigo_Utilizador' },
+          { table: 'tb_recibo', field: 'codigo_utilizador' },
+          { table: 'tb_resultados_finais', field: 'Codigo_Utilizador' },
+          { table: 'tb_tipos_propinas', field: 'Codigo_Utilizador' },
+          { table: 'tb_declaracao_sem_nota', field: 'Codigo_Utilizadores' },
+          { table: 'tb_entrada_valores', field: 'CodigoUtilizador' },
+          { table: 'tb_entrega_declarcoes', field: 'Codigo_Utilizador' }
+        ];
 
-          for (const tableName of otherTables) {
-            try {
+        for (const { table, field } of otherTablesToDelete) {
+          try {
+            if (tx[table] && typeof tx[table].deleteMany === 'function') {
+              const result = await tx[table].deleteMany({
+                where: { [field]: userCode }
+              });
+              if (result.count > 0) {
+                console.log(`✅ Excluídos ${result.count} registros da tabela ${table}`);
+              }
+            } else {
+              // Fallback para raw SQL se a tabela não estiver no Prisma
               const result = await tx.$executeRawUnsafe(
-                `DELETE FROM ${tableName} WHERE codigo_Utilizador = ? OR Codigo_Utilizador = ?`,
-                userCode, userCode
+                `DELETE FROM ${table} WHERE ${field} = ?`,
+                userCode
               );
               if (result > 0) {
-                console.log(`✅ Excluídos ${result} registros da tabela ${tableName}`);
+                console.log(`✅ Excluídos ${result} registros da tabela ${table} (raw SQL)`);
               }
-            } catch (tableError) {
-              console.log(`⚠️ Tabela ${tableName} pode não existir ou não ter a coluna: ${tableError.message}`);
             }
+          } catch (tableError) {
+            console.log(`⚠️ Tabela ${table} pode não existir ou não ter a coluna ${field}: ${tableError.message}`);
           }
-        } catch (error) {
-          console.log(`⚠️ Erro ao limpar tabelas adicionais: ${error.message}`);
         }
 
-        // 7. Finalmente, excluir o usuário
+        // 15. Finalmente, excluir o usuário
         await tx.tb_utilizadores.delete({
           where: { codigo: userCode }
         });

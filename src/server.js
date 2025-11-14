@@ -13,6 +13,7 @@ import geographicRoutes from './routes/geographic.routes.js';
 import institutionalRoutes from './routes/institutional.routes.js';
 import institutionalManagementRoutes from './routes/institutional-management.routes.js';
 import academicManagementRoutes from './routes/academic-management.routes.js';
+import academicManagementReportsRoutes from './routes/academic-management-reports.routes.js';
 import studentManagementRoutes from './routes/student-management.routes.js';
 import statusControlRoutes from './routes/status-control.routes.js';
 import financialServicesRoutes from './routes/financial-services.routes.js';
@@ -21,6 +22,8 @@ import saftRoutes from './routes/saft.routes.js';
 import academicStaffRoutes from './routes/academic-staff.routes.js';
 import academicEvaluationRoutes from './routes/academic-evaluation.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
+import reportsManagementRoutes from './routes/reports-management.routes.js';
+import financialManagementReportsRoutes from './routes/financial-management-reports.routes.js';
 
 // Importar Swagger
 import { swaggerDocs } from './config/swagger.js';
@@ -54,6 +57,7 @@ app.get('/', (req, res) => {
       institutional: '/api/institutional',
       institutionalManagement: '/api/institutional-management',
       academicManagement: '/api/academic-management',
+      academicManagementReports: '/api/academic-management/reports',
       studentManagement: '/api/student-management',
       statusControl: '/api/status-control',
       financialServices: '/api/financial-services',
@@ -61,6 +65,8 @@ app.get('/', (req, res) => {
       academicStaff: '/api/academic-staff',
       academicEvaluation: '/api/academic-evaluation',
       dashboard: '/api/dashboard',
+      reportsManagement: '/api/reports-management',
+      financialManagementReports: '/api/financial-management/reports',
       docs: '/api/docs'
     }
   });
@@ -83,6 +89,7 @@ app.use('/api/geographic', geographicRoutes);
 app.use('/api/institutional', institutionalRoutes);
 app.use('/api/institutional-management', institutionalManagementRoutes);
 app.use('/api/academic-management', academicManagementRoutes);
+app.use('/api/academic-management/reports', academicManagementReportsRoutes);
 app.use('/api/student-management', studentManagementRoutes);
 app.use('/api/status-control', statusControlRoutes);
 app.use('/api/financial-services', financialServicesRoutes);
@@ -91,6 +98,8 @@ app.use('/api/finance-management/saft', saftRoutes);
 app.use('/api/academic-staff', academicStaffRoutes);
 app.use('/api/academic-evaluation', academicEvaluationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports-management', reportsManagementRoutes);
+app.use('/api/financial-management/reports', financialManagementReportsRoutes);
 
 // Documentação Swagger
 swaggerDocs(app);

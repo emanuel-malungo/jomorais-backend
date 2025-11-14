@@ -171,7 +171,7 @@ export class FinancialServicesService {
       if (designacao) {
         const existingCategoria = await prisma.tb_categoria_servicos.findFirst({
           where: {
-            designacao: designacao.trim()
+            Designacao: designacao.trim()
           }
         });
 
@@ -182,10 +182,11 @@ export class FinancialServicesService {
 
       return await prisma.tb_categoria_servicos.create({
         data: {
-          designacao: designacao?.trim() || ""
+          Designacao: designacao?.trim() || ""
         }
       });
     } catch (error) {
+      console.error('Erro ao criar categoria:', error);
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao criar categoria de serviço', 500);
     }
@@ -204,7 +205,7 @@ export class FinancialServicesService {
       if (data.designacao) {
         const duplicateCategoria = await prisma.tb_categoria_servicos.findFirst({
           where: {
-            designacao: data.designacao.trim(),
+            Designacao: data.designacao.trim(),
             codigo: { not: parseInt(id) }
           }
         });
@@ -216,9 +217,10 @@ export class FinancialServicesService {
 
       return await prisma.tb_categoria_servicos.update({
         where: { codigo: parseInt(id) },
-        data: { designacao: data.designacao?.trim() || "" }
+        data: { Designacao: data.designacao?.trim() || "" }
       });
     } catch (error) {
+      console.error('Erro ao atualizar categoria:', error);
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar categoria de serviço', 500);
     }
@@ -229,9 +231,8 @@ export class FinancialServicesService {
       const skip = (page - 1) * limit;
       
       const where = search ? {
-        designacao: {
-          contains: search,
-          mode: 'insensitive'
+        Designacao: {
+          contains: search
         }
       } : {};
 
@@ -245,15 +246,22 @@ export class FinancialServicesService {
               select: { tb_tipo_servicos: true }
             }
           },
-          orderBy: { designacao: 'asc' }
+          orderBy: { Designacao: 'asc' }
         }),
         prisma.tb_categoria_servicos.count({ where })
       ]);
 
+      // Mapear os resultados para usar designacao com minúsculo no frontend
+      const categoriasFormatadas = categorias.map(cat => ({
+        codigo: cat.codigo,
+        designacao: cat.Designacao,
+        _count: cat._count
+      }));
+
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: categorias,
+        data: categoriasFormatadas,
         pagination: {
           currentPage: page,
           totalPages,
@@ -264,6 +272,8 @@ export class FinancialServicesService {
         }
       };
     } catch (error) {
+      console.error('Erro detalhado ao buscar categorias:', error);
+      console.error('Stack completo:', error.stack);
       throw new AppError('Erro ao buscar categorias de serviços', 500);
     }
   }
@@ -284,8 +294,13 @@ export class FinancialServicesService {
         throw new AppError('Categoria de serviço não encontrada', 404);
       }
 
-      return categoria;
+      return {
+        codigo: categoria.codigo,
+        designacao: categoria.Designacao,
+        tb_tipo_servicos: categoria.tb_tipo_servicos
+      };
     } catch (error) {
+      console.error('Erro detalhado ao buscar categoria:', error);
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao buscar categoria de serviço', 500);
     }
@@ -485,7 +500,7 @@ export class FinancialServicesService {
           take: limit,
           include: {
             tb_moedas: { select: { codigo: true, designacao: true } },
-            tb_categoria_servicos: { select: { codigo: true, designacao: true } },
+            tb_categoria_servicos: { select: { codigo: true, Designacao: true } },
             _count: {
               select: { 
                 tb_servicos_turma: true,
@@ -501,8 +516,17 @@ export class FinancialServicesService {
 
       const totalPages = Math.ceil(total / limit);
 
+      // Mapear os resultados para padronizar o formato
+      const tiposServicosFormatados = tiposServicos.map(tipo => ({
+        ...tipo,
+        tb_categoria_servicos: tipo.tb_categoria_servicos ? {
+          codigo: tipo.tb_categoria_servicos.codigo,
+          designacao: tipo.tb_categoria_servicos.Designacao
+        } : null
+      }));
+
       return {
-        data: tiposServicos,
+        data: tiposServicosFormatados,
         pagination: {
           currentPage: page,
           totalPages,
@@ -513,6 +537,8 @@ export class FinancialServicesService {
         }
       };
     } catch (error) {
+      console.error('Erro detalhado ao buscar tipos de serviços:', error);
+      console.error('Stack completo:', error.stack);
       throw new AppError('Erro ao buscar tipos de serviços', 500);
     }
   }

@@ -16,10 +16,17 @@ export const handleControllerError = (res, error, defaultMessage = "Erro interno
     });
   }
 
-  res.status(error.status || statusCode).json({
+  const response = {
     success: false,
     message: error.message || defaultMessage
-  });
+  };
+
+  // Incluir detalhes se disponíveis (para AppError)
+  if (error.details) {
+    response.details = error.details;
+  }
+
+  res.status(error.statusCode || error.status || statusCode).json(response);
 };
 
 /**
@@ -31,13 +38,22 @@ export class AppError extends Error {
    * 
    * @param {string} message Mensagem de erro a ser exibida
    * @param {number} statusCode Código HTTP (ex.: 400, 401, 404, 500)
-   * @param {string} [code] Código interno opcional para logs/diagnósticos
+   * @param {string|object} [code] Código interno opcional para logs/diagnósticos ou objeto com detalhes
+   * @param {object} [details] Detalhes adicionais do erro (opcional)
    */
-  constructor(message, statusCode = 500, code = 'APP_ERROR') {
+  constructor(message, statusCode = 500, code = 'APP_ERROR', details = null) {
     super(message);
     this.name = 'AppError';
     this.statusCode = statusCode;
-    this.code = code;
+    
+    // Se code for um objeto, trata como details
+    if (typeof code === 'object' && code !== null) {
+      this.details = code;
+      this.code = 'APP_ERROR';
+    } else {
+      this.code = code;
+      this.details = details;
+    }
 
     // Mantém a stack trace correta para debug
     if (Error.captureStackTrace) {

@@ -135,12 +135,41 @@ export class AcademicManagementService {
     }
   }
 
-  static async deleteAnoLectivo(id) {
+  static async deleteAnoLectivo(id, forceCascade = false) {
     try {
       const existingAno = await prisma.tb_ano_lectivo.findUnique({
         where: { codigo: parseInt(id) },
         include: {
-          tb_turmas: true
+          tb_turmas: {
+            include: {
+              tb_confirmacoes: true,
+              tb_directores_turmas: true,
+              tb_servico_aluno: true,
+              tb_servicos_turma: true,
+              tb_notas: true,
+              tb_notas_1_4: true,
+              tb_notas_5_6: true,
+              tb_notas_7_9: true,
+              tb_notas_contgest_10_12: true,
+              tb_notas_enfermagem_10_12: true,
+              tb_notas_fis_bio_10_12: true,
+              tb_notas_jur_econ_10_12: true,
+              tb_tipos_propinas: true
+            }
+          },
+          tb_confirmacoes: true,
+          tb_directores_turmas: true,
+          tb_notas: true,
+          tb_notas_1_4: true,
+          tb_notas_5_6: true,
+          tb_notas_7_9: true,
+          tb_notas_alunos: true,
+          tb_notas_contgest_10_12: true,
+          tb_notas_enfermagem_10_12: true,
+          tb_notas_fis_bio_10_12: true,
+          tb_notas_jur_econ_10_12: true,
+          tb_ocorrencias_alunos: true,
+          tb_pre_confirmacao: true
         }
       });
 
@@ -148,15 +177,280 @@ export class AcademicManagementService {
         throw new AppError('Ano letivo não encontrado', 404);
       }
 
-      // TÉCNICA: VALIDAÇÃO COM DETALHES
-      if (existingAno.tb_turmas.length > 0) {
+      // TÉCNICA: VALIDAÇÃO COMPLETA COM DETALHES
+      // Verificar todas as dependências e retornar informações detalhadas
+      const dependencias = {
+        turmas: existingAno.tb_turmas.length,
+        confirmacoes: existingAno.tb_confirmacoes.length,
+        diretoresTurmas: existingAno.tb_directores_turmas.length,
+        notas: existingAno.tb_notas.length,
+        notas1_4: existingAno.tb_notas_1_4.length,
+        notas5_6: existingAno.tb_notas_5_6.length,
+        notas7_9: existingAno.tb_notas_7_9.length,
+        notasAlunos: existingAno.tb_notas_alunos.length,
+        notasContgest: existingAno.tb_notas_contgest_10_12.length,
+        notasEnfermagem: existingAno.tb_notas_enfermagem_10_12.length,
+        notasFisBio: existingAno.tb_notas_fis_bio_10_12.length,
+        notasJurEcon: existingAno.tb_notas_jur_econ_10_12.length,
+        ocorrencias: existingAno.tb_ocorrencias_alunos.length,
+        preConfirmacoes: existingAno.tb_pre_confirmacao.length
+      };
+
+      const totalDependencias = Object.values(dependencias).reduce((sum, count) => sum + count, 0);
+
+      if (totalDependencias > 0 && !forceCascade) {
+        const detalhesMsg = [];
+        if (dependencias.turmas > 0) detalhesMsg.push(`${dependencias.turmas} turma(s)`);
+        if (dependencias.confirmacoes > 0) detalhesMsg.push(`${dependencias.confirmacoes} confirmação(ões)`);
+        if (dependencias.diretoresTurmas > 0) detalhesMsg.push(`${dependencias.diretoresTurmas} diretor(es) de turma`);
+        if (dependencias.notas > 0) detalhesMsg.push(`${dependencias.notas} nota(s)`);
+        if (dependencias.notasAlunos > 0) detalhesMsg.push(`${dependencias.notasAlunos} nota(s) de alunos`);
+        if (dependencias.ocorrencias > 0) detalhesMsg.push(`${dependencias.ocorrencias} ocorrência(s)`);
+        if (dependencias.preConfirmacoes > 0) detalhesMsg.push(`${dependencias.preConfirmacoes} pré-confirmação(ões)`);
+        
+        // Somar todas as notas por classe
+        const totalNotasClasses = dependencias.notas1_4 + dependencias.notas5_6 + dependencias.notas7_9 + 
+                                 dependencias.notasContgest + dependencias.notasEnfermagem + 
+                                 dependencias.notasFisBio + dependencias.notasJurEcon;
+        if (totalNotasClasses > 0) detalhesMsg.push(`${totalNotasClasses} nota(s) por classe`);
+
         throw new AppError(
-          `Não é possível excluir este ano letivo pois está sendo usado por ${existingAno.tb_turmas.length} turma(s)`, 
-          400
+          `Não é possível excluir este ano letivo pois possui dependências: ${detalhesMsg.join(', ')}.`, 
+          400,
+          dependencias
         );
       }
 
+      if (totalDependencias > 0 && forceCascade) {
+        // TÉCNICA: CASCADE DELETE (Exclusão em Cascata)
+        // Excluir o ano letivo e todas as suas dependências em uma transação
+        const result = await prisma.$transaction(async (tx) => {
+          console.log(`[DELETE ANO LETIVO] Iniciando exclusão em cascata do ano letivo ${id} - ${existingAno.designacao}`);
+          
+          let contadores = {
+            confirmacoes: 0,
+            servicosAluno: 0,
+            docenteTurma: 0,
+            servicosTurma: 0,
+            diretoresTurma: 0,
+            tiposPropinas: 0,
+            notas: 0,
+            notas1_4: 0,
+            notas5_6: 0,
+            notas7_9: 0,
+            notasAlunos: 0,
+            notasContgest: 0,
+            notasEnfermagem: 0,
+            notasFisBio: 0,
+            notasJurEcon: 0,
+            ocorrencias: 0,
+            preConfirmacoes: 0,
+            turmas: 0
+          };
+
+          // ===================================
+          // PASSO 1: EXCLUIR NOTAS GERAIS
+          // ===================================
+          if (existingAno.tb_notas.length > 0) {
+            const notasResult = await tx.tb_notas.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notas = notasResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notas} notas gerais`);
+          }
+
+          // ===================================
+          // PASSO 2: EXCLUIR NOTAS POR CLASSE
+          // ===================================
+          if (existingAno.tb_notas_1_4.length > 0) {
+            const notas1_4Result = await tx.tb_notas_1_4.deleteMany({
+              where: { Codigo_Ano_Lectivo: parseInt(id) }
+            });
+            contadores.notas1_4 = notas1_4Result.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notas1_4} notas 1ª-4ª classe`);
+          }
+
+          if (existingAno.tb_notas_5_6.length > 0) {
+            const notas5_6Result = await tx.tb_notas_5_6.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notas5_6 = notas5_6Result.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notas5_6} notas 5ª-6ª classe`);
+          }
+
+          if (existingAno.tb_notas_7_9.length > 0) {
+            const notas7_9Result = await tx.tb_notas_7_9.deleteMany({
+              where: { Codigo_AnoLectivo: parseInt(id) }
+            });
+            contadores.notas7_9 = notas7_9Result.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notas7_9} notas 7ª-9ª classe`);
+          }
+
+          if (existingAno.tb_notas_alunos.length > 0) {
+            const notasAlunosResult = await tx.tb_notas_alunos.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notasAlunos = notasAlunosResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notasAlunos} notas de alunos`);
+          }
+
+          // Notas especializadas
+          if (existingAno.tb_notas_contgest_10_12.length > 0) {
+            const notasContgestResult = await tx.tb_notas_contgest_10_12.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notasContgest = notasContgestResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notasContgest} notas contabilidade/gestão`);
+          }
+
+          if (existingAno.tb_notas_enfermagem_10_12.length > 0) {
+            const notasEnfermagemResult = await tx.tb_notas_enfermagem_10_12.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notasEnfermagem = notasEnfermagemResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notasEnfermagem} notas enfermagem`);
+          }
+
+          if (existingAno.tb_notas_fis_bio_10_12.length > 0) {
+            const notasFisBioResult = await tx.tb_notas_fis_bio_10_12.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notasFisBio = notasFisBioResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notasFisBio} notas física/biologia`);
+          }
+
+          if (existingAno.tb_notas_jur_econ_10_12.length > 0) {
+            const notasJurEconResult = await tx.tb_notas_jur_econ_10_12.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.notasJurEcon = notasJurEconResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.notasJurEcon} notas jurídico/economia`);
+          }
+
+          // ===================================
+          // PASSO 3: EXCLUIR OCORRÊNCIAS
+          // ===================================
+          if (existingAno.tb_ocorrencias_alunos.length > 0) {
+            const ocorrenciasResult = await tx.tb_ocorrencias_alunos.deleteMany({
+              where: { CodigoAnoLectivo: parseInt(id) }
+            });
+            contadores.ocorrencias = ocorrenciasResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.ocorrencias} ocorrências`);
+          }
+
+          // ===================================
+          // PASSO 4: EXCLUIR PRÉ-CONFIRMAÇÕES
+          // ===================================
+          if (existingAno.tb_pre_confirmacao.length > 0) {
+            const preConfirmacaoResult = await tx.tb_pre_confirmacao.deleteMany({
+              where: { codigoAnoLectivo: parseInt(id) }
+            });
+            contadores.preConfirmacoes = preConfirmacaoResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.preConfirmacoes} pré-confirmações`);
+          }
+
+          // ===================================
+          // PASSO 5: EXCLUIR DEPENDÊNCIAS DAS TURMAS
+          // ===================================
+          if (existingAno.tb_turmas.length > 0) {
+            const turmaIds = existingAno.tb_turmas.map(t => t.codigo);
+
+            // Excluir confirmações das turmas
+            const confirmacoesResult = await tx.tb_confirmacoes.deleteMany({
+              where: { codigo_Turma: { in: turmaIds } }
+            });
+            contadores.confirmacoes = confirmacoesResult.count;
+            if (contadores.confirmacoes > 0) {
+              console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.confirmacoes} confirmações das turmas`);
+            }
+
+            // Excluir serviços dos alunos
+            const servicosAlunoResult = await tx.tb_servico_aluno.deleteMany({
+              where: { codigo_Turma: { in: turmaIds } }
+            });
+            contadores.servicosAluno = servicosAlunoResult.count;
+            if (contadores.servicosAluno > 0) {
+              console.log(`[DELETE ANO LETIVO] ✓ Excluídos ${contadores.servicosAluno} serviços de alunos`);
+            }
+
+            // Excluir relações docente-turma
+            const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
+              where: { codigo_turma: { in: turmaIds } }
+            });
+            contadores.docenteTurma = docenteTurmaResult.count;
+            if (contadores.docenteTurma > 0) {
+              console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.docenteTurma} relações docente-turma`);
+            }
+
+            // Excluir serviços de turma
+            const servicosTurmaResult = await tx.tb_servicos_turma.deleteMany({
+              where: { codigoTurma: { in: turmaIds } }
+            });
+            contadores.servicosTurma = servicosTurmaResult.count;
+            if (contadores.servicosTurma > 0) {
+              console.log(`[DELETE ANO LETIVO] ✓ Excluídos ${contadores.servicosTurma} serviços de turma`);
+            }
+
+            // Excluir tipos de propinas
+            const tiposPropinaResult = await tx.tb_tipos_propinas.deleteMany({
+              where: { codigoTurma: { in: turmaIds } }
+            });
+            contadores.tiposPropinas = tiposPropinaResult.count;
+            if (contadores.tiposPropinas > 0) {
+              console.log(`[DELETE ANO LETIVO] ✓ Excluídos ${contadores.tiposPropinas} tipos de propinas`);
+            }
+          }
+
+          // ===================================
+          // PASSO 6: EXCLUIR DIRETORES DE TURMA
+          // ===================================
+          if (existingAno.tb_directores_turmas.length > 0) {
+            const diretoresTurmaResult = await tx.tb_directores_turmas.deleteMany({
+              where: { codigoAnoLectivo: parseInt(id) }
+            });
+            contadores.diretoresTurma = diretoresTurmaResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídos ${contadores.diretoresTurma} diretores de turma`);
+          }
+
+          // ===================================
+          // PASSO 7: EXCLUIR TURMAS
+          // ===================================
+          if (existingAno.tb_turmas.length > 0) {
+            const turmasResult = await tx.tb_turmas.deleteMany({
+              where: { codigo_AnoLectivo: parseInt(id) }
+            });
+            contadores.turmas = turmasResult.count;
+            console.log(`[DELETE ANO LETIVO] ✓ Excluídas ${contadores.turmas} turmas`);
+          }
+
+          // ===================================
+          // PASSO 8: EXCLUIR O ANO LETIVO
+          // ===================================
+          await tx.tb_ano_lectivo.delete({
+            where: { codigo: parseInt(id) }
+          });
+          console.log('[DELETE ANO LETIVO] ✓ Ano letivo excluído');
+          
+          console.log('[DELETE ANO LETIVO] ✓ Exclusão em cascata concluída com sucesso');
+          
+          return { 
+            message: 'Ano letivo e todas as dependências excluídas com sucesso',
+            tipo: 'cascade_delete',
+            detalhes: {
+              anoNome: existingAno.designacao,
+              ...contadores
+            }
+          };
+        }, {
+          maxWait: 60000,
+          timeout: 60000,
+        });
+        
+        return result;
+      }
+
       // TÉCNICA: HARD DELETE (Exclusão Física)
+      // Ano letivo sem dependências pode ser excluído permanentemente
       await prisma.tb_ano_lectivo.delete({
         where: { codigo: parseInt(id) }
       });
@@ -170,8 +464,9 @@ export class AcademicManagementService {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error('Erro ao excluir ano letivo:', error);
-      throw new AppError('Erro ao excluir ano letivo', 500);
+      console.error('[DELETE ANO LETIVO] ✗ Erro ao excluir ano letivo:', error);
+      console.error('Stack trace:', error.stack);
+      throw new AppError(`Erro ao excluir ano letivo: ${error.message}`, 500);
     }
   }
 
@@ -282,7 +577,8 @@ export class AcademicManagementService {
         }
       };
     } catch (error) {
-      throw new AppError('Erro ao buscar cursos', 500);
+      console.error('Erro detalhado ao buscar cursos:', error);
+      throw new AppError(`Erro ao buscar cursos: ${error.message}`, 500);
     }
   }
 
@@ -481,7 +777,8 @@ export class AcademicManagementService {
         }
       };
     } catch (error) {
-      throw new AppError('Erro ao buscar classes', 500);
+      console.error('Erro detalhado ao buscar classes:', error);
+      throw new AppError(`Erro ao buscar classes: ${error.message}`, 500);
     }
   }
 

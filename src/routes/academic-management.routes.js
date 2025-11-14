@@ -724,7 +724,31 @@ router.post('/cursos', AcademicManagementController.createCurso);
  *                 pagination:
  *                   $ref: '#/components/schemas/Pagination'
  */
+/**
+ * @swagger
+ * /api/academic-management/cursos/complete:
+ *   get:
+ *     summary: Obter todos os cursos sem paginação
+ *     tags: [Cursos]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *       - in: query
+ *         name: includeArchived
+ *         schema:
+ *           type: boolean
+ *         description: Incluir cursos arquivados
+ *     responses:
+ *       200:
+ *         description: Lista completa de cursos
+ */
+router.get('/cursos/complete', AcademicManagementController.getCursosComplete);
+
 router.get('/cursos', AcademicManagementController.getCursos);
+
 // Estatísticas de cursos
 router.get('/cursos/stats', AcademicManagementController.getCourseStatistics);
 
@@ -923,6 +947,24 @@ router.post('/classes', AcademicManagementController.createClasse);
  *                 pagination:
  *                   $ref: '#/components/schemas/Pagination'
  */
+/**
+ * @swagger
+ * /api/academic-management/classes/complete:
+ *   get:
+ *     summary: Obter todas as classes sem paginação
+ *     tags: [Classes]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Termo de busca
+ *     responses:
+ *       200:
+ *         description: Lista completa de classes
+ */
+router.get('/classes/complete', AcademicManagementController.getClassesComplete);
+
 router.get('/classes', AcademicManagementController.getClasses);
 
 /**

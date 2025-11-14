@@ -1,6 +1,9 @@
 // controller/academic-management.controller.js
+import { PrismaClient } from '@prisma/client';
 import { AcademicManagementService } from "../services/academic-management.services.js";
 import { handleControllerError } from "../utils/validation.utils.js";
+
+const prisma = new PrismaClient();
 import {
   anoLectivoCreateSchema,
   anoLectivoUpdateSchema,
@@ -111,12 +114,15 @@ export class AcademicManagementController {
   static async deleteAnoLectivo(req, res) {
     try {
       const { id } = idParamSchema.parse(req.params);
+      const { forceCascade } = req.query; // Parâmetro opcional via query string
 
-      const result = await AcademicManagementService.deleteAnoLectivo(id);
+      const result = await AcademicManagementService.deleteAnoLectivo(id, forceCascade === 'true');
       
       res.json({
         success: true,
         message: result.message,
+        tipo: result.tipo,
+        detalhes: result.detalhes
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao excluir ano letivo", 400);
@@ -180,6 +186,47 @@ export class AcademicManagementController {
         ...result
       });
     } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar cursos", 400);
+    }
+  }
+
+  static async getCursosComplete(req, res) {
+    try {
+      // Consulta direta ao Prisma para evitar problemas do service
+      const { search = '', includeArchived = false } = req.query;
+      
+      const whereClause = {
+        ...(search && {
+          designacao: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        }),
+        ...(includeArchived !== 'true' && {
+          codigo_Status: 1 // Apenas cursos ativos se não incluir arquivados
+        })
+      };
+      
+      const cursos = await prisma.tb_cursos.findMany({
+        where: whereClause,
+        select: {
+          codigo: true,
+          designacao: true,
+          codigo_Status: true
+        },
+        orderBy: {
+          designacao: 'asc'
+        },
+        take: 1000 // Limite para evitar sobrecarga
+      });
+      
+      res.json({
+        success: true,
+        message: "Cursos encontrados",
+        data: cursos
+      });
+    } catch (error) {
+      console.error('Erro ao buscar cursos complete:', error);
       handleControllerError(res, error, "Erro ao buscar cursos", 400);
     }
   }
@@ -266,6 +313,41 @@ export class AcademicManagementController {
         ...result
       });
     } catch (error) {
+      handleControllerError(res, error, "Erro ao buscar classes", 400);
+    }
+  }
+
+  static async getClassesComplete(req, res) {
+    try {
+      // Consulta direta ao Prisma para evitar problemas do service
+      const { search = '' } = req.query;
+      
+      const whereClause = search ? {
+        designacao: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      } : {};
+      
+      const classes = await prisma.tb_classes.findMany({
+        where: whereClause,
+        select: {
+          codigo: true,
+          designacao: true
+        },
+        orderBy: {
+          designacao: 'asc'
+        },
+        take: 1000 // Limite para evitar sobrecarga
+      });
+      
+      res.json({
+        success: true,
+        message: "Classes encontradas",
+        data: classes
+      });
+    } catch (error) {
+      console.error('Erro ao buscar classes complete:', error);
       handleControllerError(res, error, "Erro ao buscar classes", 400);
     }
   }
