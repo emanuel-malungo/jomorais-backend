@@ -1149,6 +1149,7 @@ export class PaymentManagementService {
         totalPagamentosHoje,
         totalPagamentosMes,
         valorTotalMes,
+        totalRecebidoGeral,
         formasPagamentoMaisUsadas,
         servicosMaisPagos
       ] = await Promise.all([
@@ -1183,6 +1184,11 @@ export class PaymentManagementService {
           _sum: { totalgeral: true }
         }),
 
+        // Total recebido (todos os pagamentos)
+        prisma.tb_pagamentos.aggregate({
+          _sum: { totalgeral: true }
+        }),
+
         // Formas de pagamento mais usadas
         prisma.tb_pagamentos.groupBy({
           by: ['codigo_FormaPagamento'],
@@ -1214,11 +1220,15 @@ export class PaymentManagementService {
         })
       ]);
 
+      // Total pendente - ajuste conforme sua lógica de negócio
+      const totalPendente = 0;
+
       return {
         resumo: {
-          totalPagamentosHoje,
-          totalPagamentosMes,
-          valorTotalMes: valorTotalMes._sum.totalgeral || 0
+          totalRecebido: totalRecebidoGeral._sum.totalgeral || 0,
+          totalPendente: totalPendente,
+          pagamentosHoje: totalPagamentosHoje,
+          receitaMensal: valorTotalMes._sum.totalgeral || 0
         },
         formasPagamentoMaisUsadas,
         servicosMaisPagos
