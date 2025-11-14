@@ -379,16 +379,28 @@ export class FinancialServicesService {
           codigo_Ano: codigo_Ano ? parseInt(codigo_Ano) : 1,
           codigoAnoLectivo: codigoAnoLectivo ? parseInt(codigoAnoLectivo) : null,
           valorMulta: valorMulta ? parseFloat(valorMulta) : 0,
-          iva: iva ? parseInt(iva) : null,
+          iva: iva && parseInt(iva) > 0 ? parseInt(iva) : null,
           codigoRasao: codigoRasao ? parseInt(codigoRasao) : null,
           categoria: categoria ? parseInt(categoria) : null,
           codigo_multa: codigo_multa ? parseInt(codigo_multa) : null
         },
         include: {
           tb_moedas: { select: { codigo: true, designacao: true } },
-          tb_categoria_servicos: { select: { codigo: true, designacao: true } }
+          tb_categoria_servicos: { select: { codigo: true, Designacao: true } }
         }
       });
+
+      // Mapear Designacao -> designacao para consistência com frontend
+      if (tipoServico.tb_categoria_servicos) {
+        tipoServico.tb_categoria_servicos = {
+          ...tipoServico.tb_categoria_servicos,
+          designacao: tipoServico.tb_categoria_servicos.Designacao,
+          Designacao: undefined
+        };
+        delete tipoServico.tb_categoria_servicos.Designacao;
+      }
+
+      return tipoServico;
     } catch (error) {
       if (error instanceof AppError) throw error;
       console.error('Erro detalhado ao criar tipo de serviço:', error);
@@ -449,11 +461,15 @@ export class FinancialServicesService {
             case 'codigo_Moeda':
             case 'codigo_Ano':
             case 'codigoAnoLectivo':
-            case 'iva':
             case 'codigoRasao':
             case 'categoria':
             case 'codigo_multa':
               updateData[key] = parseInt(data[key]);
+              break;
+            case 'iva':
+              // IVA é foreign key, 0 deve ser null
+              const ivaValue = parseInt(data[key]);
+              updateData[key] = ivaValue > 0 ? ivaValue : null;
               break;
           }
         }
@@ -464,9 +480,21 @@ export class FinancialServicesService {
         data: updateData,
         include: {
           tb_moedas: { select: { codigo: true, designacao: true } },
-          tb_categoria_servicos: { select: { codigo: true, designacao: true } }
+          tb_categoria_servicos: { select: { codigo: true, Designacao: true } }
         }
       });
+
+      // Mapear Designacao -> designacao
+      if (updated.tb_categoria_servicos) {
+        updated.tb_categoria_servicos = {
+          ...updated.tb_categoria_servicos,
+          designacao: updated.tb_categoria_servicos.Designacao,
+          Designacao: undefined
+        };
+        delete updated.tb_categoria_servicos.Designacao;
+      }
+
+      return updated;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao atualizar tipo de serviço', 500);
@@ -554,7 +582,7 @@ export class FinancialServicesService {
           where: { codigo: parseInt(id) },
           include: {
             tb_moedas: { select: { codigo: true, designacao: true } },
-            tb_categoria_servicos: { select: { codigo: true, designacao: true } },
+            tb_categoria_servicos: { select: { codigo: true, Designacao: true } },
             tb_servicos_turma: {
               select: { codigo: true, anoLectivo: true },
               take: 5
@@ -597,6 +625,16 @@ export class FinancialServicesService {
 
       if (!tipoServico) {
         throw new AppError('Tipo de serviço não encontrado', 404);
+      }
+
+      // Mapear Designacao -> designacao
+      if (tipoServico.tb_categoria_servicos) {
+        tipoServico.tb_categoria_servicos = {
+          ...tipoServico.tb_categoria_servicos,
+          designacao: tipoServico.tb_categoria_servicos.Designacao,
+          Designacao: undefined
+        };
+        delete tipoServico.tb_categoria_servicos.Designacao;
       }
 
       return tipoServico;
@@ -719,10 +757,16 @@ export class FinancialServicesService {
       return await prisma.tb_tipo_servicos.findMany({
         where: { codigo_Moeda: parseInt(moedaId) },
         include: {
-          tb_categoria_servicos: { select: { codigo: true, designacao: true } }
+          tb_categoria_servicos: { select: { codigo: true, Designacao: true } }
         },
         orderBy: { designacao: 'asc' }
-      });
+      }).then(tipos => tipos.map(tipo => ({
+        ...tipo,
+        tb_categoria_servicos: tipo.tb_categoria_servicos ? {
+          codigo: tipo.tb_categoria_servicos.codigo,
+          designacao: tipo.tb_categoria_servicos.Designacao
+        } : null
+      })));
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Erro ao buscar tipos de serviços por moeda', 500);
@@ -735,10 +779,16 @@ export class FinancialServicesService {
         where: { status: "Activo" },
         include: {
           tb_moedas: { select: { codigo: true, designacao: true } },
-          tb_categoria_servicos: { select: { codigo: true, designacao: true } }
+          tb_categoria_servicos: { select: { codigo: true, Designacao: true } }
         },
         orderBy: { designacao: 'asc' }
-      });
+      }).then(tipos => tipos.map(tipo => ({
+        ...tipo,
+        tb_categoria_servicos: tipo.tb_categoria_servicos ? {
+          codigo: tipo.tb_categoria_servicos.codigo,
+          designacao: tipo.tb_categoria_servicos.Designacao
+        } : null
+      })));
     } catch (error) {
       throw new AppError('Erro ao buscar tipos de serviços ativos', 500);
     }
@@ -750,10 +800,16 @@ export class FinancialServicesService {
         where: { aplicarMulta: true },
         include: {
           tb_moedas: { select: { codigo: true, designacao: true } },
-          tb_categoria_servicos: { select: { codigo: true, designacao: true } }
+          tb_categoria_servicos: { select: { codigo: true, Designacao: true } }
         },
         orderBy: { designacao: 'asc' }
-      });
+      }).then(tipos => tipos.map(tipo => ({
+        ...tipo,
+        tb_categoria_servicos: tipo.tb_categoria_servicos ? {
+          codigo: tipo.tb_categoria_servicos.codigo,
+          designacao: tipo.tb_categoria_servicos.Designacao
+        } : null
+      })));
     } catch (error) {
       throw new AppError('Erro ao buscar tipos de serviços com multa', 500);
     }

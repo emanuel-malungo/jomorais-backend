@@ -136,8 +136,13 @@ export const tipoServicoCreateSchema = z.object({
     .optional(),
   iva: z
     .union([
-      z.string().transform(val => parseInt(val)),
-      z.number().int().positive()
+      z.string().transform(val => {
+        if (val === '' || val === null) return null;
+        const parsed = parseInt(val);
+        return parsed > 0 ? parsed : null;
+      }),
+      z.number().int().positive("IVA deve referenciar uma taxa válida (maior que 0)"),
+      z.null()
     ])
     .optional()
     .nullable(),
@@ -245,8 +250,13 @@ export const tipoServicoUpdateSchema = z.object({
     .optional(),
   iva: z
     .union([
-      z.string().transform(val => parseInt(val)),
-      z.number().int().positive()
+      z.string().transform(val => {
+        if (val === '' || val === null) return null;
+        const parsed = parseInt(val);
+        return parsed > 0 ? parsed : null;
+      }),
+      z.number().int().positive("IVA deve referenciar uma taxa válida (maior que 0)"),
+      z.null()
     ])
     .optional()
     .nullable(),

@@ -9,10 +9,22 @@ export const handleControllerError = (res, error, defaultMessage = "Erro interno
   console.error(defaultMessage, error);
 
   if (error.name === "ZodError") {
+    // Extrair mensagens específicas dos erros do Zod
+    const errorMessages = error.errors.map(err => {
+      const field = err.path.join('.');
+      return `${field}: ${err.message}`;
+    });
+
     return res.status(400).json({
       success: false,
-      message: "Dados inválidos",
-      errors: error.errors
+      message: errorMessages.join('; '),
+      errors: error.errors,
+      details: error.errors.map(err => ({
+        campo: err.path.join('.'),
+        mensagem: err.message,
+        tipo: err.code,
+        valorRecebido: err.received
+      }))
     });
   }
 

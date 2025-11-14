@@ -604,13 +604,7 @@ export class StudentManagementService {
             tb_encarregados: {
               include: {
                 tb_profissao: true,
-                tb_utilizadores: {
-                  select: {
-                    codigo: true,
-                    nome: true,
-                    user: true
-                  }
-                }
+                tb_status: true
               }
             },
             tb_utilizadores: {
@@ -620,7 +614,8 @@ export class StudentManagementService {
                 user: true
               }
             },
-            tb_tipo_documento: true
+            tb_comunas: true,
+            tb_nacionalidades: true
           }
         });
 
