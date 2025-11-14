@@ -862,10 +862,15 @@ export class AcademicManagementService {
         let docenteTurmaCount = 0;
         if (existingClasse.tb_turmas.length > 0) {
           const turmaIds = existingClasse.tb_turmas.map(t => t.codigo);
-          const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
-            where: { codigo_turma: { in: turmaIds } }
-          });
-          docenteTurmaCount = docenteTurmaResult.count;
+          if (tx.tb_docente_turma && typeof tx.tb_docente_turma.deleteMany === 'function') {
+            const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
+              where: { codigo_turma: { in: turmaIds } }
+            });
+            docenteTurmaCount = docenteTurmaResult.count;
+          } else {
+            const rawRes = await tx.$executeRawUnsafe(`DELETE FROM tb_docente_tuma WHERE codigo_turma IN (${turmaIds.join(',')})`);
+            docenteTurmaCount = Number(rawRes) || 0;
+          }
           if (docenteTurmaCount > 0) {
             console.log(`[DELETE CLASSE] ✓ Excluídas ${docenteTurmaCount} relações docente-turma`);
           }
@@ -1691,10 +1696,16 @@ export class AcademicManagementService {
         // ===================================
         // PASSO 3: EXCLUIR RELAÇÕES DOCENTE-TURMA
         // ===================================
-        const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
-          where: { codigo_turma: turmaId }
-        });
-        const docenteTurmaCount = docenteTurmaResult.count;
+        let docenteTurmaCount = 0;
+        if (tx.tb_docente_turma && typeof tx.tb_docente_turma.deleteMany === 'function') {
+          const docenteTurmaResult = await tx.tb_docente_turma.deleteMany({
+            where: { codigo_turma: turmaId }
+          });
+          docenteTurmaCount = docenteTurmaResult.count;
+        } else {
+          const rawRes = await tx.$executeRaw`DELETE FROM tb_docente_tuma WHERE codigo_turma = ${turmaId}`;
+          docenteTurmaCount = Number(rawRes) || 0;
+        }
         if (docenteTurmaCount > 0) {
           console.log(`[DELETE TURMA] ✓ Excluídas ${docenteTurmaCount} relações docente-turma`);
         }

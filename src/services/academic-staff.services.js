@@ -560,18 +560,47 @@ export class AcademicStaffService {
           console.error('[DELETE DOCENTE] Erro ao excluir tb_directores_turmas:', err.message);
         }
 
-        // Passo 3: Excluir registros de tb_docente_turma (verificar se existe)
+        // Passo 3: Excluir registros de tb_docente_turma (tabela física tb_docente_tuma)
         let docenteTurmaDeleteCount = { count: 0 };
         try {
-          docenteTurmaDeleteCount = await tx.tb_docente_turma.deleteMany({
-            where: { codigo_Docente: parseInt(id) }
-          });
+          if (tx.tb_docente_turma && typeof tx.tb_docente_turma.deleteMany === 'function') {
+            docenteTurmaDeleteCount = await tx.tb_docente_turma.deleteMany({
+              where: { codigo_Docente: parseInt(id) }
+            });
+          } else {
+            const rawRes = await tx.$executeRawUnsafe(
+              `DELETE FROM tb_docente_tuma WHERE Codigo_Docente = ${parseInt(id)}`
+            );
+            docenteTurmaDeleteCount = { count: Number(rawRes) || 0 };
+          }
           console.log(`[DELETE DOCENTE] ✓ Excluídos ${docenteTurmaDeleteCount.count} registros de docente_turma`);
         } catch (err) {
-          console.error('[DELETE DOCENTE] Aviso: tb_docente_turma pode não existir:', err.message);
+          console.error('[DELETE DOCENTE] Erro ao excluir tb_docente_turma:', err.message);
         }
 
-        // Passo 4: Excluir o docente
+        // Passo 4: Excluir registros de tb_pauta
+        let pautaDeleteCount = { count: 0 };
+        try {
+          pautaDeleteCount = await tx.tb_pauta.deleteMany({
+            where: { Codigo_docente: parseInt(id) }
+          });
+          console.log(`[DELETE DOCENTE] ✓ Excluídos ${pautaDeleteCount.count} registros de pauta`);
+        } catch (err) {
+          console.error('[DELETE DOCENTE] Erro ao excluir tb_pauta:', err.message);
+        }
+
+        // Passo 5: Excluir registros de tb_utilizador_docente
+        let utilizadorDocenteDeleteCount = { count: 0 };
+        try {
+          utilizadorDocenteDeleteCount = await tx.tb_utilizador_docente.deleteMany({
+            where: { Codigo_Docente: parseInt(id) }
+          });
+          console.log(`[DELETE DOCENTE] ✓ Excluídos ${utilizadorDocenteDeleteCount.count} registros de utilizador_docente`);
+        } catch (err) {
+          console.error('[DELETE DOCENTE] Erro ao excluir tb_utilizador_docente:', err.message);
+        }
+
+        // Passo 6: Excluir o docente
         await tx.tb_docente.delete({
           where: { codigo: parseInt(id) }
         });
@@ -583,7 +612,9 @@ export class AcademicStaffService {
             docenteNome: existingDocente.nome,
             disciplinasDocente: disciplinasDocenteDeleteCount.count,
             diretoresTurma: diretoresTurmasDeleteCount.count,
-            docenteTurma: docenteTurmaDeleteCount.count
+            docenteTurma: docenteTurmaDeleteCount.count,
+            pauta: pautaDeleteCount.count,
+            utilizadorDocente: utilizadorDocenteDeleteCount.count
           }
         };
       }, {
