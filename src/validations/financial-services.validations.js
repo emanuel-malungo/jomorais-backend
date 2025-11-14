@@ -13,8 +13,19 @@ export const moedaCreateSchema = z.object({
     })
     .min(1, "Designação não pode estar vazia")
     .max(45, "Designação deve ter no máximo 45 caracteres")
+    .trim(),
+  simbolo: z
+    .string()
+    .max(10, "Símbolo deve ter no máximo 10 caracteres")
     .trim()
-}).strict();
+    .optional(),
+  activo: z
+    .union([
+      z.boolean(),
+      z.string().transform(val => val === 'true' || val === '1')
+    ])
+    .optional()
+});
 
 export const moedaUpdateSchema = z.object({
   designacao: z
@@ -24,8 +35,19 @@ export const moedaUpdateSchema = z.object({
     .min(1, "Designação não pode estar vazia")
     .max(45, "Designação deve ter no máximo 45 caracteres")
     .trim()
+    .optional(),
+  simbolo: z
+    .string()
+    .max(10, "Símbolo deve ter no máximo 10 caracteres")
+    .trim()
+    .optional(),
+  activo: z
+    .union([
+      z.boolean(),
+      z.string().transform(val => val === 'true' || val === '1')
+    ])
     .optional()
-}).strict();
+});
 
 // ===============================
 // CATEGORIAS DE SERVIÇOS VALIDATIONS
@@ -137,11 +159,12 @@ export const tipoServicoCreateSchema = z.object({
   iva: z
     .union([
       z.string().transform(val => {
-        if (val === '' || val === null) return null;
+        if (val === '' || val === null || val === undefined) return null;
         const parsed = parseInt(val);
-        return parsed > 0 ? parsed : null;
+        if (isNaN(parsed)) return null;
+        return parsed >= 0 ? parsed : null;
       }),
-      z.number().int().positive("IVA deve referenciar uma taxa válida (maior que 0)"),
+      z.number().int().nonnegative("IVA deve ser um número válido (maior ou igual a 0)"),
       z.null()
     ])
     .optional()
@@ -251,11 +274,12 @@ export const tipoServicoUpdateSchema = z.object({
   iva: z
     .union([
       z.string().transform(val => {
-        if (val === '' || val === null) return null;
+        if (val === '' || val === null || val === undefined) return null;
         const parsed = parseInt(val);
-        return parsed > 0 ? parsed : null;
+        if (isNaN(parsed)) return null;
+        return parsed >= 0 ? parsed : null;
       }),
-      z.number().int().positive("IVA deve referenciar uma taxa válida (maior que 0)"),
+      z.number().int().nonnegative("IVA deve ser um número válido (maior ou igual a 0)"),
       z.null()
     ])
     .optional()

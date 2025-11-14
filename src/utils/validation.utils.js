@@ -8,7 +8,7 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/; // Pelo meno
 export const handleControllerError = (res, error, defaultMessage = "Erro interno", statusCode = 500) => {
   console.error(defaultMessage, error);
 
-  if (error.name === "ZodError") {
+  if (error.name === "ZodError" && error.errors && Array.isArray(error.errors)) {
     // Extrair mensagens específicas dos erros do Zod
     const errorMessages = error.errors.map(err => {
       const field = err.path.join('.');
