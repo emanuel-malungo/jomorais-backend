@@ -972,12 +972,59 @@ export class StudentManagementService {
         };
       }
 
-      // Buscar apenas dados básicos dos alunos, sem relacionamentos
+      // Buscar alunos com relacionamentos necessários para pagamentos
       const [alunos, total] = await Promise.all([
         prisma.tb_alunos.findMany({
           where,
           skip,
           take,
+          include: {
+            tb_matriculas: {
+              select: {
+                codigo: true,
+                data_Matricula: true,
+                codigoStatus: true,
+                tb_cursos: {
+                  select: {
+                    codigo: true,
+                    designacao: true
+                  }
+                },
+                tb_confirmacoes: {
+                  select: {
+                    codigo: true,
+                    codigo_Ano_lectivo: true,
+                    data_Confirmacao: true,
+                    tb_turmas: {
+                      select: {
+                        codigo: true,
+                        designacao: true,
+                        tb_classes: {
+                          select: {
+                            codigo: true,
+                            designacao: true
+                          }
+                        },
+                        tb_periodos: {
+                          select: {
+                            codigo: true,
+                            designacao: true
+                          }
+                        },
+                        tb_salas: {
+                          select: {
+                            codigo: true,
+                            designacao: true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  orderBy: { data_Confirmacao: 'desc' }
+                }
+              }
+            }
+          },
           orderBy: { nome: 'asc' }
         }),
         prisma.tb_alunos.count({ where })
