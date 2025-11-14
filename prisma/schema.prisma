@@ -572,6 +572,7 @@ model tb_alunos {
   tb_propinas               tb_propinas[]
   tb_recibo                 tb_recibo[]
   tb_servico_aluno          tb_servico_aluno[]
+  tb_transferencias         tb_transferencias[]         @relation("TransferenciasAluno")
 
   @@index([user_id], map: "FK_tb_alunos_2")
   @@index([codigo_Comuna], map: "FK_tb_alunos_Comuna")
@@ -640,6 +641,9 @@ model tb_transferencias {
   codigoMotivo      Int       @default(1) @map("CodigoMotivo") @db.UnsignedInt
   obs               String?   @map("OBS") @db.VarChar(150)
   dataActualizacao  DateTime? @map("DataActualizacao") @db.Date
+  tb_alunos         tb_alunos @relation("TransferenciasAluno", fields: [codigoAluno], references: [codigo], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([codigoAluno], map: "FK_tb_transferencias_Aluno")
 }
 
 model tb_motivos_anulacao {

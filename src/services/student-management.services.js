@@ -469,12 +469,30 @@ export class StudentManagementService {
         throw new AppError('Proveniência não encontrada', 404);
       }
 
+      // TÉCNICA: Verificar dependências antes de excluir
+      // Verificar se há alunos usando esta proveniência
+      const alunosComProveniencia = await prisma.tb_alunos.count({
+        where: { 
+          escolaProveniencia: parseInt(id),
+          codigo_Status: { not: 0 } // apenas alunos ativos
+        }
+      });
+
+      if (alunosComProveniencia > 0) {
+        throw new AppError(
+          `Não é possível excluir esta proveniência pois existem ${alunosComProveniencia} aluno(s) associado(s) a ela.`,
+          400
+        );
+      }
+
       // TÉCNICA: SOFT DELETE (Exclusão Lógica)
-      // Verificar se há dependências - neste caso, não há tabelas que referenciam proveniências
-      // Mas podemos aplicar soft delete caso seja uma configuração importante
-      
-      // OPÇÃO: Aplicar soft delete se o status existir
-      if (existingProveniencia.codigoStatus !== null && existingProveniencia.codigoStatus !== undefined) {
+      // Verificar se existe um status "0" (Inativo) na tabela tb_status
+      const statusInativo = await prisma.tb_status.findUnique({
+        where: { codigo: 0 }
+      });
+
+      if (statusInativo && existingProveniencia.codigoStatus !== null && existingProveniencia.codigoStatus !== undefined) {
+        // Se o status 0 existe, fazer soft delete
         await prisma.tb_proveniencias.update({
           where: { codigo: parseInt(id) },
           data: { codigoStatus: 0 }  // 0 = inativo/excluído
@@ -487,7 +505,7 @@ export class StudentManagementService {
       }
 
       // TÉCNICA: HARD DELETE (Exclusão Física)
-      // Se não houver campo de status ou preferir exclusão física
+      // Se não há dependências ativas, fazer exclusão física
       await prisma.tb_proveniencias.delete({
         where: { codigo: parseInt(id) }
       });
@@ -2450,33 +2468,25 @@ export class StudentManagementService {
           where,
           skip,
           take,
-          orderBy: { dataTransferencia: 'desc' }
+          orderBy: { dataTransferencia: 'desc' },
+          include: {
+            tb_alunos: {
+              select: {
+                codigo: true,
+                nome: true,
+                dataNascimento: true,
+                sexo: true,
+                url_Foto: true
+              }
+            }
+          }
         }),
         prisma.tb_transferencias.count({ where })
       ]);
 
-      // Buscar dados relacionados manualmente (aluno e utilizador)
+      // Buscar dados relacionados manualmente (utilizador)
       const transferenciasComDados = await Promise.all(
         transferencias.map(async (transferencia) => {
-          // Buscar aluno
-          let aluno = null;
-          if (transferencia.codigoAluno) {
-            try {
-              aluno = await prisma.tb_alunos.findUnique({
-                where: { codigo: transferencia.codigoAluno },
-                select: {
-                  codigo: true,
-                  nome: true,
-                  dataNascimento: true,
-                  sexo: true,
-                  url_Foto: true
-                }
-              });
-            } catch (error) {
-              console.error(`Erro ao buscar aluno ${transferencia.codigoAluno}:`, error);
-            }
-          }
-
           // Buscar utilizador
           let utilizador = null;
           if (transferencia.codigoUtilizador) {
@@ -2497,7 +2507,6 @@ export class StudentManagementService {
 
           return {
             ...transferencia,
-            tb_alunos: aluno,
             tb_utilizadores: utilizador
           };
         })
