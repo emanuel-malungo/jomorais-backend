@@ -52,13 +52,7 @@ export class StudentManagementService {
         },
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_status: true
         }
       });
     } catch (error) {
@@ -122,13 +116,7 @@ export class StudentManagementService {
         data: updateData,
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true
-            }
-          }
+          tb_status: true
         }
       });
     } catch (error) {
@@ -157,13 +145,7 @@ export class StudentManagementService {
           take,
           include: {
             tb_profissao: true,
-            tb_utilizadores: {
-              select: {
-                codigo: true,
-                nome: true,
-                user: true
-              }
-            },
+            tb_status: true,
             tb_alunos: {
               select: {
                 codigo: true,
@@ -196,14 +178,7 @@ export class StudentManagementService {
         where: { codigo: parseInt(id) },
         include: {
           tb_profissao: true,
-          tb_utilizadores: {
-            select: {
-              codigo: true,
-              nome: true,
-              user: true,
-              email: true
-            }
-          },
+          tb_status: true,
           tb_alunos: {
             select: {
               codigo: true,
@@ -632,8 +607,7 @@ export class StudentManagementService {
                 user: true
               }
             },
-            tb_comunas: true,
-            tb_nacionalidades: true
+            tb_tipo_documento: true
           }
         });
 
@@ -724,8 +698,7 @@ export class StudentManagementService {
               user: true
             }
           },
-          tb_comunas: true,
-          tb_nacionalidades: true
+          tb_tipo_documento: true
         }
       });
     } catch (error) {
@@ -830,8 +803,7 @@ export class StudentManagementService {
                 user: true
               }
             },
-            tb_comunas: true,
-            tb_nacionalidades: true
+            tb_tipo_documento: true
           }
         });
       });
@@ -929,8 +901,7 @@ export class StudentManagementService {
               user: true
             }
           },
-          tb_comunas: true,
-          tb_nacionalidades: true
+          tb_tipo_documento: true
         }
       });
     } catch (error) {
@@ -2815,8 +2786,7 @@ export class StudentManagementService {
               telefone: true
             }
           },
-          tb_comunas: true,
-          tb_nacionalidades: true
+          tb_tipo_documento: true
         },
         orderBy: { nome: 'asc' }
       });
