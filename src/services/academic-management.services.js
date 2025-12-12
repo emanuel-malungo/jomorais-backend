@@ -1780,15 +1780,24 @@ export class AcademicManagementService {
     }
   }
 
-  static async getTurmas(page = 1, limit = 10, search = '') {
+  static async getTurmas(page = 1, limit = 10, search = '', anoLectivo = null) {
     try {
       const skip = (page - 1) * limit;
       
-      const where = search ? {
-        designacao: {
+      // Construir filtro base
+      const where = {};
+      
+      // Adicionar filtro de busca se fornecido
+      if (search) {
+        where.designacao = {
           contains: search
-        }
-      } : {};
+        };
+      }
+      
+      // Adicionar filtro de ano letivo se fornecido
+      if (anoLectivo) {
+        where.codigo_AnoLectivo = parseInt(anoLectivo);
+      }
 
       const [turmas, total] = await Promise.all([
         prisma.tb_turmas.findMany({
@@ -2253,6 +2262,376 @@ export class AcademicManagementService {
     } catch (error) {
       console.error('Erro ao gerar relatório completo:', error);
       throw new AppError('Erro ao gerar relatório completo de turmas', 500);
+    }
+  }
+
+  // ===============================
+  // DEVEDORES - Relatórios
+  // ===============================
+
+  /**
+   * Obter lista de alunos devedores de uma turma específica
+   */
+  static async getTurmaDevedores(turmaId) {
+    try {
+      console.log(`\n🚀 ===== INICIANDO getTurmaDevedores para Turma ID: ${turmaId} =====\n`);
+      
+      // Buscar turma com suas relações
+      const turma = await prisma.tb_turmas.findUnique({
+        where: { codigo: parseInt(turmaId) },
+        include: {
+          tb_classes: true,
+          tb_cursos: true,
+          tb_salas: true,
+          tb_periodos: true,
+          tb_ano_lectivo: true
+        }
+      });
+
+      if (!turma) {
+        throw new AppError('Turma não encontrada', 404);
+      }
+
+      console.log(`✅ Turma encontrada: ${turma.designacao}`);
+
+      // Buscar confirmações ativas da turma (que ligam matrículas a turmas)
+      const confirmacoes = await prisma.tb_confirmacoes.findMany({
+        where: {
+          codigo_Turma: parseInt(turmaId),
+          codigo_Status: 1 // Status ativo
+        },
+        include: {
+          tb_matriculas: {
+            include: {
+              tb_alunos: true
+            }
+          }
+        }
+      });
+
+      console.log(`📋 Total de confirmações ativas encontradas: ${confirmacoes.length}`);
+
+      // CORREÇÃO: Se não há confirmações ativas, buscar confirmações com qualquer status
+      let matriculasParaProcessar = [];
+      
+      if (confirmacoes.length === 0) {
+        console.log(`\n🔍 Nenhuma confirmação ativa encontrada. Buscando confirmações com qualquer status...\n`);
+        
+        // Buscar confirmações com qualquer status
+        const confirmacoesTodas = await prisma.tb_confirmacoes.findMany({
+          where: {
+            codigo_Turma: parseInt(turmaId)
+            // Removido filtro de status para pegar todas
+          },
+          include: {
+            tb_matriculas: {
+              include: {
+                tb_alunos: true
+              }
+            }
+          }
+        });
+        
+        console.log(`  📊 Total de confirmações (todos os status): ${confirmacoesTodas.length}`);
+        
+        if (confirmacoesTodas.length > 0) {
+          matriculasParaProcessar = confirmacoesTodas;
+          console.log(`  ✅ Processando ${matriculasParaProcessar.length} confirmações\n`);
+        } else {
+          console.log(`  ⚠️  Nenhuma confirmação encontrada para esta turma\n`);
+          
+          // Verificar diagnóstico adicional
+          const totalConfirmacoesGeral = await prisma.tb_confirmacoes.count();
+          console.log(`  📊 Total de confirmações no banco (todas as turmas): ${totalConfirmacoesGeral}`);
+          
+          // Buscar alunos através de tb_servico_aluno (última alternativa)
+          const servicosNaTurma = await prisma.tb_servico_aluno.count({
+            where: { codigo_Turma: parseInt(turmaId) }
+          });
+          console.log(`  📊 Total de serviços registrados na turma: ${servicosNaTurma}\n`);
+        }
+      } else {
+        // Usar confirmações normalmente
+        matriculasParaProcessar = confirmacoes;
+      }
+
+      // Para cada matrícula, buscar pagamentos e calcular dívidas
+      const devedores = [];
+      
+      for (const item of matriculasParaProcessar) {
+        try {
+          const matricula = item.tb_matriculas;
+          if (!matricula) {
+            console.log(`⚠️  Item ${item.codigo} sem matrícula vinculada`);
+            continue;
+          }
+
+          const alunoNome = matricula.tb_alunos?.nome || 'Desconhecido';
+          
+          console.log(`\n🔍 DEBUG - Processando aluno: ${alunoNome} (ID: ${matricula.codigo_Aluno})`);
+
+          // CORREÇÃO: Buscar todos os serviços ativos do aluno (independente da turma)
+          // Isso é necessário porque alunos podem ter serviços de anos anteriores
+          const servicosAluno = await prisma.tb_servico_aluno.findMany({
+            where: {
+              codigo_Aluno: matricula.codigo_Aluno,
+              status: 1 // Status ativo
+            },
+            include: {
+              tb_tipo_servicos: true,
+              tb_turmas: {
+                include: {
+                  tb_ano_lectivo: true
+                }
+              }
+            }
+          });
+          
+          console.log(`  📋 Serviços ativos do aluno: ${servicosAluno.length}`);
+          if (servicosAluno.length > 0) {
+            servicosAluno.forEach(s => {
+              const valor = s.tb_tipo_servicos?.valor || 0;
+              const temValorZerado = parseFloat(valor) === 0;
+              console.log(`    - Turma: ${s.codigo_Turma} (${s.tb_turmas?.designacao || 'N/A'}), Serviço: ${s.tb_tipo_servicos?.designacao || 'N/A'}, Valor: ${valor} Kz ${temValorZerado ? '⚠️  ZERADO!' : ''}`);
+            });
+          }
+
+          // Filtrar serviços do ano letivo da turma atual
+          const anoLetivo = turma.tb_ano_lectivo?.designacao || turma.Ano_Lectivo;
+          const servicosAnoAtual = servicosAluno.filter(s => {
+            const servicoAnoLetivo = s.tb_turmas?.tb_ano_lectivo?.designacao || s.tb_turmas?.Ano_Lectivo;
+            return servicoAnoLetivo === anoLetivo;
+          });
+
+          console.log(`  📋 Serviços do ano letivo atual (${anoLetivo}): ${servicosAnoAtual.length}`);
+          if (servicosAnoAtual.length > 0) {
+            servicosAnoAtual.forEach(s => {
+              const valor = s.tb_tipo_servicos?.valor || 0;
+              console.log(`    - ${s.tb_tipo_servicos?.designacao || 'N/A'}: ${valor} Kz`);
+            });
+          } else {
+            console.log(`    ⚠️  Nenhum serviço encontrado para o ano letivo ${anoLetivo}`);
+            console.log(`    💡 Aluno pode estar em turma de outro ano ou sem serviços cadastrados`);
+          }
+
+          // CORREÇÃO: Usar serviços do ano atual para cálculo
+          const servicosParaCalculo = servicosAnoAtual.length > 0 ? servicosAnoAtual : servicosAluno;
+          
+          console.log(`  💡 Usando ${servicosParaCalculo.length} serviços para cálculo`);
+
+          // Buscar TODOS os pagamentos do aluno para análise
+          const pagamentos = await prisma.tb_pagamentos.findMany({
+            where: {
+              codigo_Aluno: matricula.codigo_Aluno,
+              codigo_Estatus: 1 // Status ativo
+            },
+            include: {
+              tipoServico: true
+            }
+          });
+
+          console.log(`  💰 Pagamentos encontrados: ${pagamentos.length}`);
+          
+          // Identificar meses pagos do ano letivo atual (2025-2026)
+          const mesesAnoLetivo = [
+            'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
+            'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'
+          ];
+          
+          // Filtrar pagamentos do ano letivo atual (baseado no mês e ano)
+          const anoInicioLetivo = parseInt(anoLetivo?.split('-')[0]) || 2025;
+          const pagamentosAnoAtual = pagamentos.filter(p => {
+            const mes = p.mes?.toUpperCase() || '';
+            const anoPagamento = p.ano || p.indice_ano;
+            
+            // Pagamentos de SET-DEZ do primeiro ano ou JAN-JUL do segundo ano
+            const mesesPrimeiroSemestre = ['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+            const mesesSegundoSemestre = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO'];
+            
+            const ehPrimeiroSemestre = mesesPrimeiroSemestre.some(m => mes.includes(m));
+            const ehSegundoSemestre = mesesSegundoSemestre.some(m => mes.includes(m));
+            
+            if (ehPrimeiroSemestre && anoPagamento >= anoInicioLetivo) return true;
+            if (ehSegundoSemestre && anoPagamento >= anoInicioLetivo + 1) return true;
+            
+            // Se não tem ano, verificar se o mês contém o ano no nome (ex: "SETEMBRO-2025")
+            if (mes.includes(String(anoInicioLetivo)) || mes.includes(String(anoInicioLetivo + 1))) return true;
+            
+            return false;
+          });
+
+          // Extrair meses pagos (únicos, sem duplicatas)
+          const mesesPagosSet = new Set();
+          pagamentosAnoAtual.forEach(p => {
+            const mes = p.mes?.toUpperCase() || '';
+            const mesPago = mesesAnoLetivo.find(m => mes.includes(m));
+            if (mesPago) {
+              mesesPagosSet.add(mesPago);
+            }
+          });
+          const mesesPagos = Array.from(mesesPagosSet);
+
+          // Identificar meses pendentes (apenas meses que já deveriam ter sido pagos até a data atual)
+          const dataAtual = new Date();
+          const mesAtual = dataAtual.getMonth(); // 0-11
+          const anoAtual = dataAtual.getFullYear();
+          
+          // Mapear meses do ano letivo para números
+          const mesesNumero = {
+            'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11,
+            'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 
+            'MAIO': 4, 'JUNHO': 5, 'JULHO': 6
+          };
+          
+          // Filtrar apenas meses que já passaram ou são o mês atual
+          const mesesDevidos = mesesAnoLetivo.filter(m => {
+            const numMes = mesesNumero[m];
+            // SET-DEZ são do primeiro ano (anoInicioLetivo)
+            if (['SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'].includes(m)) {
+              if (anoAtual > anoInicioLetivo) return true;
+              if (anoAtual === anoInicioLetivo && mesAtual >= numMes) return true;
+              return false;
+            }
+            // JAN-JUL são do segundo ano (anoInicioLetivo + 1)
+            const anoSegundo = anoInicioLetivo + 1;
+            if (anoAtual > anoSegundo) return true;
+            if (anoAtual === anoSegundo && mesAtual >= numMes) return true;
+            return false;
+          });
+
+          // Meses pendentes = meses devidos que não foram pagos
+          const mesesPendentes = mesesDevidos.filter(m => !mesesPagos.includes(m));
+          
+          console.log(`  📅 Meses devidos até agora: ${mesesDevidos.join(', ')}`);
+          
+          // Calcular valor da propina baseado no pagamento mais recente do aluno
+          const pagamentosPropina = pagamentosAnoAtual.filter(p => {
+            const mes = p.mes?.toUpperCase() || '';
+            return mesesAnoLetivo.some(m => mes.includes(m)) && !mes.includes('OUTROS');
+          });
+          
+          // Usar o valor do pagamento mais recente (não a média)
+          // Ordenar por data decrescente para pegar o mais recente
+          const pagamentoMaisRecente = pagamentosPropina.length > 0
+            ? pagamentosPropina.sort((a, b) => new Date(b.data) - new Date(a.data))[0]
+            : null;
+          
+          const valorPropinaMensal = pagamentoMaisRecente
+            ? parseFloat(pagamentoMaisRecente.preco || pagamentoMaisRecente.totalgeral || 0)
+            : 0;
+
+          console.log(`  💰 Valor propina mensal (mais recente): ${valorPropinaMensal} Kz`);
+
+          // Calcular dívida = meses pendentes × valor da propina mensal
+          const valorDivida = mesesPendentes.length * valorPropinaMensal;
+
+          console.log(`  📅 Meses pagos: ${mesesPagos.length > 0 ? mesesPagos.join(', ') : 'Nenhum'}`);
+          console.log(`  📅 Meses pendentes: ${mesesPendentes.length > 0 ? mesesPendentes.join(', ') : 'Nenhum'}`);
+          console.log(`  ⚠️  Dívida: ${valorDivida} Kz (${mesesPendentes.length} meses x ${valorPropinaMensal} Kz)`);
+
+          // Se há dívida (meses pendentes), adicionar à lista
+          if (mesesPendentes.length > 0 && valorPropinaMensal > 0) {
+            console.log(`  ✅ DEVEDOR ADICIONADO!`);
+
+            devedores.push({
+              codigo: matricula.tb_alunos.codigo,
+              nome: matricula.tb_alunos.nome || 'N/A',
+              valor_divida: Math.round(valorDivida),
+              meses_pendentes: mesesPendentes.join(', '),
+              qtd_meses_pendentes: mesesPendentes.length,
+            });
+          }
+        } catch (err) {
+          console.error(`Erro ao processar item ${item.codigo}:`, err);
+          // Continua para próximo item em caso de erro
+        }
+      }
+
+      console.log(`\n📊 RESUMO FINAL DA TURMA ${turma.designacao}:`);
+      console.log(`  👥 Total de registros processados: ${matriculasParaProcessar.length}`);
+      console.log(`  ⚠️  Total de devedores encontrados: ${devedores.length}`);
+      if (devedores.length === 0) {
+        console.log(`  ✅ Nenhum devedor encontrado!`);
+        console.log(`\n  ⚠️⚠️⚠️  POSSÍVEL PROBLEMA DETECTADO:`);
+        console.log(`  Se você esperava encontrar devedores, verifique:`);
+        console.log(`  1. Os valores dos serviços em tb_tipo_servicos estão cadastrados (não podem ser 0)`);
+        console.log(`  2. Os serviços estão associados ao ano letivo correto (${turma.tb_ano_lectivo?.designacao || turma.Ano_Lectivo})`);
+        console.log(`  3. Os alunos possuem serviços ativos (status = 1) em tb_servico_aluno\n`);
+      } else {
+        console.log(`  📋 Devedores:`, devedores.map(d => `${d.nome} - ${d.valor_divida} Kz`));
+      }
+
+      return {
+        turma: {
+          codigo: turma.codigo,
+          designacao: turma.designacao,
+          tb_classes: turma.tb_classes,
+          tb_cursos: turma.tb_cursos,
+          tb_salas: turma.tb_salas,
+          tb_periodos: turma.tb_periodos,
+        },
+        devedores
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      console.error('Erro ao buscar devedores da turma:', error);
+      throw new AppError('Erro ao buscar devedores da turma', 500);
+    }
+  }
+
+  /**
+   * Obter lista de alunos devedores de todas as turmas de um ano letivo
+   */
+  static async getAnoLectivoDevedores(anoLectivoId) {
+    try {
+      // Buscar ano letivo
+      const anoLectivo = await prisma.tb_ano_lectivo.findUnique({
+        where: { codigo: parseInt(anoLectivoId) }
+      });
+
+      if (!anoLectivo) {
+        throw new AppError('Ano letivo não encontrado', 404);
+      }
+
+      // Buscar todas as turmas do ano letivo
+      const turmas = await prisma.tb_turmas.findMany({
+        where: {
+          codigo_AnoLectivo: parseInt(anoLectivoId)
+        },
+        include: {
+          tb_classes: true,
+          tb_cursos: true,
+          tb_salas: true,
+          tb_periodos: true,
+        },
+        orderBy: {
+          designacao: 'asc'
+        }
+      });
+
+      // Para cada turma, buscar devedores
+      const turmasComDevedores = [];
+      
+      for (const turma of turmas) {
+        const result = await this.getTurmaDevedores(turma.codigo);
+        
+        turmasComDevedores.push({
+          turma: result.turma,
+          devedores: result.devedores
+        });
+      }
+
+      return {
+        anoLectivo: {
+          codigo: anoLectivo.codigo,
+          designacao: anoLectivo.designacao,
+        },
+        turmas: turmasComDevedores
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      console.error('Erro ao buscar devedores do ano letivo:', error);
+      throw new AppError('Erro ao buscar devedores do ano letivo', 500);
     }
   }
 }

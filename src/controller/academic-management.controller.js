@@ -709,8 +709,9 @@ export class AcademicManagementController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const search = req.query.search || '';
+      const anoLectivo = req.query.anoLectivo ? parseInt(req.query.anoLectivo) : null;
 
-      const result = await AcademicManagementService.getTurmas(page, limit, search);
+      const result = await AcademicManagementService.getTurmas(page, limit, search, anoLectivo);
       
       res.json({
         success: true,
@@ -1125,6 +1126,64 @@ export class AcademicManagementController {
       });
     } catch (error) {
       handleControllerError(res, error, "Erro ao gerar relatório completo", 400);
+    }
+  }
+
+  // ===============================
+  // DEVEDORES - Relatórios
+  // ===============================
+
+  /**
+   * Obter lista de alunos devedores de uma turma específica
+   */
+  static async getTurmaDevedores(req, res) {
+    try {
+      const turmaId = parseInt(req.params.id);
+      
+      if (isNaN(turmaId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID da turma inválido"
+        });
+      }
+
+      const result = await AcademicManagementService.getTurmaDevedores(turmaId);
+      
+      res.json({
+        success: true,
+        message: `${result.devedores.length} devedor(es) encontrado(s)`,
+        data: result,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter devedores da turma", 400);
+    }
+  }
+
+  /**
+   * Obter lista de alunos devedores de todas as turmas de um ano letivo
+   */
+  static async getAnoLectivoDevedores(req, res) {
+    try {
+      const anoLectivoId = parseInt(req.params.id);
+      
+      if (isNaN(anoLectivoId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID do ano letivo inválido"
+        });
+      }
+
+      const result = await AcademicManagementService.getAnoLectivoDevedores(anoLectivoId);
+      
+      const totalDevedores = result.turmas.reduce((acc, turma) => acc + turma.devedores.length, 0);
+      
+      res.json({
+        success: true,
+        message: `${totalDevedores} devedor(es) encontrado(s) em ${result.turmas.length} turma(s)`,
+        data: result,
+      });
+    } catch (error) {
+      handleControllerError(res, error, "Erro ao obter devedores do ano letivo", 400);
     }
   }
 }

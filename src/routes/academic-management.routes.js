@@ -1811,6 +1811,11 @@ router.post('/turmas', AcademicManagementController.createTurma);
  *         schema:
  *           type: string
  *         description: Termo de busca
+ *       - in: query
+ *         name: anoLectivo
+ *         schema:
+ *           type: integer
+ *         description: Filtrar por código do ano letivo
  *     responses:
  *       200:
  *         description: Lista de turmas
@@ -1833,6 +1838,74 @@ router.post('/turmas', AcademicManagementController.createTurma);
  *                   $ref: '#/components/schemas/Pagination'
  */
 router.get('/turmas', AcademicManagementController.getTurmas);
+
+/**
+ * @swagger
+ * /api/academic-management/turmas/{id}/devedores:
+ *   get:
+ *     summary: Obter lista de alunos devedores de uma turma específica
+ *     tags: [Turmas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da turma
+ *     responses:
+ *       200:
+ *         description: Lista de devedores da turma
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     turma:
+ *                       $ref: '#/components/schemas/Turma'
+ *                     devedores:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ */
+router.get('/turmas/:id/devedores', AcademicManagementController.getTurmaDevedores);
+
+/**
+ * @swagger
+ * /api/academic-management/anos-lectivos/{id}/devedores:
+ *   get:
+ *     summary: Obter lista de alunos devedores de todas as turmas de um ano letivo
+ *     tags: [Anos Lectivos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do ano letivo
+ *     responses:
+ *       200:
+ *         description: Lista de devedores do ano letivo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     anoLectivo:
+ *                       $ref: '#/components/schemas/AnoLectivo'
+ *                     turmas:
+ *                       type: array
+ */
+router.get('/anos-lectivos/:id/devedores', AcademicManagementController.getAnoLectivoDevedores);
 
 /**
  * @swagger
